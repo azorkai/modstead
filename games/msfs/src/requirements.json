@@ -1,0 +1,255 @@
+{
+  "addons": [
+    {
+      "id": "fenix-a32x",
+      "name": "Fenix A320 / A319 / A321",
+      "packages": [
+        "fnx-aircraft-3*"
+      ],
+      "exclude": [
+        "fnx-aircraft-*-liveries",
+        "fnx-aircraft-*livery*"
+      ],
+      "requires": [
+        {
+          "id": "fenix-system",
+          "kind": "exeXml",
+          "level": "required",
+          "app": "Fenix System (FenixBootstrapper)",
+          "appEn": "Fenix System (FenixBootstrapper)",
+          "exeNames": [
+            "FenixBootstrapper.exe"
+          ],
+          "entryNames": [
+            "FenixA320"
+          ],
+          "processes": [
+            "fenix.exe",
+            "fenixsystem.exe"
+          ],
+          "why": "Uçağın sistemlerini sim dışında çalışan Fenix uygulaması yürütür; sim açılırken exe.xml'deki FenixBootstrapper onu başlatmazsa uçakta güç olmaz ve EFB “Unable to connect” der.",
+          "whyEn": "The aircraft's systems are run by the Fenix app outside the sim; if FenixBootstrapper in exe.xml does not start it when the sim launches, the aircraft has no power and the EFB says “Unable to connect”.",
+          "fix": "Fenix Installer ile Fenix A32X'i yeniden kurun/onarın; yükleyici exe.xml girdisini geri ekler.",
+          "fixEn": "Reinstall/repair the Fenix A32X with the Fenix Installer; it adds the exe.xml entry back.",
+          "source": "https://support.fenixsim.com/hc/en-us/articles/12466616783887-Fenix-App-doesn-t-open-automatically"
+        },
+        {
+          "id": "fenix-default-path",
+          "kind": "program",
+          "level": "optional",
+          "app": "Fenix varsayılan kurulum yolu",
+          "appEn": "Fenix default install path",
+          "paths": [
+            "%ProgramFiles%\\FenixSim A320\\Fenix.exe"
+          ],
+          "why": "Fenix desteği “uçakta güç yok / EFB bağlanamıyor” sorunlarında uçağın C:\\Program Files\\FenixSim A320 yoluna kurulmasını istiyor.",
+          "whyEn": "For “no power / EFB cannot connect” problems, Fenix support asks for the aircraft to be installed in C:\\Program Files\\FenixSim A320.",
+          "fix": "Fenix'i varsayılan yola (C:\\Program Files\\FenixSim A320) yeniden kurun.",
+          "fixEn": "Reinstall Fenix to the default path (C:\\Program Files\\FenixSim A320).",
+          "source": "https://support.fenixsim.com/hc/en-us/articles/12459098234895-EFB-Unable-to-Connect-Aircraft-Not-Powered"
+        }
+      ]
+    },
+    {
+      "id": "fsdt-gsx",
+      "name": "FSDreamTeam GSX Pro",
+      "packages": [
+        "fsdreamteam-gsx-*"
+      ],
+      "requires": [
+        {
+          "id": "fsdt-couatl",
+          "kind": "exeXml",
+          "level": "required",
+          "app": "Couatl (FSDT Addon Manager)",
+          "appEn": "Couatl (FSDT Addon Manager)",
+          "exeNames": [
+            "couatl64_boot.exe",
+            "couatl64_MSFS.exe",
+            "couatl64_MSFS2024.exe"
+          ],
+          "entryNames": [
+            "Couatl"
+          ],
+          "processes": [
+            "couatl64_msfs.exe",
+            "couatl64_msfs2024.exe"
+          ],
+          "why": "GSX tamamen Couatl motorunda çalışır; sim exe.xml üzerinden couatl64_boot.exe'yi başlatmazsa GSX menüsü ve hizmetleri gelmez (paneller “GSX engine is not running” der).",
+          "whyEn": "GSX runs entirely on the Couatl engine; if the sim does not start couatl64_boot.exe through exe.xml, the GSX menu and services never appear (panels say “GSX engine is not running”).",
+          "fix": "FSDT Installer'da “Check” ya da “Update” çalıştırın; Couatl'ın exe.xml satırlarını yeniden ekler.",
+          "fixEn": "Run “Check” or “Update” in the FSDT Installer; it re-adds Couatl's exe.xml lines.",
+          "source": "https://www.fsdreamteam.com/couatl_liveupdate_notes.html"
+        }
+      ]
+    },
+    {
+      "id": "fsdt-scenery",
+      "name": "FSDreamTeam havalimanları",
+      "nameEn": "FSDreamTeam airports",
+      "packages": [
+        "fsdreamteam-*"
+      ],
+      "exclude": [
+        "fsdreamteam-gsx-*"
+      ],
+      "requires": [
+        {
+          "id": "fsdt-scenery-gsx",
+          "kind": "package",
+          "level": "optional",
+          "app": "GSX Pro",
+          "appEn": "GSX Pro",
+          "packages": [
+            "fsdreamteam-gsx-*"
+          ],
+          "why": "FSDT'nin MSFS sahneleri Couatl'a ihtiyaç duymaz; ancak yeni sahnelerin bazı özellikleri (ör. KIAH'ta yolcu yürüyüşü ve kapı animasyonları) GSX ile çalışır.",
+          "whyEn": "FSDT's MSFS sceneries do not need Couatl, but some features of newer sceneries (e.g. passenger walking and jetway animations at KIAH) work with GSX.",
+          "source": "https://www.fsdreamteam.com/products_kiah_msfs.html"
+        }
+      ]
+    },
+    {
+      "id": "fbw-a32nx",
+      "name": "FlyByWire A32NX",
+      "packages": [
+        "flybywire-aircraft-a320-neo"
+      ],
+      "requires": [
+        {
+          "id": "fbw-simbridge-a32nx",
+          "kind": "program",
+          "level": "optional",
+          "app": "FlyByWire SimBridge",
+          "appEn": "FlyByWire SimBridge",
+          "paths": [
+            "{community}\\flybywire-externaltools-simbridge"
+          ],
+          "processes": [
+            "fbw-simbridge.exe"
+          ],
+          "why": "SimBridge A32NX'in Web MCDU gibi uzak araçlarını ve harici arazi veritabanını sağlar; uçak onsuz da uçar. Sim tarafından değil, Windows açılışında ya da FBW Installer'dan başlatılır.",
+          "whyEn": "SimBridge provides the A32NX's remote tools such as the Web MCDU and the external terrain database; the aircraft flies without it. It is started at Windows startup or from the FBW Installer, not by the sim.",
+          "fix": "FlyByWire Installer'dan SimBridge'i kurun ve otomatik başlatmayı açın.",
+          "fixEn": "Install SimBridge from the FlyByWire Installer and turn on autostart.",
+          "source": "https://github.com/flybywiresim/installer/blob/master/src/renderer/data.ts"
+        }
+      ]
+    },
+    {
+      "id": "fbw-a380x",
+      "name": "FlyByWire A380X",
+      "packages": [
+        "flybywire-aircraft-a380-842"
+      ],
+      "requires": [
+        {
+          "id": "fbw-simbridge-a380x",
+          "kind": "program",
+          "level": "optional",
+          "app": "FlyByWire SimBridge",
+          "appEn": "FlyByWire SimBridge",
+          "paths": [
+            "{community}\\flybywire-externaltools-simbridge"
+          ],
+          "processes": [
+            "fbw-simbridge.exe"
+          ],
+          "why": "SimBridge olmadan A380X harici arazi veritabanını kullanamaz (ND'de arazi gösterimi). Sim tarafından değil, Windows açılışında ya da FBW Installer'dan başlatılır.",
+          "whyEn": "Without SimBridge the A380X cannot use the external terrain database (terrain on the ND). It is started at Windows startup or from the FBW Installer, not by the sim.",
+          "fix": "FlyByWire Installer'dan SimBridge'i kurun ve otomatik başlatmayı açın.",
+          "fixEn": "Install SimBridge from the FlyByWire Installer and turn on autostart.",
+          "source": "https://github.com/flybywiresim/installer/blob/master/src/renderer/data.ts"
+        }
+      ]
+    },
+    {
+      "id": "lsh-maddogx",
+      "name": "Leonardo Maddog X",
+      "packages": [
+        "lsh-maddogx-aircraft*"
+      ],
+      "requires": [
+        {
+          "id": "lsh-mdclient",
+          "kind": "exeXml",
+          "level": "optional",
+          "app": "Maddog X MDClient",
+          "appEn": "Maddog X MDClient",
+          "exeNames": [
+            "MDClient.exe"
+          ],
+          "entryNames": [
+            "MDClient"
+          ],
+          "processes": [
+            "mdclient.exe"
+          ],
+          "why": "Leonardo'nun sürüm notuna göre MDClient, simin kum havuzu (sandbox) sınırlamalarını aşmak için eklenen bir tepsi uygulamasıdır (ikincil kaynaklara göre rotalar klasörüne erişim için); yükleyici onu exe.xml'e yazar. Hangi özelliklerin buna bağlı olduğu tam doğrulanamadığı için isteğe bağlı sayılır.",
+          "whyEn": "According to Leonardo's release notes, MDClient is a tray app added to work around the sim's sandbox limits (per secondary sources, for access to the routes folder); the installer writes it to exe.xml. It counts as optional because exactly which features depend on it could not be verified.",
+          "fix": "Maddog X yükleyicisini yeniden çalıştırın.",
+          "fixEn": "Run the Maddog X installer again.",
+          "source": "https://thresholdx.net/lrmxup/"
+        }
+      ]
+    },
+    {
+      "id": "fsuipc-wasm",
+      "name": "FSUIPC WASM modülü",
+      "nameEn": "FSUIPC WASM module",
+      "packages": [
+        "fsuipc-lvar-module"
+      ],
+      "requires": [
+        {
+          "id": "fsuipc7",
+          "kind": "exeXml",
+          "level": "optional",
+          "app": "FSUIPC7",
+          "appEn": "FSUIPC7",
+          "exeNames": [
+            "FSUIPC7.exe"
+          ],
+          "entryNames": [
+            "FSUIPC7"
+          ],
+          "processes": [
+            "fsuipc7.exe"
+          ],
+          "why": "Bu modül L:var ve preset erişimini FSUIPC7'ye açar; FSUIPC7 çalışmıyorsa modülün bir işlevi yoktur. FSUIPC7'nin önerilen (varsayılan) başlatma yolu exe.xml'dir.",
+          "whyEn": "This module exposes L:vars and presets to FSUIPC7; without FSUIPC7 running the module does nothing. exe.xml is FSUIPC7's recommended (default) way to start.",
+          "fix": "FSUIPC7 yükleyicisini yeniden çalıştırıp otomatik başlatmayı (exe.xml) seçin.",
+          "fixEn": "Run the FSUIPC7 installer again and choose autostart (exe.xml).",
+          "source": "https://fsuipc.com/community/fsuipc-faq-issues/msfs-fsuipc7-auto-start-with-msfs2020-2024/"
+        }
+      ]
+    },
+    {
+      "id": "fsltl",
+      "name": "FS Live Traffic Liveries",
+      "packages": [
+        "fsltl-traffic-base"
+      ],
+      "requires": [
+        {
+          "id": "fsltl-injector",
+          "kind": "program",
+          "level": "optional",
+          "app": "FSLTL Traffic Injector",
+          "appEn": "FSLTL Traffic Injector",
+          "paths": [
+            "{community}\\fsltl-traffic-injector"
+          ],
+          "processes": [
+            "fsltl-trafficinjector.exe"
+          ],
+          "why": "Canlı trafik için FSLTL Traffic Injector gerekir ve elle (FBW Installer'dan) başlatılır; simin kendi canlı trafiği kullanılıyorsa model eşleştirmeyi sim yapar ve injector gerekmez.",
+          "whyEn": "Live traffic needs the FSLTL Traffic Injector, which is started manually (from the FBW Installer); if the sim's own live traffic is used, the sim does the model matching and the injector is not needed.",
+          "fix": "FlyByWire Installer → FSLTL → Traffic Injector'ı kurup “Start” ile başlatın.",
+          "fixEn": "FlyByWire Installer → FSLTL → install the Traffic Injector and start it with “Start”.",
+          "source": "https://www.fslivetrafficliveries.com/user-guide/"
+        }
+      ]
+    }
+  ]
+}

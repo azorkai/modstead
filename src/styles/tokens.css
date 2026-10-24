@@ -1,0 +1,166 @@
+/* ───────────── Modstead tasarım belirteçleri ─────────────
+   Kabuk nötr grafit zemin + Modstead moru. Her oyun alanı (`[data-game]`) kendi vurgu
+   rengini ve başlık yazı tipini taşır; bileşenler yalnızca anlamsal adları kullanır
+   (accent, fg, muted, danger…), böylece aynı bileşen her oyunda o oyunun kimliğine bürünür.
+   Ayrıntı: docs/TASARIM.md */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0c0f;
+  --bg-2: #101115;
+  --surface: #15161b;
+  --surface-2: #1b1c22;
+  --surface-3: #24252d;
+  --line: rgb(255 255 255 / 0.065);
+  --line-strong: rgb(255 255 255 / 0.11);
+  --fg: #eceef2;
+  --fg-2: #a6abb6;
+  --muted: #6c717d;
+  --danger: #f0636c;
+  --warn: #f0b64a;
+  --ok: #3fcf8f;
+  --info: #62a8f6;
+
+  --brand: #8f7fff;
+  --brand-2: #c3b9ff;
+  --brand-ink: #100b28;
+
+  --accent: var(--brand);
+  --accent-2: var(--brand-2);
+  --accent-ink: var(--brand-ink);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-md: 0 12px 32px -16px rgb(0 0 0 / 0.75);
+  --shadow-lg: 0 30px 80px -28px rgb(0 0 0 / 0.85), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.045);
+  --scrim: rgb(5 6 9 / 0.6);
+  --glass: rgb(21 22 27 / 0.72);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f3f6;
+  --bg-2: #eaecf0;
+  --surface: #ffffff;
+  --surface-2: #f6f7f9;
+  --surface-3: #eceef3;
+  --line: rgb(15 20 35 / 0.08);
+  --line-strong: rgb(15 20 35 / 0.14);
+  --fg: #14161b;
+  --fg-2: #525967;
+  --muted: #878d99;
+  --danger: #d63c48;
+  --warn: #b37603;
+  --ok: #10915c;
+  --info: #2a70d4;
+
+  --brand: #6a55f5;
+  --brand-2: #8f7fff;
+  --brand-ink: #ffffff;
+
+  --shadow-sm: 0 1px 2px rgb(20 25 40 / 0.08);
+  --shadow-md: 0 12px 30px -18px rgb(20 25 40 / 0.35);
+  --shadow-lg: 0 30px 70px -30px rgb(20 25 40 / 0.4), 0 0 0 1px rgb(15 20 35 / 0.05);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.7);
+  --scrim: rgb(20 24 34 / 0.38);
+  --glass: rgb(255 255 255 / 0.78);
+}
+
+/* ───────────── Oyun kimlikleri ───────────── */
+
+[data-game="msfs"] {
+  --accent: #ff7a1a;
+  --accent-2: #ffad66;
+  --accent-ink: #1f0d02;
+  --game-display: "Outfit Variable", "Inter Variable", system-ui, sans-serif;
+}
+[data-theme="light"] [data-game="msfs"],
+[data-theme="light"][data-game="msfs"] {
+  --accent: #e2600a;
+  --accent-2: #ff8a33;
+  --accent-ink: #ffffff;
+}
+
+[data-game="bannerlord"] {
+  --accent: #e3b45c;
+  --accent-2: #f4d592;
+  --accent-ink: #1b1409;
+  --game-display: "Fraunces Variable", Georgia, serif;
+}
+[data-theme="light"] [data-game="bannerlord"],
+[data-theme="light"][data-game="bannerlord"] {
+  --accent: #a2700f;
+  --accent-2: #c18b25;
+  --accent-ink: #fffaf0;
+}
+
+[data-game="stardew"] {
+  --accent: #34d17a;
+  --accent-2: #8ce6b0;
+  --accent-ink: #062611;
+  --game-display: "Pixelify Sans", "Inter Variable", system-ui, sans-serif;
+}
+[data-theme="light"] [data-game="stardew"],
+[data-theme="light"][data-game="stardew"] {
+  --accent: #23874f;
+  --accent-2: #3cb371;
+  --accent-ink: #ffffff;
+}
+
+/* Cities: Skylines II: gökyüzü mavisi (oyunun arayüz vurgusu) ve Overpass (Highway Gothic'ten türeyen
+   tabela yazısı; oyunun kendi arayüz yazı tipi). */
+[data-game="cities2"] {
+  --accent: #38b8f2;
+  --accent-2: #93d8f8;
+  --accent-ink: #03141d;
+  --game-display: "Overpass Variable", "Inter Variable", system-ui, sans-serif;
+}
+[data-theme="light"] [data-game="cities2"],
+[data-theme="light"][data-game="cities2"] {
+  --accent: #0a7cbd;
+  --accent-2: #2c98d4;
+  --accent-ink: #ffffff;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-muted: var(--muted);
+  --color-danger: var(--danger);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+  --color-info: var(--info);
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-ink: var(--brand-ink);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-ink: var(--accent-ink);
+
+  --font-sans: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--game-display, "Inter Variable", "Segoe UI Variable", system-ui, sans-serif);
+  --font-mono: "JetBrains Mono Variable", "Cascadia Mono", Consolas, monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  --ease-out-soft: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));

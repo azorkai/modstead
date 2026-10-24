@@ -1,0 +1,28 @@
+[package]
+name = "game-cities2"
+description = "Modstead · Cities: Skylines II oyun paketi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+modstead-core.workspace = true
+tauri.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+walkdir.workspace = true
+chrono.workspace = true
+zip.workspace = true
+url.workspace = true
+zstd.workspace = true
+png.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+winreg.workspace = true

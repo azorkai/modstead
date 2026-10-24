@@ -1,0 +1,188 @@
+[
+  {
+    "id": "fbw-a32nx",
+    "name": "FlyByWire A32NX",
+    "author": "FlyByWire Simulations",
+    "category": "aircraft",
+    "description": "Topluluğun geliştirdiği açık kaynak Airbus A320neo. Gelişmiş fly-by-wire, FMS ve sistem simülasyonu.",
+    "descriptionEn": "Community-built open source Airbus A320neo with advanced fly-by-wire, FMS and systems simulation.",
+    "homepage": "https://flybywiresim.com",
+    "repo": "flybywiresim/aircraft",
+    "folders": [
+      "flybywire-aircraft-a320-neo"
+    ],
+    "variants": [
+      {
+        "sim": "msfs2024",
+        "label": "MSFS 2024 sürümü",
+        "tagPrefix": "v2024.",
+        "asset": "^A32NX-stable\\.7z$",
+        "labelEn": "MSFS 2024 build"
+      },
+      {
+        "sim": "msfs2020",
+        "label": "MSFS 2020 sürümü",
+        "tagPrefix": "v2020.",
+        "asset": "^A32NX-stable\\.7z$",
+        "labelEn": "MSFS 2020 build"
+      }
+    ]
+  },
+  {
+    "id": "fbw-a380x",
+    "name": "FlyByWire A380X (4K dokular)",
+    "nameEn": "FlyByWire A380X (4K textures)",
+    "author": "FlyByWire Simulations",
+    "category": "aircraft",
+    "description": "Airbus A380-842; 4K doku paketi daha az VRAM kullanır.",
+    "descriptionEn": "Airbus A380-842; the 4K texture pack uses less VRAM.",
+    "homepage": "https://flybywiresim.com",
+    "repo": "flybywiresim/aircraft",
+    "folders": [
+      "flybywire-aircraft-a380-842"
+    ],
+    "variants": [
+      {
+        "sim": "msfs2024",
+        "label": "MSFS 2024 sürümü",
+        "tagPrefix": "v2024.",
+        "asset": "^A380X-stable-4K\\.7z$",
+        "labelEn": "MSFS 2024 build"
+      },
+      {
+        "sim": "msfs2020",
+        "label": "MSFS 2020 sürümü",
+        "tagPrefix": "v2020.",
+        "asset": "^A380X-stable-4K\\.7z$",
+        "labelEn": "MSFS 2020 build"
+      }
+    ]
+  },
+  {
+    "id": "headwind-a339x",
+    "name": "Headwind A330-900neo",
+    "author": "Headwind Simulations",
+    "category": "aircraft",
+    "description": "FlyByWire tabanlı açık kaynak Airbus A330-900neo.",
+    "descriptionEn": "Open source Airbus A330-900neo based on FlyByWire.",
+    "homepage": "https://github.com/headwindsim/aircraft",
+    "repo": "headwindsim/aircraft",
+    "folders": [
+      "headwindsim-aircraft-a330-900"
+    ],
+    "variants": [
+      {
+        "sim": "msfs2020",
+        "label": "Kararlı sürüm",
+        "asset": "headwindsim-aircraft-a330-900-release\\.7z$",
+        "labelEn": "Stable release"
+      }
+    ]
+  },
+  {
+    "id": "salty-747",
+    "name": "Salty 747-8i",
+    "author": "Salty Simulations",
+    "category": "aircraft",
+    "description": "Varsayılan 747-8i için kapsamlı sistem ve FMS iyileştirmeleri.",
+    "descriptionEn": "Comprehensive systems and FMS improvements for the default 747-8i.",
+    "homepage": "https://github.com/saltysimulations/salty-747",
+    "repo": "saltysimulations/salty-747",
+    "folders": [
+      "salty-747"
+    ],
+    "variants": [
+      {
+        "sim": "msfs2020",
+        "label": "Kararlı sürüm",
+        "asset": "^salty-747\\.zip$",
+        "labelEn": "Stable release"
+      }
+    ]
+  },
+  {
+    "id": "heavy-b78xh",
+    "name": "Heavy Division B78XH",
+    "author": "Heavy Division",
+    "category": "aircraft",
+    "description": "Varsayılan 787-10 için iyileştirme modu.",
+    "descriptionEn": "Improvement mod for the default 787-10.",
+    "homepage": "https://github.com/Heavy-Division/B78XH",
+    "repo": "Heavy-Division/B78XH",
+    "folders": [
+      "b78xh"
+    ],
+    "variants": [
+      {
+        "sim": "msfs2020",
+        "label": "Kararlı sürüm",
+        "asset": "^B78XH-.*\\.zip$",
+        "labelEn": "Stable release"
+      }
+    ]
+  },
+  {
+    "id": "mobiflight-wasm",
+    "name": "MobiFlight WASM Modülü",
+    "nameEn": "MobiFlight WASM Module",
+    "author": "MobiFlight",
+    "category": "tool",
+    "description": "Donanım panelleri ve StreamDeck eklentileri için ek olay ve değişken erişimi sağlar.",
+    "descriptionEn": "Provides extra event and variable access for hardware panels and StreamDeck plugins.",
+    "homepage": "https://www.mobiflight.com",
+    "repo": "MobiFlight/MobiFlight-WASM-Module",
+    "folders": [
+      "mobiflight-event-module"
+    ],
+    "variants": [
+      {
+        "sim": "msfs2020",
+        "label": "Kararlı sürüm",
+        "asset": "^mobiflight-event-module.*\\.zip$",
+        "labelEn": "Stable release"
+      }
+    ]
+  },
+  {
+    "id": "pms50-gns530",
+    "name": "PMS50 GNS530",
+    "author": "PMS50",
+    "category": "avionics",
+    "description": "Varsayılan GNS530 için gerçekçi uçuş planı ve yaklaşma iyileştirmeleri.",
+    "descriptionEn": "Realistic flight plan and approach improvements for the default GNS530.",
+    "homepage": "https://github.com/pimarc/pms50-gns530",
+    "repo": "pimarc/pms50-gns530",
+    "folders": [
+      "pms50-gns530"
+    ],
+    "variants": [
+      {
+        "sim": "msfs2020",
+        "label": "Kararlı sürüm",
+        "asset": "^pms50-gns530\\.zip$",
+        "labelEn": "Stable release"
+      }
+    ]
+  },
+  {
+    "id": "g36-improvement",
+    "name": "Bonanza G36 Improvement Project",
+    "author": "erikgeo",
+    "category": "aircraft",
+    "description": "Varsayılan G36 Bonanza için uçuş modeli ve sistem düzeltmeleri.",
+    "descriptionEn": "Flight model and systems fixes for the default G36 Bonanza.",
+    "homepage": "https://github.com/erikgeo/msfs_g36_project",
+    "repo": "erikgeo/msfs_g36_project",
+    "folders": [
+      "z-bonanza-g36-improvement-project"
+    ],
+    "variants": [
+      {
+        "sim": "msfs2020",
+        "label": "Kararlı sürüm",
+        "asset": "^z-bonanza-g36-improvement-project\\.zip$",
+        "labelEn": "Stable release"
+      }
+    ]
+  }
+]

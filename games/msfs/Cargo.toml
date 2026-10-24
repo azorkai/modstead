@@ -1,0 +1,29 @@
+[package]
+name = "game-msfs"
+description = "Modstead · Microsoft Flight Simulator 2020 & 2024 oyun paketi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+modstead-core.workspace = true
+tauri.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+walkdir.workspace = true
+regex.workspace = true
+junction.workspace = true
+url.workspace = true
+chrono.workspace = true
+roxmltree.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+zip.workspace = true

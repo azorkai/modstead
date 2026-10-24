@@ -1,0 +1,21 @@
+node_modules/
+dist/
+src-tauri/gen/
+src-tauri/target/
+target/
+target-*/
+*.log
+.DS_Store
+Thumbs.db
+
+# Ortam dosyaları ve gizli değerler
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Düzenleyici ayarları
+.vscode/
+.idea/

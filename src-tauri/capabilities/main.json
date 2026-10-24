@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Ana pencere. Arayüze dosya sistemi, kabuk ya da ağ izni verilmez; her şey doğrulayan Rust komutlarından geçer. Dosya seçici yalnızca kullanıcının seçtiği yolu döndürür.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized",
+    "dialog:allow-open"
+  ]
+}
