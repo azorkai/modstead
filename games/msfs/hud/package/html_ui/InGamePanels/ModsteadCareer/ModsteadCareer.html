@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Modstead Career</title>
+		<meta charset="utf-8"/>
+		<link rel="stylesheet" href="/SCSS/common.css"/>
+		<link rel="stylesheet" href="ModsteadCareer.css"/>
+		<script type="text/javascript" src="/JS/coherent.js"></script>
+		<script type="text/javascript" src="/JS/common.js"></script>
+		<script type="text/javascript" src="/JS/dataStorage.js"></script>
+		<script type="text/javascript" src="/JS/simvar.js"></script>
+		<script type="text/javascript" src="/JS/Services/ToolBarPanels.js"></script>
+		<link rel="import" href="/templates/ingameUi/ingameUi.html"/>
+		<link rel="import" href="/templates/ingameUiHeader/ingameUiHeader.html"/>
+		<script type="text/javascript" src="ModsteadCareer.js"></script>
+	</head>
+	<body class="border-box">
+		<ingamepanel-modstead>
+			<ingame-ui id="ModsteadCareer" panel-id="PANEL_MODSTEAD_CAREER" title="Modstead" content-fit="false" min-width="22" min-height="18">
+				<div id="ms-root" class="ms-root">
+					<div class="ms-top">
+						<span id="ms-dot" class="ms-dot"></span>
+						<span id="ms-status" class="ms-status"></span>
+						<span id="ms-kind" class="ms-kind"></span>
+					</div>
+					<div id="ms-off" class="ms-off">
+						<div id="ms-off-title" class="ms-off-title"></div>
+						<div id="ms-off-body" class="ms-off-body"></div>
+					</div>
+					<div id="ms-job" class="ms-job">
+						<div class="ms-route">
+							<span id="ms-from" class="ms-icao"></span>
+							<span class="ms-arrow"></span>
+							<span id="ms-to" class="ms-icao"></span>
+							<span id="ms-phase" class="ms-phase"></span>
+						</div>
+						<div class="ms-bar"><div id="ms-progress" class="ms-progress"></div></div>
+						<div class="ms-grid">
+							<div class="ms-cell"><div id="ms-l-dist" class="ms-label"></div><div id="ms-dist" class="ms-value"></div></div>
+							<div class="ms-cell"><div id="ms-l-eta" class="ms-label"></div><div id="ms-eta" class="ms-value"></div></div>
+							<div class="ms-cell"><div id="ms-l-score" class="ms-label"></div><div id="ms-score" class="ms-value"></div></div>
+							<div class="ms-cell"><div id="ms-l-due" class="ms-label"></div><div id="ms-due" class="ms-value"></div></div>
+							<div class="ms-cell"><div id="ms-l-land" class="ms-label"></div><div id="ms-land" class="ms-value"></div></div>
+							<div class="ms-cell"><div id="ms-l-pay" class="ms-label"></div><div id="ms-pay" class="ms-value ms-pay"></div></div>
+						</div>
+						<div id="ms-note" class="ms-note"></div>
+					</div>
+				</div>
+			</ingame-ui>
+		</ingamepanel-modstead>
+	</body>
+</html>

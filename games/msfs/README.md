@@ -25,13 +25,15 @@ Yalnızca hedefi kütüphanede olan bağlantılar kaldırılır; başka araçlar
 | `browser.rs` | uygulama içi mod tarayıcısı (yeteneksiz pencere, indirme yakalama) |
 | `migrate.rs` | Hangar verisinin ilk açılışta aktarımı (anahtarlar Kimlik Bilgisi Yöneticisi'ne) |
 | `commands.rs` | `msfs_` önekli komutlar |
+| `career/` | **Kariyer kipi**: SimConnect (DLL'siz, TCP), ilan panosu, otomatik uçuş başlatma, uçuş takibi, seyir defteri, lisanslar, filo ve kredi. Ayrıntı: [`KARIYER.md`](KARIYER.md) (İngilizcesi [`CAREER.md`](CAREER.md)) |
 
 Karantina: `<kütüphane>\.modstead\staging\<görev>` (kütüphaneyle aynı birim; son adım yeniden adlandırma).
 Veri: `games/msfs/{settings,mods,profiles}.json`.
 
 ## Arayüz (`ui/`)
 
-Sayfalar (`pages/`): Genel bakış (vitrin, sim başlatma), Kütüphane (galeri/liste, filtreler, toplu işlem), Keşfet (katalog,
+Sayfalar (`pages/`): Genel bakış (vitrin, sim başlatma), Kariyer (`career/`: Panel, İş ilanları, Seyir defteri,
+Lisanslar, Hangar ve finans), Kütüphane (galeri/liste, filtreler, toplu işlem), Keşfet (katalog,
 güncellemeler, bağlantı, dosya, mod siteleri), Sağlık (sorunlar, tek tık düzeltmeler, çakışmalar), Profiller, Güvenlik
 (exe.xml, tarama raporları), Ayarlar. Ortak parçalar: `ModDrawer`, `ReadinessPanel`, `ReviewPlan` (inceleme penceresindeki
 MSFS planı), `Thumb`/`Poster` (küçük resimler `msfs_thumbnail` → blob adresi), sözlük `i18n.ts`, önizleme verisi `mocks.ts`.
@@ -40,9 +42,10 @@ MSFS planı), `Thumb`/`Poster` (küçük resimler `msfs_thumbnail` → blob adre
 
 ```bash
 cargo test -p game-msfs
-# bu makinede salt okunur: real_scan, real_readiness
+# bu makinede salt okunur: real_scan, real_readiness, real_simconnect (MSFS 2024 açıkken)
 cargo test -p game-msfs real_ -- --ignored --nocapture
 node scripts/dev.mjs msfs --preview   # http://127.0.0.1:1421/?view=game:msfs:library  (&review=msfs-review)
+#                                       kariyer: ?view=game:msfs:career  (&career=new|idle|ready)
 ```
 
 ## Bilinen eksikler

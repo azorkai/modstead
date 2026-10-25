@@ -1,10 +1,12 @@
 // MSFS arayüz modülü (Hangar'dan taşınıyor). Kütüphane oyunun asıl ekranıdır: tüm modlar, her simde tek
 // dokunuşla aç/kapat, ayrıntı çekmecesi. Kurulum incelemesi kabuğun ortak penceresinde (`ReviewPlan`, `confirmJob`).
 
-import { Compass, HeartPulse, Layers, LayoutDashboard, Library as LibraryIcon, Plane, Settings2, ShieldCheck } from "lucide-react";
+import { Compass, HeartPulse, Layers, LayoutDashboard, Library as LibraryIcon, Plane, PlaneTakeoff, Settings2, ShieldCheck } from "lucide-react";
 import type { GameModule } from "@/games/types";
 import { api } from "./api";
 import { MsfsArt } from "./Art";
+import Career from "./career/Career";
+import { careerMocks } from "./career/mocks";
 import { mocks, reviewJob } from "./mocks";
 import Discover from "./pages/Discover";
 import Health from "./pages/Health";
@@ -29,6 +31,7 @@ const msfs: GameModule = {
   routes: [
     { id: "overview", label: { tr: "Genel bakış", en: "Overview" }, icon: LayoutDashboard, Component: Overview },
     { id: "library", label: { tr: "Kütüphane", en: "Library" }, icon: LibraryIcon, Component: Library },
+    { id: "career", label: { tr: "Kariyer", en: "Career" }, icon: PlaneTakeoff, Component: Career },
     { id: "discover", label: { tr: "Keşfet", en: "Discover" }, icon: Compass, Component: Discover },
     { id: "health", label: { tr: "Sağlık", en: "Health" }, icon: HeartPulse, Component: Health, badge: (s) => s?.issues || null },
     { id: "profiles", label: { tr: "Profiller", en: "Profiles" }, icon: Layers, Component: Profiles },
@@ -37,7 +40,7 @@ const msfs: GameModule = {
   ],
   ReviewPlan,
   confirmJob: (job, { acceptRisk, options }) => api.confirmJob(job.id, acceptRisk, (options as ConfirmOptions | null) ?? null),
-  mocks: previewReview ? { ...mocks, jobs_list: () => [reviewJob] } : mocks,
+  mocks: previewReview ? { ...mocks, ...careerMocks, jobs_list: () => [reviewJob] } : { ...mocks, ...careerMocks },
 };
 
 export default msfs;

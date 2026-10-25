@@ -19,3 +19,7 @@ Thumbs.db
 # Düzenleyici ayarları
 .vscode/
 .idea/
+
+# Python önbelleği (games/*/tools)
+__pycache__/
+*.pyc

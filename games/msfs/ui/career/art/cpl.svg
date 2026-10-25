@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="s1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#30405a"/><stop offset="0.4" stop-color="#7a6170"/><stop offset="0.6" stop-color="#d9875f"/><stop offset="0.7" stop-color="#f6bd7a"/><stop offset="0.7" stop-color="#e3a173"/><stop offset="1" stop-color="#2c2f3a"/></linearGradient><radialGradient id="g2"><stop offset="0" stop-color="#ffe0a8" stop-opacity="0.55"/><stop offset=".35" stop-color="#ffe0a8" stop-opacity="0.1925"/><stop offset="1" stop-color="#ffe0a8" stop-opacity="0"/></radialGradient><filter id="n3" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 1.4 -.45"/></filter></defs><rect width="1200" height="340" fill="url(#s1)"/>
+<circle cx="380" cy="236" r="150" fill="url(#g2)"/><circle cx="380" cy="236" r="30" fill="#ffe0a8"/>
+<g fill="#ffd9a0" opacity=".5"><rect x="346" y="248" width="68" height="2.4" rx="1.2"/><rect x="348" y="259" width="64" height="2.4" rx="1.2"/><rect x="350" y="270" width="60" height="2.4" rx="1.2"/><rect x="352" y="281" width="56" height="2.4" rx="1.2"/><rect x="354" y="292" width="52" height="2.4" rx="1.2"/><rect x="356" y="303" width="48" height="2.4" rx="1.2"/><rect x="358" y="314" width="44" height="2.4" rx="1.2"/><rect x="360" y="325" width="40" height="2.4" rx="1.2"/></g>
+<path d="M60,238 Q110,226 150,232 Q190,224 230,238 Z" fill="#715341"/>
+<path d="M820,340 L820,250 Q880,214 960,206 Q1030,186 1100,190 Q1160,184 1220,170 L1220,340 Z" fill="#533f35"/>
+<path d="M900,340 L910,268 Q980,244 1060,236 Q1140,226 1220,214 L1220,340 Z" fill="#322a28"/>
+<g fill="#4f3c34"><path d="M1134.8,189.3 L1141,215.5 L1128.6,215.5 Z"/><path d="M972.7,194.4 L977.2,213.1 L968.3,213.1 Z"/><path d="M979.6,188 L986.2,215.9 L972.9,215.9 Z"/><path d="M1132.5,198.4 L1136.6,215.4 L1128.5,215.4 Z"/><path d="M1108.9,196.6 L1113.4,215.3 L1104.4,215.3 Z"/><path d="M972.4,191.6 L978.1,215.6 L966.7,215.6 Z"/><path d="M1179.6,200 L1183.5,216.3 L1175.7,216.3 Z"/><path d="M1176.6,190.8 L1182.6,215.8 L1170.7,215.8 Z"/><path d="M1208.8,191.9 L1214.3,214.8 L1203.4,214.8 Z"/><path d="M969.1,197.8 L972.5,212.1 L965.7,212.1 Z"/><path d="M1142.8,196.5 L1146.7,212.7 L1139,212.7 Z"/><path d="M1135.2,194.1 L1140.6,216.9 L1129.7,216.9 Z"/><path d="M1172.8,190.2 L1179,216.3 L1166.6,216.3 Z"/><path d="M1046.1,195.2 L1050.4,213.2 L1041.8,213.2 Z"/></g>
+<g transform="translate(520 118) rotate(-3) scale(1.02)"><g transform="translate(-1.2 -1.6)" color="#ffcf96" fill="currentColor" opacity=".75">
+      <path d="M4,-20 L22,-88 L50,-90 L88,-32 Z"/>
+      <path d="M12,-90 L70,-89 Q74,-86 70,-84 L14,-84 Z"/>
+      <path d="M0,-20 L60,-31 L192,-37 Q214,-37 229,-26 L260,-20 Q282,-17 297,-10 Q303,-5 301,0 Q297,6 286,7 L232,10 L122,10 L40,2 L0,-9 Z"/>
+      <path d="M130,6 L220,6 Q227,11 217,14.5 Q172,18 136,14.5 Q124,11 130,6 Z"/>
+      <path d="M262,-7 L274,-7 L270,-1 L260,-1 Z" opacity=".9"/>
+      <ellipse cx="304" cy="-2" rx="3.4" ry="44" opacity=".35"/>
+      <ellipse cx="303" cy="-2" rx="5.5" ry="6.5"/></g><g color="#16181d" fill="currentColor">
+      <path d="M4,-20 L22,-88 L50,-90 L88,-32 Z"/>
+      <path d="M12,-90 L70,-89 Q74,-86 70,-84 L14,-84 Z"/>
+      <path d="M0,-20 L60,-31 L192,-37 Q214,-37 229,-26 L260,-20 Q282,-17 297,-10 Q303,-5 301,0 Q297,6 286,7 L232,10 L122,10 L40,2 L0,-9 Z"/>
+      <path d="M130,6 L220,6 Q227,11 217,14.5 Q172,18 136,14.5 Q124,11 130,6 Z"/>
+      <path d="M262,-7 L274,-7 L270,-1 L260,-1 Z" opacity=".9"/>
+      <ellipse cx="304" cy="-2" rx="3.4" ry="44" opacity=".35"/>
+      <ellipse cx="303" cy="-2" rx="5.5" ry="6.5"/></g><rect x="93.4" y="-28.2" width="9.2" height="8.4" rx="4.6" fill="#e6b48d" opacity="0.55"/><rect x="110.4" y="-28.2" width="9.2" height="8.4" rx="4.6" fill="#e6b48d" opacity="0.55"/><rect x="127.4" y="-28.2" width="9.2" height="8.4" rx="4.6" fill="#e6b48d" opacity="0.55"/><rect x="144.4" y="-28.2" width="9.2" height="8.4" rx="4.6" fill="#e6b48d" opacity="0.55"/><rect x="161.4" y="-28.2" width="9.2" height="8.4" rx="4.6" fill="#e6b48d" opacity="0.55"/><path d="M198,-34 Q216,-34 228,-24.5 L201,-24.5 Z" fill="#e6b48d" opacity=".55"/></g>
+<rect width="1200" height="340" filter="url(#n3)" opacity="0.09" style="mix-blend-mode:overlay"/></svg>

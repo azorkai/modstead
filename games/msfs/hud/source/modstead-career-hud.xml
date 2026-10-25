@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<!--
+  Modstead Kariyer panelinin tanımı: ../package/InGamePanels/modstead-career-hud.spb bu belgenin derlenmiş hâlidir.
+  Boyutlar ekranın yüzdesi gibi davranır. Değiştirilirse .spb yeniden derlenmeli (MSFS geliştirici kipi ya da SDK
+  paket aracı) ve kariyer/hud.rs içindeki HUD_VERSION artırılmalı.
+-->
+<SimBase.Document Type="InGamePanels" version="1,0">
+  <Filename>modstead-career-hud.spb</Filename>
+  <InGamePanels.InGamePanelDefinition
+    id="PANEL_MODSTEAD_CAREER"
+    Name="Modstead Career"
+    url="html_ui/InGamePanels/ModsteadCareer/ModsteadCareer.html"
+    resizeDirections="Both"
+    minWidth="22"
+    minHeight="18"
+    defaultWidth="24"
+    defaultHeight="30"
+    defaultTop="12"
+    defaultRight="2"
+    icon="ICON_TOOLBAR_MODSTEAD_CAREER"
+    buttonVisible="true" />
+</SimBase.Document>

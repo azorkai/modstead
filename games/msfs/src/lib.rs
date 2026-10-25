@@ -9,6 +9,7 @@
 //! Kurallar: komutlar `msfs_` önekiyle, olaylar `msfs://` önekiyle adlandırılır.
 
 pub mod browser;
+pub mod career;
 pub mod catalog;
 pub mod commands;
 pub mod conflicts;
@@ -29,7 +30,7 @@ mod flow_tests;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::Instant;
 
 use modstead_core::http::GameHosts;
@@ -92,6 +93,8 @@ pub struct Inner {
     pub fs_lock: Mutex<()>,
     /// Mod tarayıcısındaki indirmeler: adres → görev kimliği.
     pub browser_downloads: Mutex<HashMap<String, String>>,
+    /// Kariyer kipi (ilk kullanımda açılır).
+    pub career: OnceLock<Arc<career::Career>>,
 }
 
 /// MSFS oyunu. Klonlamak ucuzdur (arka plan görevleri kendi kopyasını taşır).
@@ -125,6 +128,7 @@ impl Msfs {
             catalog: Mutex::new(None),
             fs_lock: Mutex::new(()),
             browser_downloads: Mutex::new(HashMap::new()),
+            career: OnceLock::new(),
             data_dir,
         };
         Msfs { services, inner: Arc::new(inner) }
@@ -159,6 +163,17 @@ impl Msfs {
 
     pub fn sims(&self) -> Vec<SimInstall> {
         sims::detect_sims(&self.settings())
+    }
+
+    /// Kariyer kipi. Sim bağlantısı yalnızca uygulamada (`init`) başlar.
+    pub fn career(&self) -> Arc<career::Career> {
+        self.inner
+            .career
+            .get_or_init(|| {
+                let me = self.clone();
+                career::Career::open(self.services.clone(), Arc::new(move || me.sims()))
+            })
+            .clone()
     }
 
     pub fn library(&self) -> AppResult<PathBuf> {
@@ -350,6 +365,7 @@ impl Game for Msfs {
 pub fn init(app: &tauri::AppHandle, services: Arc<Services>) -> Arc<dyn Game> {
     let game = Msfs::new(services);
     install::clean_stale_staging(&game);
+    game.career().start_link();
     app.manage(game.clone());
     Arc::new(game)
 }
@@ -386,5 +402,37 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         commands::msfs_install_url,
         commands::msfs_confirm_job,
         commands::msfs_open_browser,
+        career::commands::msfs_career_state,
+        career::commands::msfs_career_create,
+        career::commands::msfs_career_reset,
+        career::commands::msfs_career_board,
+        career::commands::msfs_career_accept,
+        career::commands::msfs_career_cancel,
+        career::commands::msfs_career_aircraft,
+        career::commands::msfs_career_refresh_aircraft,
+        career::commands::msfs_career_pick_aircraft,
+        career::commands::msfs_career_set_class,
+        career::commands::msfs_career_launch,
+        career::commands::msfs_career_reposition,
+        career::commands::msfs_career_finish,
+        career::commands::msfs_career_abandon,
+        career::commands::msfs_career_logbook,
+        career::commands::msfs_career_flight,
+        career::commands::msfs_career_checkride,
+        career::commands::msfs_career_travel,
+        career::commands::msfs_career_airports,
+        career::commands::msfs_career_map_airports,
+        career::commands::msfs_career_hud,
+        career::commands::msfs_career_hud_install,
+        career::commands::msfs_career_hud_remove,
+        career::commands::msfs_career_buy,
+        career::commands::msfs_career_sell,
+        career::commands::msfs_career_repair,
+        career::commands::msfs_career_borrow,
+        career::commands::msfs_career_repay,
+        career::commands::msfs_career_ledger,
+        career::commands::msfs_career_live,
+        career::commands::msfs_career_simbrief,
+        career::commands::msfs_career_reveal_plan,
     ]
 }

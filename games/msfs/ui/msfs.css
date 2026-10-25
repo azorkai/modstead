@@ -6,3 +6,10 @@
   backdrop-filter: blur(14px) saturate(1.3);
   -webkit-backdrop-filter: blur(14px) saturate(1.3);
 }
+
+/* Sim içi panelin önizlemesi: simdeki panel her temada koyudur ve kendi turuncusunu kullanır (hud/…/ModsteadCareer.css). */
+.msfs-sim-panel {
+  --sim-accent: #ff8a3d;
+  background: rgb(14 16 20 / 0.96);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
