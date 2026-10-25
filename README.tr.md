@@ -7,6 +7,10 @@ ve **Cities: Skylines II** modlarını tek masaüstü uygulamasında yöneten, �
 yöneticisidir. Her indirme ve arşiv bir güvenlik hattından geçer (izinli kaynaklar, özet doğrulaması, güvenli açma,
 içerik denetimi ve Microsoft Defender taraması); siz inceleyip onaylamadan hiçbir şey kurulmaz.
 
+Microsoft Flight Simulator için ücretsiz bir **[MSFS 2024 kariyer kipi](#msfs-2024-kariyer-kipi)** de içerir: iş ilanları,
+lisanslar ve sınav uçuşları, otomatik uçuş hazırlığı, SimConnect ile uçuş takibi, seyir defteri, kendi uçakların ve sim
+içi araç çubuğu paneli.
+
 [Tauri 2](https://tauri.app) (Rust) ve React 19 ile yazıldı. Lisans: GPL-3.0.
 
 > **Durum:** erken geliştirme (v0.1.0). Yalnızca Windows 10/11. Henüz hazır sürüm yok; kaynaktan derleyin
@@ -16,12 +20,54 @@ içerik denetimi ve Microsoft Defender taraması); siz inceleyip onaylamadan hi�
 
 | Oyun | Modstead ne yapar |
 |---|---|
-| **Microsoft Flight Simulator 2020 & 2024** | İki simin paylaştığı tek mod kütüphanesi; modlar Community klasörüne junction ile, sim başına açılır (yönetici izni gerekmez). Profiller, dosya ve ICAO çakışmaları, `exe.xml` yardımcı programları, çalışmaya hazırlık denetimleri (Content.xml, yol uzunluğu), GitHub kataloğu (FlyByWire, Headwind…) ve uygulama içi mod tarayıcısı. |
+| **Microsoft Flight Simulator 2020 & 2024** | İki simin paylaştığı tek mod kütüphanesi; modlar Community klasörüne junction ile, sim başına açılır (yönetici izni gerekmez). Profiller, dosya ve ICAO çakışmaları, `exe.xml` yardımcı programları, çalışmaya hazırlık denetimleri (Content.xml, yol uzunluğu), GitHub kataloğu (FlyByWire, Headwind…), uygulama içi mod tarayıcısı ve gömülü [kariyer kipi](#msfs-2024-kariyer-kipi). |
 | **Mount & Blade II: Bannerlord** | Modül yükleme sırası, `SubModule.xml` doğrulaması ve düzeltmeler, sürüm kuralları, `_MODULES_` ile doğrudan başlatma, `LauncherData.xml`, Steam Workshop modülleri, Nexus Mods ve GitHub'da mod bulma, güncellemeler, profiller ve yedekler. |
 | **Stardew Valley (SMAPI)** | Doğrulanmış GitHub sürümünden SMAPI kurulumu (SHA-256; kurucu asla çalıştırılmaz), SMAPI kurallarıyla mod taraması, sağlık denetimi (eksik ya da eski bağımlılık, yinelenen kimlik, uyumluluk), smapi.io güncelleme denetimi, Nexus Mods araması, `config.json` düzenleyici, profiller, kayıt yedekleri ve SMAPI günlüğü özeti. |
 | **Cities: Skylines II** | Paradox Mods kataloğu (arama, etiketler, gereksinimler, sürüm notları), yerel modlar, oyundaki önizlemesiyle kayıtlar, tek tık çözümlü sağlık puanı, çökme ve günlük çözümlemesi, bilinen kötü amaçlı mod sürümlerinin tespiti. |
 
-Oyunlar **Steam, GOG, Epic Games ve Xbox / Microsoft Store** kurulumlarında kendiliğinden bulunur.
+Oyunlar **Steam, GOG, Epic Games ve Xbox / Microsoft Store** kurulumlarında kendiliğinden bulunur. İlk açılışta
+Modstead yalnızca bilgisayarda bulduğu oyunları sorar; başka klasördeki bir oyun klasörü seçilerek eklenir.
+
+## MSFS 2024 kariyer kipi
+
+<p align="center">
+  <img src="docs/screenshots/msfs-2024-career-mode-dashboard.png" alt="Modstead MSFS 2024 kariyer kipi paneli: kargo uçuşu sırasında canlı rota haritası, uçuş evresi, irtifa, yer hızı ve anlık puan" width="900">
+</p>
+
+Modstead, **Microsoft Flight Simulator 2024** için ücretsiz ve açık kaynaklı bir kariyer kipi içerir (MSFS 2020'de de
+çalışır). Öğrenci pilot olarak başlarsın; iş ilanlarından iş alır, sınav uçuşlarıyla lisans kazanır, kendi uçağını
+alırsın. Her uçuş simde hazırlanır, SimConnect ile takip edilir ve seyir defterine işlenir; her kuralın, ücretin ve
+kesintinin formülü belgelidir.
+
+- **İş ilanları:** kargo, yolcu, charter, uçak teslimi, arazi, ambulans ve havayolu işleri; lisansa ve itibara göre,
+  harita üzerinde. CPL'den sonra "kendi hesabına" işler.
+- **Otomatik hazırlık:** gerekirse sim açılır, simin kendi verisinden uygun park yeri seçilir, `.FLT`/`.PLN` yazılır,
+  uçak taşınır ve yük yüklenir.
+- **Takip ve puan:** uçuş evreleri, iniş hızı ve G'si, sekme, aşırı hız, stall, hile tespiti. Puan XP ve itibarı
+  belirler; para yalnızca gerçek olaylardan (gecikme, yakıt, kira, hasar) etkilenir.
+- **Lisanslar**, **seyir defteri**, **hangar ve finans** (uçak alımı, bakım, kredi) ve MSFS 2020/2024 için **sim içi
+  araç çubuğu paneli**.
+- **Ücretsiz ve yerel:** abonelik, hesap ve sunucu yok; çevrim dışı çalışır.
+
+> **Modstead'in içinde çalışır.** Kariyer ayrı bir eklenti değildir; verisi, kuralları ve sim bağlantısı Modstead'dedir
+> ve kariyer için simin içine bir şey kurulmaz. Modstead kapalıyken uçuşlar takip edilmez; isteğe bağlı sim içi panel
+> "Modstead bağlı değil" der.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/msfs-career-job-board-map.png" alt="MSFS kariyer iş ilanları ve seçilen rotanın haritası"><br><sub><b>İş ilanları</b></sub></td>
+    <td width="50%"><img src="docs/screenshots/msfs-career-licences.png" alt="Kariyer kipinde pilot lisansları ve yetkiler"><br><sub><b>Lisanslar</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/msfs-career-logbook.png" alt="MSFS seyir defteri: rota, uçak, blok süresi, iniş hızı, not ve net kazanç"><br><sub><b>Seyir defteri</b></sub></td>
+    <td width="50%"><img src="docs/screenshots/msfs-in-sim-toolbar-panel.png" alt="Modstead'in MSFS araç çubuğu paneli: seyirde, inişten sonra ve kalkışa hazır"><br><sub><b>Sim içi panel</b> (tarayıcı önizlemesi)</sub></td>
+  </tr>
+</table>
+
+Ekran görüntüleri önizleme kipinden, örnek verilerle alındı; sim içi panelin görüntüsü panelin kendi kodunun tarayıcıda
+benzetilmiş değerlerle önizlemesidir, simden alınmadı. Kurallar, formüller, araştırma ve mimari:
+**[KARIYER.md](games/msfs/KARIYER.md)** ([English](games/msfs/CAREER.md)). Kariyer kipi de erken geliştirme
+aşamasındadır; otomatik uçuş açma ve sim içi panel gerçek simde henüz denenmedi.
 
 ## Özellikler
 
@@ -59,6 +105,11 @@ Cities: Skylines II'yi ekleyen, ortak bir güvenlik hattına sahip Windows mod y
 ### Modstead ücretsiz mi?
 Evet. Modstead, GNU Genel Kamu Lisansı v3.0 ile ücretsiz ve açık kaynaktır.
 
+### Modstead'de MSFS 2024 için kariyer kipi var mı?
+Evet. İş ilanları, lisanslar ve sınav uçuşları, otomatik uçuş hazırlığı, SimConnect ile takip, seyir defteri, uçak
+sahipliği ve sim içi araç çubuğu paneli olan ücretsiz bir kariyer kipi içerir. MSFS 2020'de `SimConnect.xml`'e yerel bir
+IPv4 girişi eklenince çalışır. Ayrıntı: [KARIYER.md](games/msfs/KARIYER.md).
+
 ### Modstead ile mod kurmak güvenli mi?
 Her arşiv, inceleme penceresine gelmeden önce özetle doğrulanır, karantinaya güvenle açılır, denetlenir ve Microsoft
 Defender ile taranır. Onayınız olmadan hiçbir şey kurulmaz, kurucular asla çalıştırılmaz. Hiçbir tarayıcı bir modun
@@ -93,7 +144,10 @@ npm run typecheck && npm run build
 cargo test --workspace          # Rust testleri
 ```
 
-Önizleme adres parametreleri: `?view=home|settings|game:<oyun>[:<sayfa>]`, `&theme=dark|light`, `&lang=en`.
+Önizleme adres parametreleri: `?view=home|settings|game:<oyun>[:<sayfa>]`, `&theme=dark|light`, `&lang=en`,
+`&onboarding=1` (ilk kurulum), `&installed=<oyun>,<oyun>` ya da `&installed=none` (örnek veride yalnızca bu oyunlar kurulu).
+MSFS kariyer sayfası: `?view=game:msfs:career`, `&career=new|idle|ready` (ilk kayıt, aktif iş yok, kontrol kapısı;
+öntanımlı uçuşta) ve `&hud=installed`.
 
 ## Yapı
 
@@ -104,6 +158,7 @@ games/<oyun>/ui     oyunun arayüz modülü: sayfalar, simge, görsel, önizleme
 src-tauri/          Tauri kabuğu: eklentiler, oyun kaydı, kabuk komutları, komut yönlendirme
 src/                arayüz kabuğu, bileşen kiti, sözlükler, stiller
 docs/               MIMARI.md (mimari) · TASARIM.md (tasarım dili)
+docs/screenshots/   README ekran görüntüleri (önizleme kipi, örnek veri)
 ```
 
 Oyun kimlikleri: `msfs`, `bannerlord`, `stardew`, `cities2`. Ayarlar ve oyun verileri `%APPDATA%\app.modstead`;

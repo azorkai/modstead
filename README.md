@@ -8,6 +8,10 @@
 sources, hash verification, safe extraction, content checks and a Microsoft Defender scan), and nothing is installed
 until you review and approve it.
 
+For Microsoft Flight Simulator, Modstead also includes a free **[MSFS 2024 career mode](#msfs-2024-career-mode)**: a job
+board, pilot licences and checkrides, automatic flight setup, flight tracking over SimConnect, a logbook, your own
+aircraft and an in-sim toolbar panel.
+
 Built with [Tauri 2](https://tauri.app) (Rust) and React 19. Licensed under GPL-3.0.
 
 > **Status:** early development (v0.1.0). Windows 10/11 only. There are no prebuilt releases yet; build from source
@@ -17,12 +21,97 @@ Built with [Tauri 2](https://tauri.app) (Rust) and React 19. Licensed under GPL-
 
 | Game | What Modstead does |
 |---|---|
-| **Microsoft Flight Simulator 2020 & 2024** | One mod library shared by both sims; mods are enabled per sim with junctions into the Community folder (no admin rights needed). Profiles, file and ICAO conflict detection, `exe.xml` add-on management, readiness checks (Content.xml, path length), a GitHub catalog (FlyByWire, Headwind…) and an in-app mod browser. |
+| **Microsoft Flight Simulator 2020 & 2024** | One mod library shared by both sims; mods are enabled per sim with junctions into the Community folder (no admin rights needed). Profiles, file and ICAO conflict detection, `exe.xml` add-on management, readiness checks (Content.xml, path length), a GitHub catalog (FlyByWire, Headwind…), an in-app mod browser and a built-in [career mode](#msfs-2024-career-mode). |
 | **Mount & Blade II: Bannerlord** | Module load order, `SubModule.xml` validation and fixes, version rules, direct launch with `_MODULES_`, `LauncherData.xml`, Steam Workshop modules, Nexus Mods and GitHub discovery, updates, profiles and backups. |
 | **Stardew Valley (SMAPI)** | SMAPI install from the verified GitHub release (SHA-256; the installer is never executed), mod scan with SMAPI rules, health checks (missing or outdated dependencies, duplicate IDs, compatibility), smapi.io update checks, Nexus Mods search, `config.json` editor, profiles, save backups and SMAPI log summaries. |
 | **Cities: Skylines II** | Paradox Mods catalog browsing (search, tags, requirements, changelogs), local mods, save games with in-game previews, health score with one-click fixes, crash and log analysis, and detection of known malicious mod versions. |
 
-Games are detected automatically on **Steam, GOG, Epic Games and Xbox / Microsoft Store**.
+Games are detected automatically on **Steam, GOG, Epic Games and Xbox / Microsoft Store**. On first launch Modstead
+lists only the games it found on your PC; a game in another folder can be added by choosing its folder.
+
+<p align="center">
+  <img src="docs/screenshots/modstead-first-run-found-games.png" alt="Modstead first-run setup: Microsoft Flight Simulator (MSFS 2024 and MSFS 2020) and Stardew Valley found on this PC and selected" width="760">
+</p>
+
+## MSFS 2024 career mode
+
+<p align="center">
+  <img src="docs/screenshots/msfs-2024-career-mode-dashboard.png" alt="Modstead MSFS 2024 career mode dashboard during a cargo flight: live route map, flight phase, altitude, ground speed, fuel used and live score" width="900">
+</p>
+
+Modstead includes a free, open-source **career mode for Microsoft Flight Simulator 2024** that also works with
+MSFS 2020. Start as a student pilot, take jobs from a job board, earn licences through checkrides and buy your own
+aircraft. Every flight is prepared in the sim, tracked over SimConnect and written to your logbook, and every rule, fee
+and penalty is documented.
+
+- **Job board** at your current airport: cargo, passengers, charter, aircraft ferry, bush flights, air ambulance and
+  airline flights, filtered by your licences and reputation, with a route map. Fly for an operator, or on your own
+  account after the CPL.
+- **Automatic flight setup:** Modstead starts the sim if needed, picks a suitable parking spot from the sim's own
+  airport data, writes the flight and route plan (`.FLT`/`.PLN`), moves the aircraft and loads the payload.
+- **Flight tracking and score:** flight phases, landing rate and G at touchdown, bounces, overspeed, stall and flap
+  warnings, and cheat detection (slew, teleport, refuelling in the air). The score earns XP and reputation; money only
+  follows real events such as delays, fuel, rent and damage.
+- **Licences and ratings:** SPL → PPL → CPL, multi-engine, instrument, helicopter, jet, ATPL and narrowbody/widebody type
+  ratings, each with hours, a level, a fee and a checkride.
+- **Logbook** with the flown track, landing data, deductions and pay for every flight; **hangar and finance** with
+  aircraft purchases, maintenance and a loan.
+- **In-sim toolbar panel** for MSFS 2020 and 2024 with the route, phase, remaining distance, ETA, score and pay, also in
+  full screen and VR.
+- **Free and local:** no subscription, no account and no server; works offline. SimBrief is one click away.
+
+> **It runs inside Modstead.** The career is not a separate add-on: its data, rules and sim connection live in the
+> Modstead app, and nothing is installed into the sim for it. With Modstead closed, flights are not tracked and the
+> optional in-sim panel shows "Modstead not connected".
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/msfs-career-job-board-map.png" alt="MSFS career job board with air ambulance, cargo, charter, passenger, bush and ferry jobs and a map of the selected route"><br><sub><b>Job board</b> with a route map</sub></td>
+    <td width="50%"><img src="docs/screenshots/msfs-career-licences.png" alt="Pilot licences and ratings in the Modstead career mode: student, private, commercial, multi-engine, instrument, helicopter, jet and ATPL"><br><sub><b>Licences and ratings</b> earned through checkrides</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/msfs-career-logbook.png" alt="MSFS flight logbook with route, aircraft, block time, landing rate in fpm, grade and net pay for each flight"><br><sub><b>Logbook</b> with landing rate and grade</sub></td>
+    <td width="50%"><img src="docs/screenshots/msfs-career-flight-details.png" alt="Flight details: flown track on a map, score 91 grade A, landing at 168 fpm, deductions, timeline and settlement"><br><sub><b>Flight details</b> with the flown track</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/msfs-career-hangar-finance.png" alt="Hangar and finance: owned aircraft with condition and maintenance, aircraft prices by class, loan and transactions"><br><sub><b>Hangar and finance</b></sub></td>
+    <td width="50%"><img src="docs/screenshots/msfs-career-new-pilot-light.png" alt="New career registration in light theme: pilot name, callsign, home base, difficulty and starting rank"><br><sub><b>New pilot</b> (light theme)</sub></td>
+  </tr>
+</table>
+
+### How it works
+
+1. **Pick a job** from the job board at your airport.
+2. **Modstead sets up the flight:** it starts MSFS if needed, places your aircraft at a suitable stand, loads the
+   payload and writes a route plan. If the sim does not load the flight by itself, open a free flight at the departure
+   airport and press *Move to parking*.
+3. **Pass the pre-flight checks** (sim connected, at the departure airport, right aircraft, slew off) and start the
+   engines: tracking starts by itself.
+4. **Fly and land.** Modstead reads the sim about 10 times a second over SimConnect, scores the flight and writes it to
+   your logbook with pay, XP and reputation.
+
+Modstead talks to the sim with its own implementation of the SimConnect network protocol over local TCP, so no
+SimConnect.dll is shipped and nothing is injected into the sim. MSFS 2024 opens this port by default; MSFS 2020 needs a
+local IPv4 entry in `SimConnect.xml` ([how](games/msfs/CAREER.md#does-it-work-with-msfs-2020)).
+
+<p align="center">
+  <img src="docs/screenshots/msfs-career-preflight-checks-light.png" alt="MSFS career pre-flight checks in light theme: sim connected, at the departure airport, aircraft suitable, slew off, fuel and payload advice" width="420">
+</p>
+
+### In-sim toolbar panel
+
+<p align="center">
+  <img src="docs/screenshots/msfs-in-sim-toolbar-panel.png" alt="Modstead MSFS toolbar panel in three states: cargo flight in cruise, medical flight after landing and passenger flight ready for departure" width="900">
+</p>
+
+An optional panel for the MSFS 2020 and 2024 toolbar. It reads values that Modstead writes once a second through
+SimConnect, so it needs no extra port or program. Install it from Career → Dashboard → *In-sim panel*; it goes into the
+Community folder like any other mod. The image is a browser preview of the panel's own code with simulated values, not a
+capture from the sim; the panel has not been tested in a live sim yet.
+
+Rules, formulas, licence requirements, the research behind the design and the architecture:
+**[MSFS 2024 career mode documentation](games/msfs/CAREER.md)** ([Türkçe](games/msfs/KARIYER.md)). The career mode is in
+early development like the rest of Modstead; automatic flight loading still needs tuning in the real sim.
 
 ## Features
 
@@ -61,6 +150,18 @@ Bannerlord and Vadi for Stardew Valley) and adds Cities: Skylines II, with one s
 ### Is Modstead free?
 Yes. Modstead is free and open source under the GNU General Public License v3.0.
 
+### Does Modstead have a career mode for MSFS 2024?
+Yes. Modstead includes a free career mode for Microsoft Flight Simulator 2024 with a job board, licences and checkrides,
+automatic flight setup, flight tracking over SimConnect, a logbook, aircraft ownership and an in-sim toolbar panel. It
+also works with MSFS 2020 once a local IPv4 SimConnect port is enabled. See the
+[career mode documentation](games/msfs/CAREER.md).
+
+### Is the career mode an alternative to OnAir, NeoFly or FSEconomy?
+It covers similar ground (jobs, an economy, licences and a logbook) but is free, open source and fully local: no
+subscription, no account and no server, with every formula documented. It has no shared online world or multiplayer
+economy. The [career documentation](games/msfs/CAREER.md#research-how-other-msfs-career-add-ons-work) compares the
+approaches.
+
 ### Is it safe to install mods with Modstead?
 Every archive is hash-verified, safely extracted into quarantine, checked and scanned by Microsoft Defender before you
 see the review dialog. Nothing is installed without your approval and installers are never executed. No scanner can
@@ -95,7 +196,10 @@ npm run typecheck && npm run build
 cargo test --workspace          # Rust tests
 ```
 
-Preview URL parameters: `?view=home|settings|game:<game>[:<page>]`, `&theme=dark|light`, `&lang=en`.
+Preview URL parameters: `?view=home|settings|game:<game>[:<page>]`, `&theme=dark|light`, `&lang=en`,
+`&onboarding=1` (first-run flow), `&installed=<game>,<game>` or `&installed=none` (only these games are installed in the sample data).
+MSFS career page: `?view=game:msfs:career` with `&career=new|idle|ready` (first run, no active job, pre-flight checks;
+the default is in flight) and `&hud=installed`.
 
 ## Project structure
 
@@ -106,6 +210,7 @@ games/<game>/ui     the game's interface module: pages, icon, artwork, preview d
 src-tauri/          Tauri shell: plugins, game registry, shell commands, command routing
 src/                interface shell, component kit, i18n dictionaries, styles
 docs/               architecture (MIMARI.md) and design language (TASARIM.md), in Turkish
+docs/screenshots/   README screenshots (preview mode with sample data)
 ```
 
 Game IDs: `msfs`, `bannerlord`, `stardew`, `cities2`. Settings and game data live in `%APPDATA%\app.modstead`;
