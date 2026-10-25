@@ -146,6 +146,10 @@ Her ekran önizleme kipinde (örnek verilerle) koyu ve açık temada denetlenir:
 node scripts/dev.mjs <oyun> --preview   # http://127.0.0.1:142x/?view=game:<oyun>[:<sayfa>]&theme=dark
 ```
 
+Önizleme adres parametreleri: `?view=home|settings|game:<oyun>[:<sayfa>]`, `&theme=dark|light`, `&lang=en`, `&jobs=1`,
+`&review=<görev>`, `&palette=1`, `&onboarding=1` (ilk kurulum), `&installed=<oyun>,<oyun>` ya da `&installed=none`
+(örnek veride yalnızca bu oyunlar kurulu görünür; parametre yoksa hepsi kurulu).
+
 Ekran görüntüsü için başsız Edge'i ayrı bir CDP portunda açıp `Page.captureScreenshot` kullan (sanal zaman
 kipindeki `--screenshot` veri gelince başlayan animasyonları yakalayamaz).
 Oyunların önizleme verisi `GameModule.mocks` ile verilir; yeni her komut için bir örnek ekle.

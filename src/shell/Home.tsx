@@ -2,20 +2,20 @@
 
 import type { ReactNode } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, Bug, FolderOpen, KeyRound, Link2, Play, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Bug, FolderOpen, KeyRound, Link2, Play, Plus, ShieldCheck, Sparkles } from "lucide-react";
 import clsx from "clsx";
 import { useArt } from "@/lib/art";
 import { useLang, useT } from "@/lib/i18n";
 import { ago, locale, num } from "@/lib/format";
-import { useAppInfo, useGamesStatus, useJobs, useNexus, useNxmStatus, useSecrets, useSettings } from "@/lib/queries";
+import { updateSettings, useAppInfo, useGamesStatus, useJobs, useNexus, useNxmStatus, useSecrets, useSettings } from "@/lib/queries";
 import { useUi } from "@/lib/store";
 import type { GameStatus, JobSnapshot } from "@/lib/types";
 import { Badge, Button, EmptyState, Skeleton } from "@/ui";
-import { gameModule } from "@/games/registry";
+import { GAMES, gameModule } from "@/games/registry";
 import type { GameModule } from "@/games/types";
-import { chooseGameFolder, launchGame } from "./actions";
+import { chooseGameFolder, launchGame, notifyError } from "./actions";
 import { GameIcon } from "./GameIcon";
-import { visibleGames } from "./Rail";
+import { gamesSetting, visibleGames } from "./Rail";
 
 function greeting(t: ReturnType<typeof useT>): string {
   const h = new Date().getHours();
@@ -127,6 +127,41 @@ function GameCard({ game, status, index }: { game: GameModule; status: GameStatu
   );
 }
 
+/** Kenar çubuğunda olmayan oyunlar (ilk kurulumda bulunamayan ya da kapatılan): tek tıkla geri eklenir.
+ *  Sonradan kurulan bir oyun burada "Bu bilgisayarda bulundu" diye öne çıkar. */
+function MoreGames({ games, visible, statusOf, index }: { games: GameModule[]; visible: string[]; statusOf: (id: string) => GameStatus | undefined; index: number }) {
+  const t = useT();
+  const add = (id: string) => updateSettings({ games: gamesSetting([...visible, id]) }).catch(notifyError);
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: 0.05 * index, ease: [0.2, 0.7, 0.2, 1] }}
+      className="flex flex-col rounded-[18px] border border-dashed border-line-strong p-4"
+    >
+      <h3 className="text-[13.5px] font-semibold text-fg">{t.home.moreGames}</h3>
+      <p className="mt-0.5 text-[12px] leading-relaxed text-fg-2">{t.home.moreGamesHint}</p>
+      <ul className="mt-3 flex flex-col gap-1.5">
+        {games.map((g) => {
+          const here = statusOf(g.id)?.installed;
+          return (
+            <li key={g.id} data-game={g.id} className="flex items-center gap-3 rounded-xl px-1 py-1.5">
+              <GameIcon game={g} size={34} dim={!here} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-fg">{g.name}</div>
+                <div className={clsx("truncate text-[11.5px]", here ? "text-ok" : "text-muted")}>{here ? t.home.foundHere : t.home.notInstalledShort}</div>
+              </div>
+              <Button size="sm" variant={here ? "subtle" : "ghost"} icon={<Plus className="size-3.5" />} onClick={() => void add(g.id)}>
+                {t.home.addGame}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+    </motion.section>
+  );
+}
+
 function ActivityRow({ job }: { job: JobSnapshot }) {
   const t = useT();
   const game = gameModule(job.game);
@@ -183,6 +218,7 @@ export function Home() {
   const { data: secrets } = useSecrets();
   const { data: jobs } = useJobs();
   const games = visibleGames(settings);
+  const hidden = GAMES.filter((g) => !games.includes(g));
   const statusOf = (id: string) => statuses?.find((s) => s.id === id)?.status;
   const installed = games.filter((g) => statusOf(g.id)?.installed);
   const totalMods = installed.reduce((a, g) => a + (statusOf(g.id)?.mods ?? 0), 0);
@@ -214,6 +250,7 @@ export function Home() {
           {games.map((g, i) => (
             <GameCard key={g.id} game={g} status={statusOf(g.id)} index={i} />
           ))}
+          {hidden.length > 0 && <MoreGames games={hidden} visible={games.map((g) => g.id)} statusOf={statusOf} index={games.length} />}
         </div>
       </section>
 

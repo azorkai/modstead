@@ -21,6 +21,13 @@ export function visibleGames(settings: Settings | undefined): GameModule[] {
   return ids.map((id) => GAMES.find((g) => g.id === id)).filter((g): g is GameModule => !!g);
 }
 
+/** Seçilen oyunlardan `settings.games` değeri: kayıt sırasında; hepsi (ya da hiçbiri) seçiliyse `[]` (= hepsi). */
+export function gamesSetting(ids: Iterable<string>): string[] {
+  const set = new Set(ids);
+  const list = GAMES.map((g) => g.id).filter((id) => set.has(id));
+  return list.length === GAMES.length ? [] : list;
+}
+
 function Indicator({ active, color }: { active: boolean; color?: string }) {
   return (
     <motion.span

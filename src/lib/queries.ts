@@ -1,6 +1,6 @@
 // Arka uç verisi: React Query ile önbelleklenir, olaylarla tazelenir (events.ts).
 
-import { QueryClient, useQuery } from "@tanstack/react-query";
+import { QueryClient, useQueries, useQuery } from "@tanstack/react-query";
 import { invoke } from "./ipc";
 import type {
   AppInfo,
@@ -62,8 +62,17 @@ export function useGameStatus(id: GameId): GameStatus | undefined {
   return data?.find((g) => g.id === id)?.status;
 }
 
+function detectQuery(id: GameId) {
+  return { queryKey: keys.detect(id), queryFn: () => invoke<InstallCandidate[]>("game_detect", { id }), staleTime: Infinity };
+}
+
 export function useDetect(id: GameId, enabled = true) {
-  return useQuery({ queryKey: keys.detect(id), queryFn: () => invoke<InstallCandidate[]>("game_detect", { id }), enabled, staleTime: Infinity });
+  return useQuery({ ...detectQuery(id), enabled });
+}
+
+/** Birden çok oyunun kurulum taraması; hepsi aynı anda başlar (ilk kurulum). Sonuç sırası `ids` ile aynı. */
+export function useDetectMany(ids: readonly GameId[]) {
+  return useQueries({ queries: ids.map(detectQuery) });
 }
 
 export function useNexus() {

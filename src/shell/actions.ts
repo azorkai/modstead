@@ -24,9 +24,14 @@ export async function launchGame(id: GameId) {
 
 /** Klasör seçtirip oyuna bağlar. */
 export async function chooseGameFolder(id: GameId): Promise<GameStatus | null> {
-  if (!isTauri) return null;
-  const { open } = await import("@tauri-apps/plugin-dialog");
-  const picked = await open({ directory: true, multiple: false, title: gameModule(id)?.name });
+  let picked: string | string[] | null;
+  if (isTauri) {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    picked = await open({ directory: true, multiple: false, title: gameModule(id)?.name });
+  } else {
+    // Önizleme kipinde klasör penceresi yok: örnek bir yol örnek veriye bağlanır (mock.ts → game_set_path).
+    picked = `D:\\Oyunlar\\${gameModule(id)?.short ?? id}`;
+  }
   if (typeof picked !== "string") return null;
   try {
     const status = await invoke<GameStatus>("game_set_path", { id, path: picked });

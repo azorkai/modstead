@@ -138,6 +138,23 @@ ya da puan ≥30 → **dikkat** ve açık onay. Defender çalışamadıysa (`req
 Geliştirme yuvaları (`MODSTEAD_DEV_INSTANCE=<ad>`, yalnızca hata ayıklama derlemesi) veriyi
 `app.modstead-dev-<ad>` klasörlerine yazar ve tek örnek kilidini atlar.
 
+## İlk kurulum
+
+`src/shell/Onboarding.tsx`, `settings.onboarded` yanlışken açılır. Üç adım:
+
+1. **Hoş geldin.** Bütün oyunlar için `game_detect` (`useDetectMany`) ve `games_status` aynı anda başlar; simgeler
+   bulundukça belirginleşir, oyun adımına gelindiğinde sonuç hazırdır.
+2. **Oyunlar.** Yalnızca bulunan oyunlar (aday kurulum, kayıtlı yol ya da elle seçilen klasör) sorulur ve öntanımlı
+   seçili gelir. Bulunamayanlar "Listede olmayan bir oyunun mu var?" altında durur; `chooseGameFolder` → `game_set_path`
+   başarılı olunca oyun bulunanlara katılır. Hiçbiri bulunamazsa aynı liste boş durumla açık gelir ve "Şimdilik geç"
+   bütün oyunları gösterir (ana sayfada klasör seçilebilsin diye).
+3. **Güvenlik ve hesap.** Kurulum hattının özeti; Nexus anahtarı ve nxm bağlantısı yalnızca seçilen oyunlardan biri
+   `GameInfo.nexus` taşıyorsa sorulur.
+
+Kayıt: `settings.games = gamesSetting(seçilenler)` (`src/shell/Rail.tsx`): kayıt sırasında; hepsi ya da hiçbiri seçiliyse
+`[]` (= bütün oyunlar). Kenar çubuğunda olmayan oyunlar ana sayfadaki "Diğer oyunlar" kartından (sonradan kurulduysa
+"Bu bilgisayarda bulundu" diye öne çıkar) ya da Ayarlar → Oyunlar'dan geri eklenir.
+
 ## Yeni oyun ekleme
 
 1. `games/<oyun>/` oluştur (var olan bir oyunu şablon al): `Cargo.toml`, `build.rs` (test ikilileri için bildirim), `src/lib.rs`

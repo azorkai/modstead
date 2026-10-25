@@ -2,7 +2,7 @@
 // Böylece arayüz `npm run dev` ile http://127.0.0.1:1420 adresinde dosyalara dokunmadan
 // tasarlanıp ekran görüntüsüyle denetlenebilir. Oyunlar kendi örneklerini `mocks` ile ekler.
 
-import type { AppInfo, GameStatusEntry, JobSnapshot, SecurityReport, Settings } from "./types";
+import type { AppInfo, GameStatus, GameStatusEntry, JobSnapshot, SecurityReport, Settings } from "./types";
 
 type Handler = (args?: Record<string, unknown>) => unknown;
 
@@ -121,6 +121,18 @@ const games: GameStatusEntry[] = [
   },
 ];
 
+// ?installed=msfs,stardew : yalnızca bu oyunlar kurulu görünür (ilk kurulumu denemek için);
+// ?installed=none (ya da boş) : hiçbiri. Parametre yoksa hepsi kurulu.
+const installedParam = params.get("installed");
+if (installedParam !== null) {
+  const only = new Set(installedParam.split(",").map((s) => s.trim()));
+  for (const g of games) if (!only.has(g.id)) g.status = notInstalled(g.status);
+}
+
+function notInstalled(s: GameStatus): GameStatus {
+  return { ...s, installed: false, installs: [], running: false, mods: null, enabled: null, issues: null, updates: null, notes: [] };
+}
+
 const report: SecurityReport = {
   verdict: "safe",
   score: 5,
@@ -201,15 +213,24 @@ registerMocks({
   settings_get: () => settings,
   settings_update: (a) => {
     settings = { ...settings, ...((a?.patch as Partial<Settings>) ?? {}) };
+    if (settings.language !== "auto") settings.resolvedLanguage = settings.language;
     return settings;
   },
   games_status: () => games,
   game_status: (a) => games.find((g) => g.id === a?.id)?.status,
   game_detect: (a) => {
-    const g = games.find((x) => x.id === a?.id);
-    return (g?.status.installs ?? []).map((i) => ({ path: i.path, store: i.store, version: i.version, label: i.label }));
+    const i = games.findIndex((x) => x.id === a?.id);
+    const found = (games[i]?.status.installs ?? []).map((c) => ({ path: c.path, store: c.store, version: c.version, label: c.label }));
+    // Gerçek tarama birkaç saniye sürebilir; sonuçlar oyun oyun gelsin.
+    return new Promise((r) => setTimeout(() => r(found), 450 + Math.max(0, i) * 380));
   },
-  game_set_path: (a) => games.find((g) => g.id === a?.id)?.status,
+  game_set_path: (a) => {
+    const g = games.find((x) => x.id === a?.id);
+    if (g && !g.status.installed) {
+      g.status = { ...g.status, installed: true, installs: [{ label: "Elle seçildi", path: String(a?.path ?? ""), version: null, store: "manual", running: false }], mods: 0, enabled: 0, checkedAt: now };
+    }
+    return g?.status;
+  },
   game_launch: () => null,
   game_install_files: () => [],
   nexus_status: () => ({ hasKey: false, user: null, rateLimit: null, error: null }),

@@ -11,7 +11,8 @@ import { useUi } from "@/lib/store";
 import { FINAL_STAGES } from "@/lib/types";
 import { Kbd } from "@/ui";
 
-function WindowControls() {
+/** Pencere düğmeleri (çerçevesiz pencere); ilk kurulum ekranı da kullanır. Önizleme kipinde görünmez. */
+export function WindowControls() {
   const t = useT();
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
