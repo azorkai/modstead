@@ -1279,7 +1279,7 @@ dependencies = [
 
 [[package]]
 name = "game-bannerlord"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "futures-util",
  "log",
@@ -1294,7 +1294,7 @@ dependencies = [
 
 [[package]]
 name = "game-cities2"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "futures-util",
@@ -1314,7 +1314,7 @@ dependencies = [
 
 [[package]]
 name = "game-msfs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "futures-util",
@@ -1335,7 +1335,7 @@ dependencies = [
 
 [[package]]
 name = "game-stardew"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "futures-util",
@@ -2426,7 +2426,7 @@ dependencies = [
 
 [[package]]
 name = "modstead"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "futures-util",
  "game-bannerlord",
@@ -2451,7 +2451,7 @@ dependencies = [
 
 [[package]]
 name = "modstead-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "futures-util",
