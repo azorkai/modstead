@@ -21,7 +21,7 @@ içi araç çubuğu paneli ve MSFS 2024 ana menüsünde kariyer sayfası.
 
 [Tauri 2](https://tauri.app) (Rust) ve React 19 ile yazıldı. Lisans: GPL-3.0.
 
-> **Durum:** erken geliştirme (v0.1.0). Yalnızca Windows 10/11.
+> **Durum:** erken geliştirme (v0.2.0). Yalnızca Windows 10/11.
 
 ## İndir
 

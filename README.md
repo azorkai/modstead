@@ -21,7 +21,7 @@ aircraft, an in-sim toolbar panel and a career page in the MSFS 2024 main menu.
 
 Built with [Tauri 2](https://tauri.app) (Rust) and React 19. Licensed under GPL-3.0.
 
-> **Status:** early development (v0.1.0). Windows 10/11 only.
+> **Status:** early development (v0.2.0). Windows 10/11 only.
 
 ## Download
 
