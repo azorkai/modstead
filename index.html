@@ -9,7 +9,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Free MSFS 2024 Career Mode: Jobs, Licences, Logbook | Modstead</title>
-<meta name="description" content="Free, open-source career mode for MSFS 2024 and 2020: job board, licences and checkrides, automatic flight setup, SimConnect tracking and a logbook.">
+<meta name="description" content="Free, open-source career mode for MSFS 2024 and 2020: job board, licences, dispatch and real METAR weather, SimConnect tracking and a logbook, without the grind.">
 <link rel="canonical" href="https://azorkai.github.io/modstead/">
 <link rel="alternate" hreflang="en" href="https://azorkai.github.io/modstead/">
 <link rel="alternate" hreflang="tr" href="https://azorkai.github.io/modstead/tr/">
@@ -52,7 +52,7 @@
       "@id": "https://azorkai.github.io/modstead/#webpage",
       "url": "https://azorkai.github.io/modstead/",
       "name": "Free MSFS 2024 Career Mode: Jobs, Licences, Logbook",
-      "description": "Free, open-source career mode for MSFS 2024 and 2020: job board, licences and checkrides, automatic flight setup, SimConnect tracking and a logbook.",
+      "description": "Free, open-source career mode for MSFS 2024 and 2020: job board, licences, dispatch and real METAR weather, SimConnect tracking and a logbook, without the grind.",
       "inLanguage": "en",
       "isPartOf": { "@id": "https://azorkai.github.io/modstead/#website" },
       "about": { "@id": "https://azorkai.github.io/modstead/#app" },
@@ -63,7 +63,7 @@
       "@id": "https://azorkai.github.io/modstead/#app",
       "name": "Modstead",
       "alternateName": "Modstead career mode for MSFS 2024",
-      "description": "Free, open-source mod manager for Windows with a career mode for Microsoft Flight Simulator 2024 that also works with MSFS 2020: job board, licences and checkrides, automatic flight setup, flight tracking over SimConnect, a logbook, aircraft ownership, an in-sim toolbar panel and a career page in the MSFS 2024 main menu.",
+      "description": "Free, open-source mod manager for Windows with a career mode for Microsoft Flight Simulator 2024 that also works with MSFS 2020: job board, licences and checkrides, automatic flight setup, flight tracking over SimConnect, a logbook, aircraft ownership, an in-sim toolbar panel and a career page in the MSFS 2024 main menu. Realism without the grind: a stabilised approach gate, a dispatch release, real METAR weather, pilot records, maintenance programmes and aerial work; the score only drops for safety and procedures only add bonus XP.",
       "applicationCategory": "GameApplication",
       "applicationSubCategory": "Flight simulator career mode",
       "operatingSystem": "Windows 10, Windows 11",
@@ -79,7 +79,8 @@
       "screenshot": [
         "https://azorkai.github.io/modstead/assets/img/career-dashboard-1400.webp",
         "https://azorkai.github.io/modstead/assets/img/main-menu-jobs-1400.webp",
-        "https://azorkai.github.io/modstead/assets/img/toolbar-panel-1500.webp"
+        "https://azorkai.github.io/modstead/assets/img/toolbar-panel-1500.webp",
+        "https://azorkai.github.io/modstead/assets/img/realism-jobs-1600.webp"
       ],
       "featureList": [
         "Job board: cargo, passengers, charter, aircraft ferry, bush flights, air ambulance and airline flights",
@@ -90,6 +91,15 @@
         "Hangar and finance: aircraft purchases, maintenance and a loan",
         "In-sim toolbar panel for MSFS 2020 and 2024",
         "Career page in the MSFS 2024 main menu",
+        "Stabilised approach gate, touchdown point against the threshold and centreline, tail strike and weight limits",
+        "Dispatch release: EASA fuel policy, weights, alternate airport and a density-altitude runway check",
+        "Real METAR weather: IFR destinations need a current instrument rating, with a bad-weather bonus",
+        "Passenger comfort tips and sensitive cargo claims",
+        "Pilot records: passenger, night and instrument currency, medical certificate by age, flight duty with a Rest button",
+        "Maintenance programmes and optional hull insurance",
+        "Regional fuel prices, navigation charges and handling fees",
+        "Aerial work: sightseeing tours, skydiving, aerial survey, search and rescue, with partial pay",
+        "Achievements and appeals",
         "Free and local: no subscription, no account, no online server"
       ]
     },
@@ -102,7 +112,8 @@
         { "@type": "Question", "name": "Does it work with MSFS 2020?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, with one setup step. MSFS 2024 opens a local IPv4 SimConnect port by default; MSFS 2020 only opens a named pipe. Add a SimConnect.Comm block with Protocol IPv4, Scope local and Port 500 to SimConnect.xml in the sim's settings folder (the folder that holds UserCfg.opt), next to the existing entries, then restart the sim. Modstead reads the port from this file and never edits it for you." } },
         { "@type": "Question", "name": "Does it replace the built-in MSFS 2024 career?", "acceptedAnswer": { "@type": "Answer", "text": "No, it runs next to it. It uses free flights in the sim and keeps its own career, licences and logbook in Modstead." } },
         { "@type": "Question", "name": "Is it an alternative to OnAir, NeoFly or FSEconomy?", "acceptedAnswer": { "@type": "Answer", "text": "It covers similar ground (jobs, an economy, licences and a logbook) with a different focus: everything is local and documented, and there is no subscription or server. It has no shared online world or multiplayer economy." } },
-        { "@type": "Question", "name": "Does it need an internet connection?", "acceptedAnswer": { "@type": "Answer", "text": "No. Jobs are generated locally and career data stays on your PC. Opening SimBrief is optional." } },
+        { "@type": "Question", "name": "How realistic is it?", "acceptedAnswer": { "@type": "Answer", "text": "It follows real procedures and rules without the grind: a stabilised approach gate, the touchdown point against the runway, a dispatch release with an EASA fuel policy, real METAR weather, pilot currency, medical and flight duty, and maintenance programmes. The score only drops for safety, procedures only add bonus XP, nothing the sim cannot read is counted, and a rule deduction can be appealed within 7 days. Resting is a button, not real-time waiting." } },
+        { "@type": "Question", "name": "Does it need an internet connection?", "acceptedAnswer": { "@type": "Answer", "text": "No. Jobs are generated locally and career data stays on your PC. Real METAR weather and opening SimBrief use the internet; offline, the weather is simply unknown." } },
         { "@type": "Question", "name": "Does it install anything into the sim?", "acceptedAnswer": { "@type": "Answer", "text": "Not for the career itself. The toolbar panel (MSFS 2020 and 2024) and the main menu tile (MSFS 2024) are optional and are installed like any other mod, into the Community folder, from Career, Dashboard. Both only show what Modstead serves on 127.0.0.1; with Modstead closed the panel says so and the tile does not appear." } },
         { "@type": "Question", "name": "Can I use the career without leaving the sim?", "acceptedAnswer": { "@type": "Answer", "text": "In MSFS 2024, yes, for the everyday loop: the main menu page lets you take a job, choose an aircraft and start the flight, and the toolbar panel follows the flight. Modstead still has to be running on the PC. Buying aircraft, licences, loans and the full logbook are in the Modstead app." } },
         { "@type": "Question", "name": "Does it work with the Modstead app closed?", "acceptedAnswer": { "@type": "Answer", "text": "No. The career's data, rules and sim connection live in the app. While it is closed, flights are not tracked, the toolbar panel says Modstead not connected and the main menu tile does not appear." } },
@@ -125,8 +136,8 @@
     </a>
     <nav class="nav" aria-label="Main">
       <a class="sec" href="#features">Features</a>
+      <a class="sec" href="#realism">Realism</a>
       <a class="sec" href="#screenshots">Screenshots</a>
-      <a class="sec" href="#how-it-works">How it works</a>
       <a class="sec" href="#rules">Rules</a>
       <a class="sec" href="#faq">FAQ</a>
       <a class="sec" href="#download">Download</a>
@@ -198,10 +209,92 @@
   </div>
 </section>
 
-<section class="section alt" id="screenshots" aria-labelledby="screenshots-title">
+<section class="section alt" id="realism" aria-labelledby="realism-title">
   <div class="wrap">
     <div class="sec-head">
-      <p class="kicker">02 / Screenshots</p>
+      <p class="kicker">02 / Realism</p>
+      <h2 id="realism-title">Realism without the grind</h2>
+      <p>Simmers dislike hidden, zero-tolerance penalties, grind and real-time lockouts. So the realism here follows real procedures and regulations, but rules apply with short tolerances, and nothing makes you wait in real time.</p>
+    </div>
+    <dl class="strip rules-strip">
+      <div><dt>Score</dt><dd>Only drops for safety</dd></div>
+      <div><dt>Procedures</dt><dd>Only add bonus XP (all bonuses together at most +20%)</dd></div>
+      <div><dt>Sim data</dt><dd>What the sim cannot read is not counted</dd></div>
+      <div><dt>Appeals</dt><dd>Rule deductions, within 7 days</dd></div>
+    </dl>
+
+    <ul class="features realism">
+      <li><span class="num">Approach</span><h3>Stabilised approach and touchdown</h3><p>A stabilised-approach gate at 1,000&nbsp;ft (instrument conditions) or 500&nbsp;ft (visual) checks sink rate, bank, gear and speed. Landing from an unstable approach costs 5 points; a go-around costs nothing and earns a bonus. The touchdown is measured against the threshold, the touchdown zone and the centreline, with tail strike and maximum takeoff and landing weight limits.</p></li>
+      <li><span class="num">Dispatch</span><h3>Dispatch release</h3><p>Fuel per the EASA policy (taxi, trip, contingency, alternate and final reserve), with an alternate airport chosen under IFR. Zero-fuel, takeoff and landing weights against the limits, and a runway check that grows with density altitude and a wet runway.</p></li>
+      <li><span class="num">Weather</span><h3>Real METAR weather</h3><p>Observations from aviationweather.gov for the job board and the active job. A job to an IFR or LIFR destination needs a current instrument rating, and rated pilots earn a bad-weather bonus (IFR 15%, LIFR 25%). Offline, the weather is simply unknown.</p></li>
+      <li><span class="num">Cabin</span><h3>Passenger comfort and sensitive cargo</h3><p>Comfort sets the tip, not the score: 90+ earns 8% of the pay. Fragile, live and medical cargo is damaged by high G and hard landings, and the claim comes out of the pay. Perishable cargo has a tight deadline; dangerous goods need a commercial licence.</p></li>
+      <li><span class="num">Records</span><h3>Pilot records</h3><p>Passenger, night and instrument currency, a medical certificate whose validity depends on your licence and age, and flight duty limits. Resting is a button with a hotel bill away from base, not real-time waiting. The difficulty decides which rules apply.</p></li>
+      <li><span class="num">Hangar</span><h3>Maintenance programmes and insurance</h3><p>Inspections by hours or months for each aircraft class, from 100-hour inspections to A- and C-checks and engine overhauls; an aircraft past its inspection cannot fly. Hull insurance is optional: a premium per flight hour and a 5% deductible.</p></li>
+      <li><span class="num">Costs</span><h3>Regional fuel prices and fees</h3><p>Fuel prices by region that change from week to week, navigation charges with the Eurocontrol formula and handling fees per passenger and per kilogram of cargo. They go into own-account quotes; on operator jobs the operator pays.</p></li>
+      <li><span class="num">Aerial work</span><h3>Tours, skydiving, survey, search and rescue</h3><p>With a commercial licence: sightseeing tours, skydiving loads, aerial survey and search and rescue. The objectives go into the flight plan as waypoints, and pay follows the objectives you complete, so a partly done job still pays partly.</p></li>
+      <li><span class="num">Fair play</span><h3>Achievements and appeals</h3><p>24 achievements computed from your career. A deduction caused by a sim or add-on bug can be removed in the flight details within 7 days; score, grade, XP and reputation are recalculated, and money never changes.</p></li>
+    </ul>
+
+    <div class="group">
+      <div class="group-head">
+        <h3>In the app</h3>
+        <p>App preview with sample data, Turkish interface. Select an image for the whole screen.</p>
+      </div>
+      <div class="grid-12">
+        <figure class="shot span-6">
+          <a href="assets/img/realism-jobs-1600.webp"><img src="assets/img/realism-jobs-main-600.webp"
+            srcset="assets/img/realism-jobs-main-600.webp 600w, assets/img/realism-jobs-main-1200.webp 1200w"
+            sizes="(min-width: 1200px) 554px, (min-width: 800px) 48vw, calc(100vw - 32px)"
+            width="1200" height="1033" loading="lazy" decoding="async"
+            alt="Job board in Turkish with flight-category badges (VFR, MVFR, IFR, LIFR), cargo-type badges for live animals and dangerous goods, an instrument rating required badge, a bad-weather bonus and a sightseeing tour; the selected job shows the destination METAR"></a>
+          <figcaption><b>Job board</b> with weather, cargo-type and instrument-rating badges and a sightseeing tour.</figcaption>
+        </figure>
+        <figure class="shot span-6">
+          <a href="assets/img/realism-flight-1600.webp"><img src="assets/img/realism-flight-main-430.webp"
+            srcset="assets/img/realism-flight-main-430.webp 430w, assets/img/realism-flight-main-859.webp 859w"
+            sizes="(min-width: 1200px) 554px, (min-width: 800px) 48vw, calc(100vw - 32px)"
+            width="859" height="778" loading="lazy" decoding="async"
+            alt="Flight details in Turkish: approach at the 500 ft gate marked unstable, touchdown 1,180 m from the threshold and 1.6 m right of the centreline, crosswind and headwind, procedures checklist, XP bonus and passenger comfort 72 of 100"></a>
+          <figcaption><b>Flight details</b> with the approach gate, touchdown point, procedures and bonuses.</figcaption>
+        </figure>
+        <figure class="shot span-7">
+          <a href="assets/img/realism-dashboard-1600.webp"><img src="assets/img/realism-dispatch-720.webp"
+            sizes="(min-width: 1200px) 650px, (min-width: 800px) 56vw, calc(100vw - 32px)"
+            width="720" height="630" loading="lazy" decoding="async"
+            alt="Dispatch release in Turkish: fuel plan with taxi, trip and final reserve, weight and balance against takeoff and landing limits, departure and arrival runways with density altitude, and METAR for both airports"></a>
+          <figcaption><b>Dispatch release</b> with the fuel plan, weights, runways and METAR.</figcaption>
+        </figure>
+        <figure class="shot span-5">
+          <a href="assets/img/realism-dashboard-1600.webp"><img src="assets/img/realism-records-470.webp"
+            width="470" height="525" loading="lazy" decoding="async"
+            alt="Pilot records in Turkish: class 1 medical certificate, passenger and night currency, flight duty with hours left and a Rest button, and night, instrument, multi-engine and cross-country hours"></a>
+          <figcaption><b>Pilot records:</b> medical, currency and flight duty with a Rest button.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-head">
+        <h3>In the MSFS 2024 main menu page</h3>
+        <p>The in-sim page in a browser test harness with sample data, Turkish interface; not a capture from the sim.</p>
+      </div>
+      <figure class="shot">
+        <a href="assets/img/realism-menu-tour-1920.webp"><img src="assets/img/realism-menu-tour-960.webp"
+          srcset="assets/img/realism-menu-tour-960.webp 960w, assets/img/realism-menu-tour-1920.webp 1920w"
+          sizes="(min-width: 1200px) 1136px, calc(100vw - 32px)"
+          width="1920" height="1080" loading="lazy" decoding="async"
+          alt="Job board of the main menu career page in Turkish with live-animal and dangerous-goods cargo, IFR and LIFR badges, an instrument rating required badge and a selected sightseeing tour with its two objectives"></a>
+        <figcaption><b>Sightseeing tour</b> on the main menu job board, with its objectives.</figcaption>
+      </figure>
+    </div>
+    <p class="more">The thresholds, tolerances and formulas behind every item: <a href="https://github.com/azorkai/modstead/blob/main/games/msfs/CAREER.md#realism">career mode documentation, Realism</a>.</p>
+  </div>
+</section>
+
+<section class="section" id="screenshots" aria-labelledby="screenshots-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">03 / Screenshots</p>
       <h2 id="screenshots-title">In the sim and in the app</h2>
       <p>Real screenshots. Each group says where its images come from. Select an image to open it at full size.</p>
     </div>
@@ -311,10 +404,10 @@
   </div>
 </section>
 
-<section class="section" id="how-it-works" aria-labelledby="how-title">
+<section class="section alt" id="how-it-works" aria-labelledby="how-title">
   <div class="wrap">
     <div class="sec-head">
-      <p class="kicker">03 / How it works</p>
+      <p class="kicker">04 / How it works</p>
       <h2 id="how-title">How a career flight works</h2>
       <p>Pick a job and the app does the setup in the sim. Tracking arms itself when the pre-flight checks turn green.</p>
     </div>
@@ -341,10 +434,10 @@
   </div>
 </section>
 
-<section class="section alt" id="rules" aria-labelledby="rules-title">
+<section class="section" id="rules" aria-labelledby="rules-title">
   <div class="wrap">
     <div class="sec-head">
-      <p class="kicker">04 / Rules and scoring</p>
+      <p class="kicker">05 / Rules and scoring</p>
       <h2 id="rules-title">Transparent rules: every deduction has a cap</h2>
       <p>Every rule, fee and penalty is documented. The score sets XP and reputation, not money, so a wrong deduction never costs you cash.</p>
     </div>
@@ -361,9 +454,18 @@
             <tr><th scope="row">Pitch &gt; 25° / &lt; −15°</th><td class="n">3</td><td class="n">9</td></tr>
             <tr><th scope="row">G &gt; 2.5 or &lt; −1</th><td class="n">5</td><td class="n">10</td></tr>
             <tr><th scope="row">&gt; 265 kt below 10,000 ft (turbine)</th><td class="n">5</td><td class="n">10</td></tr>
-            <tr><th scope="row">Taxi &gt; 30 kt off the runway</th><td class="n">2</td><td class="n">6</td></tr>
+            <tr><th scope="row">Bank &gt; 30° close to the ground (below 1,000 ft)</th><td class="n">3</td><td class="n">6</td></tr>
+            <tr><th scope="row">Taxi &gt; 30 kt off the runway for more than 3 s</th><td class="n">2</td><td class="n">6</td></tr>
             <tr><th scope="row">Bounce</th><td class="n">4</td><td class="n">12</td></tr>
-            <tr><th scope="row">Landing with little fuel (&lt; 30 min)</th><td class="n">5</td><td class="n">5</td></tr>
+            <tr><th scope="row">Landing below final reserve (piston 45, turbine 30, helicopter 20 min)</th><td class="n">5</td><td class="n">5</td></tr>
+            <tr><th scope="row">Landing from an unstable approach</th><td class="n">5</td><td class="n">5</td></tr>
+            <tr><th scope="row">Tail strike (jet airliners: regional 10.5°, narrowbody 11°, widebody 10°)</th><td class="n">10</td><td class="n">10</td></tr>
+            <tr><th scope="row">Touchdown before the threshold</th><td class="n">8</td><td class="n">8</td></tr>
+            <tr><th scope="row">Long landing (beyond the touchdown zone + 150 m)</th><td class="n">3</td><td class="n">3</td></tr>
+            <tr><th scope="row">Off the centreline (half the runway width − 4 m)</th><td class="n">2</td><td class="n">2</td></tr>
+            <tr><th scope="row">Maximum takeoff / landing weight exceeded</th><td class="n">5 + 5</td><td class="n">5 + 5</td></tr>
+            <tr><th scope="row">Cloud or low visibility for more than 30 s without a current instrument rating</th><td class="n">10</td><td class="n">10</td></tr>
+            <tr><th scope="row">Unpressurised cabin above 12,500 ft for more than 30 min, or above 15,000 ft (FAA 91.211)</th><td class="n">5</td><td class="n">10</td></tr>
             <tr><th scope="row" colspan="3">Landing rate<span class="sub-line">Scaled by class. Light aircraft: &lt; 200 fpm 0 · 200–300: 3 · 300–400: 8 · 400–500: 15 · ≥ 500: 25</span></th></tr>
             <tr><th scope="row" colspan="3">Landing G and bank<span class="sub-line">G &gt; 1.5: 5 · &gt; 2.0: 10; bank &gt; 6°: 5 · &gt; 10°: 10</span></th></tr>
           </tbody>
@@ -375,6 +477,7 @@
           <ul class="grades" aria-label="Grade thresholds"><li>A+ ≥ 95</li><li>A ≥ 88</li><li>B ≥ 78</li><li>C ≥ 65</li><li>D ≥ 50</li><li>F</li></ul>
         </li>
         <li><b>Void flights</b>Slew in the air, a teleport or phase skip, refuelling in the air, a flight that starts in the air, or a crash: score 0, no pay, and −15 reputation for a crash.</li>
+        <li><b>Appeals</b>A rule deduction can be removed within 7 days if a sim or add-on bug caused it. Money does not change; void flights cannot be appealed.</li>
         <li><b>Checkrides</b>Arrive, score at least 75 (Easy 65, Realistic 85) and land no harder than "firm". The fee is paid even if you fail.</li>
         <li><b>Fair sim rate</b>Licence hours are block time, capped at 1.5× the real time, so sim rate cannot farm hours.</li>
       </ul>
@@ -402,10 +505,10 @@
   </div>
 </section>
 
-<section class="section" id="compare" aria-labelledby="compare-title">
+<section class="section alt" id="compare" aria-labelledby="compare-title">
   <div class="wrap">
     <div class="sec-head">
-      <p class="kicker">05 / Compared</p>
+      <p class="kicker">06 / Compared</p>
       <h2 id="compare-title">Compared with OnAir, NeoFly and FSEconomy</h2>
       <p>It covers similar ground (jobs, an economy, licences and a logbook) but is free, open source and fully local: no subscription, no account and no online server, with every formula documented. It has no shared online world or multiplayer economy.</p>
     </div>
@@ -436,10 +539,10 @@
   </div>
 </section>
 
-<section class="section alt" id="download" aria-labelledby="download-title">
+<section class="section" id="download" aria-labelledby="download-title">
   <div class="wrap">
     <div class="sec-head">
-      <p class="kicker">06 / Download</p>
+      <p class="kicker">07 / Download</p>
       <h2 id="download-title">Download for Windows</h2>
       <p>The career mode comes with the Modstead app. Install it on Windows 10 or 11 (x64), or build it from source.</p>
     </div>
@@ -492,10 +595,10 @@ npm run app:build</code></pre>
   </div>
 </section>
 
-<section class="section" id="faq" aria-labelledby="faq-title">
+<section class="section alt" id="faq" aria-labelledby="faq-title">
   <div class="wrap">
     <div class="sec-head">
-      <p class="kicker">07 / FAQ</p>
+      <p class="kicker">08 / FAQ</p>
       <h2 id="faq-title">Questions and answers</h2>
     </div>
     <div class="faq">
@@ -529,8 +632,12 @@ npm run app:build</code></pre>
         <div class="a"><p>It covers similar ground (jobs, an economy, licences and a logbook) with a different focus: everything is local and documented, and there is no subscription or server. It has no shared online world or multiplayer economy. <a href="#compare">See the comparison</a>.</p></div>
       </details>
       <details>
+        <summary>How realistic is it?</summary>
+        <div class="a"><p>It follows real procedures and rules without the grind: a stabilised approach gate, the touchdown point against the runway, a dispatch release with an EASA fuel policy, real METAR weather, pilot currency, medical and flight duty, and maintenance programmes. The score only drops for safety, procedures only add bonus XP, nothing the sim cannot read is counted, and a rule deduction can be appealed within 7 days. Resting is a button, not real-time waiting. <a href="#realism">See Realism</a>.</p></div>
+      </details>
+      <details>
         <summary>Does it need an internet connection?</summary>
-        <div class="a"><p>No. Jobs are generated locally and career data stays on your PC. Opening SimBrief is optional.</p></div>
+        <div class="a"><p>No. Jobs are generated locally and career data stays on your PC. Real METAR weather and opening SimBrief use the internet; offline, the weather is simply unknown.</p></div>
       </details>
       <details>
         <summary>Does it install anything into the sim?</summary>

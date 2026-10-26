@@ -154,6 +154,11 @@ kbd { border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 
 .features h3 { font-size: 1.16rem; line-height: 1.3; margin: 12px 0 8px; letter-spacing: -0.01em; }
 .features p { color: var(--fg-2); margin: 0; font-size: 0.99rem; }
 
+.strip.rules-strip { margin: 0 0 clamp(36px, 5vw, 56px); }
+.strip.rules-strip dd { color: var(--fg); }
+.features.realism .num { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; }
+.features.realism + .group { margin-top: 48px; }
+
 .note {
   margin-top: 40px; padding: 22px 24px;
   background: var(--surface); border: 1px solid var(--line-2); border-left: 3px solid var(--accent);
