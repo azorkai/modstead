@@ -28,7 +28,7 @@ export function Logbook({ view }: { view: CareerView }) {
         <Stat label={t.panel.flights} value={num(p.stats.flights)} />
         <Stat label={t.hero.hours} value={hours(p.stats.hours)} hint={`${t.logbook.block} ${hours(p.stats.simHours)}`} />
         <Stat label={t.logbook.score} value={avg === null ? "—" : num(avg, 0)} tone={avg !== null && avg >= 85 ? "ok" : undefined} />
-        <Stat label={t.panel.butter} value={num(p.stats.butterLandings)} hint={`${num(p.stats.landings)} ${t.logbook.landing.toLowerCase()}`} />
+        <Stat label={t.panel.butter} value={num(p.stats.butterLandings)} hint={t.logbook.landings(num(p.stats.landings))} />
         <Stat label={t.logbook.net} value={money(p.stats.earned - p.stats.spent)} tone={p.stats.earned - p.stats.spent >= 0 ? "ok" : "danger"} />
       </div>
 

@@ -15,11 +15,15 @@ pub mod aircraft;
 pub mod airports;
 pub mod commands;
 pub mod economy;
+pub mod families;
 mod engine;
 pub mod flt;
 pub mod hud;
+pub mod hud_server;
 pub mod jobs;
+pub mod journal;
 pub mod link;
+pub mod menu;
 pub mod model;
 pub mod progression;
 pub mod simconnect;
@@ -121,6 +125,8 @@ pub struct Live {
     pub checks: Vec<Check>,
     pub launch: Option<LaunchView>,
     pub flight: Option<FlightLive>,
+    /// Simin `CAMERA STATE` değeri (2 kokpit, 16 açılış sineması…).
+    pub camera: Option<u32>,
     #[serde(skip)]
     pub last_data: Option<Instant>,
     #[serde(skip)]
@@ -183,6 +189,9 @@ pub struct ActiveView {
     pub accepted_at: i64,
     pub deadline_at: i64,
     pub aircraft: Option<AircraftPick>,
+    pub start: StartAt,
+    /// Kalkış havalimanının pist uçları (simden alındıysa simin verisi, yoksa Modstead'in listesi).
+    pub runway_ends: Vec<String>,
     pub stage: Stage,
     pub launch_note: Option<String>,
     pub from: Option<Airport>,
@@ -209,7 +218,7 @@ pub struct AircraftOption {
     pub title: String,
     pub liveries: Vec<String>,
     pub class: Option<Class>,
-    /// "sim" (bu uçağa binildi, değerler simden) | "user" | "name" (addan tahmin) | "unknown"
+    /// "sim" (bu uçağa binildi, değerler simden) | "user" | "name" (adından tahmin) | "unknown"
     pub class_source: String,
     pub flyable: bool,
     pub manages_own_loading: bool,
@@ -235,6 +244,7 @@ pub struct Career {
     log: Mutex<Vec<LogEntry>>,
     pub(crate) live: Mutex<Live>,
     pub(crate) caches: Mutex<Caches>,
+    pub(crate) journal: journal::Journal,
     link: OnceLock<LinkHandle>,
     sims: SimsFn,
 }
@@ -258,10 +268,13 @@ impl Career {
             sim_airports: (!sim_airports.idents.is_empty()).then(|| sim_airports.idents.into_iter().collect()),
             details: HashMap::new(),
         };
+        let journal = journal::Journal::new(&cache_dir.join("logs"));
+        journal.write("uygulama", &format!("kariyer açıldı (Modstead {})", env!("CARGO_PKG_VERSION")));
         Arc::new(Career {
             services,
             dir,
             cache_dir,
+            journal,
             data: Mutex::new(data),
             log: Mutex::new(log),
             live: Mutex::new(Live { link: LinkView { state: "waiting".into(), ..Default::default() }, ..Default::default() }),
@@ -275,6 +288,11 @@ impl Career {
     pub fn start_link(self: &Arc<Self>) {
         let handler = engine::Engine::new(self.clone());
         let _ = self.link.set(LinkHandle::spawn(handler));
+        // Simin içindeki Modstead sayfalarının yerel sunucusu (yalnızca 127.0.0.1; bkz. hud_server).
+        match hud_server::start(self.clone()) {
+            Some(p) => self.note("panel", format!("panel sunucusu 127.0.0.1:{p} üzerinde")),
+            None => self.note("panel", "panel sunucusu açılamadı (portlar dolu); panel paketteki kopyayla çalışır"),
+        }
     }
 
     pub(crate) fn send(&self, cmd: Command) {
@@ -301,6 +319,21 @@ impl Career {
 
     pub(crate) fn cache_path(&self, name: &str) -> PathBuf {
         self.cache_dir.join(name)
+    }
+
+    /// Kariyer günlüğüne bir satır (bkz. `journal`).
+    pub(crate) fn note(&self, area: &str, msg: impl AsRef<str>) {
+        self.journal.write(area, msg.as_ref());
+    }
+
+    /// Günlüğün son satırları (arayüzdeki "Günlük" bölümü için).
+    pub fn journal_tail(&self, n: usize) -> Vec<String> {
+        self.journal.tail(n)
+    }
+
+    /// Günlük dosyasının yolu (Gezgin'de göstermek için).
+    pub fn journal_path(&self) -> PathBuf {
+        self.journal.path().to_path_buf()
     }
 
     pub(crate) fn sims(&self) -> Vec<crate::sims::SimInstall> {
@@ -339,6 +372,8 @@ impl Career {
                 accepted_at: a.accepted_at,
                 deadline_at: a.deadline_at,
                 aircraft: a.aircraft.clone(),
+                start: a.start.clone(),
+                runway_ends: self.runway_end_names(&a.job.from),
                 stage: a.stage,
                 launch_note: a.launch_note.clone(),
                 from: db().get(&a.job.from).cloned(),
@@ -438,6 +473,7 @@ impl Career {
         d.taken.push(job.id.clone());
         prune_taken(&mut d.taken);
         let t = now();
+        self.note("komut", format!("iş kabul edildi: {} {} → {} ({}, {:?})", job.id, job.from, job.to, job.kind, job.class));
         d.active = Some(ActiveJob { deadline_at: t + (job.deadline_h * 3600.0) as i64, accepted_at: t, job, ..Default::default() });
         self.save(&d);
         drop(d);
@@ -454,6 +490,7 @@ impl Career {
         }
         let checkride = a.job.kind == "checkride";
         let training = a.job.kind == "training";
+        self.note("komut", format!("iş bırakıldı: {}", a.job.id));
         d.active = None;
         if let Some(p) = d.pilot.as_mut() {
             if !checkride && !training {
@@ -483,11 +520,39 @@ impl Career {
         }
     }
 
+    /// Simden alınmış havalimanı ayrıntısı (bellek ya da disk önbelleği).
+    pub fn cached_detail(&self, icao: &str) -> Option<flt::AirportDetail> {
+        let mut c = self.caches.lock().unwrap();
+        if let Some(d) = c.details.get(icao) {
+            return Some(d.clone());
+        }
+        let path = self.cache_path(&format!("airports/{}.json", fsx::sanitize_name(icao)));
+        let d: flt::AirportDetail = fsx::read_json(&path);
+        // Sahne güncellenmiş olabilir: 30 günden eski önbellek yeniden istenir.
+        if d.icao == icao && fsx::now_ts() - d.fetched_at < 30 * 86400 {
+            c.details.insert(icao.to_string(), d.clone());
+            return Some(d);
+        }
+        None
+    }
+
+    /// Kalkış seçiminde gösterilen pist uçları: simin verisi varsa o, yoksa Modstead'in havalimanı listesi.
+    pub fn runway_end_names(&self, icao: &str) -> Vec<String> {
+        let from_sim: Vec<String> = self.cached_detail(icao).map(|d| flt::runway_ends_of(&d).into_iter().map(|e| e.name).collect()).unwrap_or_default();
+        if !from_sim.is_empty() {
+            return from_sim;
+        }
+        db().get(icao).map(|a| a.runway.split('/').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default()
+    }
+
     pub fn installed_aircraft(&self) -> Vec<AircraftOption> {
         let d = self.lock_data();
         let held = d.pilot.as_ref().map(|p| p.licenses.clone()).unwrap_or_default();
         let mut map: Vec<(String, Vec<String>)> = Vec::new();
         for (t, l) in &self.caches.lock().unwrap().installed.items {
+            if aircraft::is_passive(t) {
+                continue;
+            }
             match map.iter_mut().find(|(x, _)| x == t) {
                 Some((_, ls)) => {
                     if !l.is_empty() && !ls.contains(l) {
@@ -535,6 +600,12 @@ impl Career {
 
     /// İş için uçak seçimi. Uçak türü işin sınıfıyla aynı olmak zorunda değildir; lisans ve kapasite yeterli olmalı.
     pub fn pick_aircraft(&self, title: &str, livery: &str, fleet_id: Option<String>) -> AppResult<()> {
+        if aircraft::is_passive(title) {
+            return Err(AppError::msg(tr!(
+                "Bu, simin yapay zekâ trafiği için kullandığı uçulamayan bir model. Listeden başka bir uçak seçin.",
+                "This is a non-flyable model the sim uses for AI traffic. Choose another aircraft from the list."
+            )));
+        }
         let mut d = self.lock_data();
         let (class, _) = Self::class_of(&d, title, "");
         let p = d.pilot.clone().ok_or_else(no_pilot)?;
@@ -558,6 +629,7 @@ impl Career {
             }
         }
         let a = d.active.as_mut().unwrap();
+        self.note("komut", format!("uçak seçildi: {title}{} (sınıf {:?}{})", if livery.is_empty() { String::new() } else { format!(" / {livery}") }, class, fleet_id.as_deref().map(|f| format!(", filo {f}")).unwrap_or_default()));
         a.aircraft = Some(AircraftPick { title: title.to_string(), livery: livery.to_string(), class, fleet_id });
         self.save(&d);
         drop(d);
@@ -566,11 +638,15 @@ impl Career {
     }
 
     /// "Uçuşu başlat": sim kapalıysa açar, sonra uçuşu yükler ve uçağı park yerine koyar (bağlantı iş parçacığı).
-    pub fn launch(&self) -> AppResult<()> {
+    /// `start` verilirse saklanır (park yeri ya da pist başı); verilmezse işin son seçimi kullanılır.
+    pub fn launch(&self, start: Option<StartAt>) -> AppResult<()> {
         {
             let mut d = self.lock_data();
             let a = d.active.as_mut().ok_or_else(|| AppError::msg(tr!("Önce bir iş kabul edin.", "Accept a job first.")))?;
-            if a.aircraft.is_none() {
+            if let Some(s) = start {
+                a.start = s;
+            }
+            if a.aircraft.as_ref().is_none_or(|p| aircraft::is_passive(&p.title)) {
                 return Err(AppError::msg(tr!("Önce bu iş için bir uçak seçin.", "Choose an aircraft for this job first.")));
             }
             if a.tracker.as_ref().is_some_and(|t| t.started()) {
@@ -578,10 +654,13 @@ impl Career {
             }
             a.stage = Stage::Launching;
             a.launch_note = None;
+            let where_ = if a.start.runway { format!("pist başı ({})", a.start.end.as_deref().unwrap_or("otomatik")) } else { "park yeri".into() };
+            self.note("komut", format!("uçuşu başlat: {} → {} · {} · {where_}", a.job.from, a.job.to, a.aircraft.as_ref().map(|p| p.title.as_str()).unwrap_or("?")));
             self.save(&d);
         }
         let sims = self.sims();
         let running = sims.iter().any(|s| s.running);
+        self.note("komut", format!("simler: {}", sims.iter().map(|s| format!("{} {}{}", s.id, s.edition, if s.running { " (açık)" } else { "" })).collect::<Vec<_>>().join(", ")));
         if !running {
             let sim = sims
                 .iter()
@@ -601,6 +680,7 @@ impl Career {
         if live.link.state != "connected" || !live.in_flight {
             return Err(AppError::msg(tr!("Simde bir uçuş açık olmalı.", "A flight must be open in the sim.")));
         }
+        self.note("komut", "park yerine / pist başına taşı");
         self.send(Command::Reposition);
         Ok(())
     }
@@ -615,6 +695,7 @@ impl Career {
         }
         let e = self.complete(&mut d, None);
         drop(d);
+        self.note("komut", format!("uçuş kapatıldı: {} · puan {} · net ${}", e.result, e.summary.score, e.settlement.net));
         self.changed();
         Ok(e)
     }
@@ -630,6 +711,7 @@ impl Career {
         }
         let e = self.complete(&mut d, Some("abandoned"));
         drop(d);
+        self.note("komut", "uçuş yarıda bırakıldı");
         self.changed();
         Ok(Some(e))
     }

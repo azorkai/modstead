@@ -11,6 +11,8 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::SeqCst;
 use std::time::{Duration, Instant};
 
 use modstead_core::fsx;
@@ -19,7 +21,7 @@ use serde::Serialize;
 
 use super::airports::{db, distance_nm};
 use super::model::Stage;
-use super::{Career, tracker::Phase};
+use super::{Career, Check, tracker::Phase};
 use crate::sims::SimInstall;
 use crate::util::{is_link, link_target};
 use crate::{Msfs, linker};
@@ -44,6 +46,7 @@ pub const FIELDS: &[&str] = &[
     "CHECKS_OK",
     "CHECKS_TOTAL",
     "EVENTS",
+    "CHECK_LIST",
 ];
 
 pub fn var_name(field: &str) -> String {
@@ -61,6 +64,22 @@ mod state {
 }
 
 const KINDS: &[&str] = &["training", "cargo", "passenger", "charter", "ferry", "bush", "medical", "airline", "checkride"];
+
+/// Kontrol kapısının sabit sırası (`engine.rs` → `emit_live` kimlikleri). Panel (`MS_CHECK_IDS`) aynı sırayı kullanır.
+pub const CHECK_IDS: &[&str] = &["connected", "in_flight", "at_departure", "aircraft", "slew", "fuel", "payload"];
+
+/// Kontrol kapısı tek sayıda: `CHECK_IDS` sırasıyla her kontrol taban-4 bir basamak, küçük basamak önce
+/// (0 yok, 1 tamam, 2 eksik, 3 eksik ama yalnızca öneri). Bilinmeyen kimlik atlanır.
+pub fn check_list(checks: &[Check]) -> f64 {
+    let mut v = 0.0;
+    for c in checks {
+        if let Some(i) = CHECK_IDS.iter().position(|id| *id == c.id) {
+            let d = if c.ok { 1.0 } else if c.required { 2.0 } else { 3.0 };
+            v += d * 4f64.powi(i as i32);
+        }
+    }
+    v
+}
 
 /// ICAO kodu sayıya: rakamlar 1–10, harfler 11–36, küçük basamak önce (9 karaktere kadar f64'te kesin).
 pub fn icao_code(s: &str) -> f64 {
@@ -108,11 +127,11 @@ pub fn values(career: &Career, seq: u32) -> Vec<f64> {
     set(&mut v, "ETA_MIN", -1.0);
 
     // Kilitler sırayla alınır (iç içe değil): önce canlı durum, sonra kalıcı veri.
-    let (tele, checks) = {
+    let (tele, checks, list) = {
         let live = career.live.lock().unwrap();
         let fresh = live.last_data.is_some_and(|t| t.elapsed() < Duration::from_secs(3));
         let req: Vec<bool> = live.checks.iter().filter(|c| c.required).map(|c| c.ok).collect();
-        (live.telemetry.clone().filter(|_| fresh), (req.iter().filter(|ok| **ok).count(), req.len()))
+        (live.telemetry.clone().filter(|_| fresh), (req.iter().filter(|ok| **ok).count(), req.len()), check_list(&live.checks))
     };
     let d = career.lock_data();
     if d.pilot.is_none() {
@@ -143,6 +162,7 @@ pub fn values(career: &Career, seq: u32) -> Vec<f64> {
     set(&mut v, "TOTAL_NM", a.job.distance_nm);
     set(&mut v, "CHECKS_OK", checks.0 as f64);
     set(&mut v, "CHECKS_TOTAL", checks.1 as f64);
+    set(&mut v, "CHECK_LIST", list);
 
     let dest = db().get(&a.job.to);
     let remaining = match (&tele, dest) {
@@ -199,7 +219,7 @@ impl Feed {
 /// Kütüphanedeki klasör adı (Community'de de bu adla bağlanır).
 pub const FOLDER: &str = "modstead-career-hud";
 /// Paket sürümü: panel dosyaları değişince artırılır; kurulu sürüm eskiyse arayüz güncelleme önerir.
-pub const HUD_VERSION: &str = "0.1.0";
+pub const HUD_VERSION: &str = "0.3.0";
 const TITLE: &str = "Modstead Career HUD";
 const CREATOR: &str = "Modstead";
 
@@ -214,14 +234,53 @@ const FILES: &[(&str, &[u8])] = &[
     file!("html_ui/InGamePanels/ModsteadCareer/ModsteadCareer.html"),
     file!("html_ui/InGamePanels/ModsteadCareer/ModsteadCareer.js"),
     file!("html_ui/InGamePanels/ModsteadCareer/ModsteadCareer.css"),
+    // Yükleyici: kodu ve görünümü Modstead'in yerel sunucusundan alır (bkz. `hud_server`), yoksa paketteki kopyayı.
+    file!("html_ui/InGamePanels/ModsteadCareer/ModsteadLoader.js"),
     file!("html_ui/icons/toolbar/ICON_TOOLBAR_MODSTEAD_CAREER.svg"),
     file!("html_ui/Textures/Menu/toolbar/ICON_TOOLBAR_MODSTEAD_CAREER.svg"),
 ];
+
+/// Paneldeki bir dosyanın gömülü içeriği (`ModsteadCareer.js` gibi; yerel sunucu bunları sunar).
+pub fn panel_file(name: &str) -> &'static [u8] {
+    FILES.iter().find(|(p, _)| p.rsplit('/').next() == Some(name)).map(|(_, b)| *b).unwrap_or_default()
+}
 
 /// Windows FILETIME (1601'den beri 100 ns).
 fn filetime(unix_s: i64) -> u64 {
     ((unix_s + 11_644_473_600) as u64) * 10_000_000
 }
+
+/// Modstead'in sime kurduğu bir paket: araç çubuğu paneli ya da ana menü kutusu (`career::menu`). Kütüphaneye
+/// yazılır ve simlerin Community klasörüne bağlanır; simler kapalıyken (sim paketleri yalnızca açılışta okur ve
+/// oyun açıkken mod klasörüne yazılmaz).
+pub struct SimPackage {
+    /// Kütüphanedeki klasör adı (Community'de de bu adla bağlanır).
+    pub folder: &'static str,
+    pub title: &'static str,
+    /// Paket sürümü: dosyalar değişince artırılır; kurulu sürüm eskiyse arayüz güncelleme önerir.
+    pub version: &'static str,
+    pub files: &'static [(&'static str, &'static [u8])],
+    /// Yalnızca MSFS 2024'e bağlanır (ana menü 2020'de başka).
+    pub only_2024: bool,
+    /// "Sim kapanınca kur" bekliyor mu.
+    pub queued: AtomicBool,
+    /// Günlükte ve bildirimde görünen ad.
+    pub label: (&'static str, &'static str),
+    /// Kurulumda kullanıcının simden üretilen dosyalar (ana menü kutusu simin kendi bileşeninin kopyasını
+    /// kullanır; depoda simin dosyası yoktur). Hata dönerse kurulum yapılmaz.
+    pub generate: Option<fn(&Msfs) -> AppResult<Vec<(String, Vec<u8>)>>>,
+}
+
+pub static HUD: SimPackage = SimPackage {
+    folder: FOLDER,
+    title: TITLE,
+    version: HUD_VERSION,
+    files: FILES,
+    only_2024: false,
+    queued: AtomicBool::new(false),
+    label: ("sim içi panel", "in-sim panel"),
+    generate: None,
+};
 
 #[derive(Serialize)]
 struct LayoutEntry<'a> {
@@ -230,31 +289,167 @@ struct LayoutEntry<'a> {
     date: u64,
 }
 
-fn layout(now: i64) -> String {
-    let content: Vec<LayoutEntry> = FILES.iter().map(|(p, b)| LayoutEntry { path: p, size: b.len(), date: filetime(now) }).collect();
-    serde_json::to_string_pretty(&serde_json::json!({ "content": content })).unwrap()
-}
+impl SimPackage {
+    /// Paketin bütün dosyaları: gömülü olanlar ve kurulumda üretilenler.
+    fn contents(&self, game: Option<&Msfs>) -> AppResult<Vec<(String, Vec<u8>)>> {
+        let mut out: Vec<(String, Vec<u8>)> = self.files.iter().map(|(p, b)| (p.to_string(), b.to_vec())).collect();
+        if let (Some(f), Some(g)) = (self.generate, game) {
+            out.extend(f(g)?);
+        }
+        Ok(out)
+    }
 
-fn manifest() -> String {
-    let total: usize = FILES.iter().map(|(_, b)| b.len()).sum();
-    serde_json::to_string_pretty(&serde_json::json!({
-        "dependencies": [],
-        "content_type": "MISC",
-        "title": TITLE,
-        "manufacturer": CREATOR,
-        "creator": CREATOR,
-        "package_version": HUD_VERSION,
-        "minimum_game_version": "1.0.0",
-        "release_notes": { "neutral": { "LastUpdate": "", "OlderHistory": "" } },
-        "total_package_size": format!("{total:020}"),
-    }))
-    .unwrap()
-}
+    fn layout_of(files: &[(String, Vec<u8>)], now: i64) -> String {
+        let content: Vec<LayoutEntry> = files.iter().map(|(p, b)| LayoutEntry { path: p, size: b.len(), date: filetime(now) }).collect();
+        serde_json::to_string_pretty(&serde_json::json!({ "content": content })).unwrap()
+    }
 
-/// Kütüphanedeki paket bizim mi? (Başka bir şeyin üstüne yazmayalım, başka bir şeyi silmeyelim.)
-fn ours(dir: &Path) -> Option<String> {
-    let m: serde_json::Value = serde_json::from_slice(&fs::read(dir.join("manifest.json")).ok()?).ok()?;
-    (m["title"] == TITLE && m["creator"] == CREATOR).then(|| m["package_version"].as_str().unwrap_or_default().to_string())
+    #[cfg(test)]
+    fn layout(&self, now: i64) -> String {
+        Self::layout_of(&self.contents(None).unwrap(), now)
+    }
+
+    #[cfg(test)]
+    fn manifest(&self) -> String {
+        self.manifest_of(&self.contents(None).unwrap())
+    }
+
+    fn manifest_of(&self, files: &[(String, Vec<u8>)]) -> String {
+        let total: usize = files.iter().map(|(_, b)| b.len()).sum();
+        serde_json::to_string_pretty(&serde_json::json!({
+            "dependencies": [],
+            "content_type": "MISC",
+            "title": self.title,
+            "manufacturer": CREATOR,
+            "creator": CREATOR,
+            "package_version": self.version,
+            "minimum_game_version": "1.0.0",
+            "release_notes": { "neutral": { "LastUpdate": "", "OlderHistory": "" } },
+            "total_package_size": format!("{total:020}"),
+        }))
+        .unwrap()
+    }
+
+    /// Kütüphanedeki paket bizim mi? (Başka bir şeyin üstüne yazmayalım, başka bir şeyi silmeyelim.)
+    fn ours(&self, dir: &Path) -> Option<String> {
+        let m: serde_json::Value = serde_json::from_slice(&fs::read(dir.join("manifest.json")).ok()?).ok()?;
+        (m["title"] == self.title && m["creator"] == CREATOR).then(|| m["package_version"].as_str().unwrap_or_default().to_string())
+    }
+
+    /// Bu paketin bağlanacağı simler.
+    fn targets(&self, sims: &[SimInstall]) -> Vec<SimInstall> {
+        sims.iter().filter(|s| s.usable() && (!self.only_2024 || s.id == crate::sims::SIM_2024)).cloned().collect()
+    }
+
+    fn linked_in(&self, s: &SimInstall, pkg: &Path) -> bool {
+        let key = fsx::norm_key(pkg);
+        s.containers().iter().any(|(_, dir)| {
+            let p = dir.join(self.folder);
+            is_link(&p) && link_target(&p).is_some_and(|t| fsx::norm_key(&t) == key)
+        })
+    }
+
+    /// Kütüphanedeki paket klasörü (kütüphane seçiliyse).
+    pub fn dir(&self, game: &Msfs) -> Option<PathBuf> {
+        game.settings().library_path.map(|l| l.join(self.folder))
+    }
+
+    pub fn status(&self, game: &Msfs) -> HudStatus {
+        let library = game.settings().library_path;
+        let pkg = library.as_ref().map(|l| l.join(self.folder));
+        let version = pkg.as_deref().and_then(|p| self.ours(p));
+        let sims = self
+            .targets(&game.sims())
+            .into_iter()
+            .map(|s| HudSim { linked: pkg.as_deref().is_some_and(|p| version.is_some() && self.linked_in(&s, p)), running: s.running, short: s.short.clone(), id: s.id })
+            .collect();
+        HudStatus { library: library.is_some(), installed: version.is_some(), version, latest: self.version.into(), sims, queued: self.queued.load(SeqCst) }
+    }
+
+    /// Paketi kütüphaneye yazar (varsa günceller) ve simlere bağlar. Simler kapalı olmalı.
+    pub fn install(&self, game: &Msfs) -> AppResult<HudStatus> {
+        let sims = game.sims();
+        ensure_closed(&sims)?;
+        let library = game.library()?;
+        let folder = self.folder;
+        let pkg = library.join(folder);
+        if pkg.exists() && self.ours(&pkg).is_none() {
+            return Err(AppError::msg(tr!(
+                format!("Kütüphanede '{folder}' adında başka bir klasör var; dokunulmadı."),
+                format!("The library already has another folder named '{folder}'; it was left untouched.")
+            )));
+        }
+        // Önce yanına yazılır, sonra yer değiştirilir: yarım paket bağlı kalmasın.
+        let staging = library.join(format!(".{folder}.new"));
+        if staging.exists() {
+            fs::remove_dir_all(&staging)?;
+        }
+        let files = self.contents(Some(game))?;
+        for (rel, bytes) in &files {
+            let path = staging.join(rel);
+            fs::create_dir_all(path.parent().unwrap())?;
+            fs::write(&path, bytes)?;
+        }
+        fs::write(staging.join("layout.json"), Self::layout_of(&files, fsx::now_ts()))?;
+        fs::write(staging.join("manifest.json"), self.manifest_of(&files))?;
+        if pkg.exists() {
+            fs::remove_dir_all(&pkg)?;
+        }
+        fs::rename(&staging, &pkg)?;
+        for s in self.targets(&sims) {
+            linker::enable(&sims, &library, &pkg, "any", &s.id)?;
+        }
+        game.career().note("paket", format!("{} kuruldu: {} ({})", self.label.0, pkg.display(), self.version));
+        Ok(self.status(game))
+    }
+
+    /// Bağlantıları kaldırır ve kütüphanedeki paketi siler (yalnızca bizimse).
+    pub fn remove(&self, game: &Msfs) -> AppResult<HudStatus> {
+        let sims = game.sims();
+        ensure_closed(&sims)?;
+        let library = game.library()?;
+        let pkg: PathBuf = library.join(self.folder);
+        if self.ours(&pkg).is_some() {
+            for s in self.targets(&sims) {
+                linker::disable(&sims, &library, &pkg, &s.id)?;
+            }
+            fs::remove_dir_all(&pkg)?;
+            game.career().note("paket", format!("{} kaldırıldı", self.label.0));
+        }
+        Ok(self.status(game))
+    }
+
+    /// "Sim kapanınca kur"u açar ya da kapatır. Bir arka plan iş parçacığı simleri 5 saniyede bir yoklar.
+    pub fn queue(&'static self, game: &Msfs, on: bool) -> HudStatus {
+        if !on {
+            self.queued.store(false, SeqCst);
+        } else if !self.queued.swap(true, SeqCst) {
+            let g = game.clone();
+            g.career().note("paket", format!("{}: sim kapanınca kurulacak", self.label.0));
+            std::thread::spawn(move || {
+                while self.queued.load(SeqCst) {
+                    std::thread::sleep(Duration::from_secs(5));
+                    if !self.queued.load(SeqCst) || g.sims().iter().any(|s| s.usable() && s.running) {
+                        continue;
+                    }
+                    // Sim kapanır kapanmaz dosyaları hâlâ tutuyor olabilir: kısa bir bekleme.
+                    std::thread::sleep(Duration::from_secs(3));
+                    match self.install(&g) {
+                        Ok(_) => g.services.notify(
+                            Tone::Ok,
+                            tr!(format!("Kuruldu: {}", self.label.0), format!("Installed: {}", self.label.1)),
+                            Some(tr!("Simi açınca yeni hali görünecek.", "It shows up the next time you start the sim.").to_string()),
+                        ),
+                        Err(e) => g.career().note("paket", format!("{}: sim kapandı ama kurulamadı: {e}", self.label.0)),
+                    }
+                    self.queued.store(false, SeqCst);
+                    g.rescan();
+                    g.changed();
+                }
+            });
+        }
+        self.status(game)
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -275,27 +470,8 @@ pub struct HudStatus {
     pub version: Option<String>,
     pub latest: String,
     pub sims: Vec<HudSim>,
-}
-
-fn linked_in(s: &SimInstall, pkg: &Path) -> bool {
-    let key = fsx::norm_key(pkg);
-    s.containers().iter().any(|(_, dir)| {
-        let p = dir.join(FOLDER);
-        is_link(&p) && link_target(&p).is_some_and(|t| fsx::norm_key(&t) == key)
-    })
-}
-
-pub fn status(game: &Msfs) -> HudStatus {
-    let library = game.settings().library_path;
-    let pkg = library.as_ref().map(|l| l.join(FOLDER));
-    let version = pkg.as_deref().and_then(ours);
-    let sims = game
-        .sims()
-        .into_iter()
-        .filter(|s| s.usable())
-        .map(|s| HudSim { linked: pkg.as_deref().is_some_and(|p| version.is_some() && linked_in(&s, p)), running: s.running, short: s.short.clone(), id: s.id })
-        .collect();
-    HudStatus { library: library.is_some(), installed: version.is_some(), version, latest: HUD_VERSION.into(), sims }
+    /// "Sim kapanınca kur" bekliyor mu.
+    pub queued: bool,
 }
 
 fn ensure_closed(sims: &[SimInstall]) -> AppResult<()> {
@@ -305,55 +481,20 @@ fn ensure_closed(sims: &[SimInstall]) -> AppResult<()> {
     Ok(())
 }
 
-/// Paketi kütüphaneye yazar (varsa günceller) ve kullanılabilir bütün simlere bağlar. Simler kapalı olmalı.
-pub fn install(game: &Msfs) -> AppResult<HudStatus> {
-    let sims = game.sims();
-    ensure_closed(&sims)?;
-    let library = game.library()?;
-    let pkg = library.join(FOLDER);
-    if pkg.exists() && ours(&pkg).is_none() {
-        return Err(AppError::msg(tr!(
-            format!("Kütüphanede '{FOLDER}' adında başka bir klasör var; dokunulmadı."),
-            format!("The library already has another folder named '{FOLDER}'; it was left untouched.")
-        )));
-    }
-    // Önce yanına yazılır, sonra yer değiştirilir: yarım paket bağlı kalmasın.
-    let staging = library.join(format!(".{FOLDER}.new"));
-    if staging.exists() {
-        fs::remove_dir_all(&staging)?;
-    }
-    for (rel, bytes) in FILES {
-        let path = staging.join(rel);
-        fs::create_dir_all(path.parent().unwrap())?;
-        fs::write(&path, bytes)?;
-    }
-    fs::write(staging.join("layout.json"), layout(fsx::now_ts()))?;
-    fs::write(staging.join("manifest.json"), manifest())?;
-    if pkg.exists() {
-        fs::remove_dir_all(&pkg)?;
-    }
-    fs::rename(&staging, &pkg)?;
-    for s in sims.iter().filter(|s| s.usable()) {
-        linker::enable(&sims, &library, &pkg, "any", &s.id)?;
-    }
-    log::info!("kariyer HUD paketi kuruldu: {}", pkg.display());
-    Ok(status(game))
+pub fn status(game: &Msfs) -> HudStatus {
+    HUD.status(game)
 }
 
-/// Bağlantıları kaldırır ve kütüphanedeki paketi siler (yalnızca bizimse).
+pub fn install(game: &Msfs) -> AppResult<HudStatus> {
+    HUD.install(game)
+}
+
 pub fn remove(game: &Msfs) -> AppResult<HudStatus> {
-    let sims = game.sims();
-    ensure_closed(&sims)?;
-    let library = game.library()?;
-    let pkg: PathBuf = library.join(FOLDER);
-    if ours(&pkg).is_some() {
-        for s in sims.iter().filter(|s| s.usable()) {
-            linker::disable(&sims, &library, &pkg, &s.id)?;
-        }
-        fs::remove_dir_all(&pkg)?;
-        log::info!("kariyer HUD paketi kaldırıldı");
-    }
-    Ok(status(game))
+    HUD.remove(game)
+}
+
+pub fn queue(game: &Msfs, on: bool) -> HudStatus {
+    HUD.queue(game, on)
 }
 
 #[cfg(test)]
@@ -389,16 +530,91 @@ mod tests {
     }
 
     #[test]
+    fn check_list_matches_the_panel() {
+        let c = |id: &str, ok: bool, required: bool| Check { id: id.into(), ok, required, detail: String::new() };
+        let v = check_list(&[c("connected", true, true), c("at_departure", false, true), c("fuel", false, false), c("other", false, true)]);
+        // Panel gibi çöz: basamak başına 0 yok, 1 tamam, 2 eksik, 3 öneri.
+        let mut n = v as u64;
+        let digits: Vec<u64> = (0..CHECK_IDS.len()).map(|_| { let d = n % 4; n /= 4; d }).collect();
+        assert_eq!(digits, [1, 0, 2, 0, 0, 3, 0]);
+        assert_eq!(check_list(&[]), 0.0);
+        // Panel aynı sırayı kullanmalı.
+        let js = std::str::from_utf8(FILES.iter().find(|(p, _)| p.ends_with(".js")).unwrap().1).unwrap();
+        let ids = CHECK_IDS.iter().map(|id| format!("\"{id}\"")).collect::<Vec<_>>().join(", ");
+        assert!(js.contains(&format!("var MS_CHECK_IDS = [{ids}];")), "panelin kontrol sırası CHECK_IDS ile aynı değil");
+    }
+
+    /// Simin motoru panel betiğinde tek bir sözdizimi hatasında bütün paneli boş bırakır (ilk gerçek denemede bir
+    /// dizgedeki satır sonu yüzünden böyle oldu). Kaba bir tarayıcı: yorumları atlar, dizgeleri izler.
+    #[test]
+    fn panel_script_strings_and_brackets_are_closed() {
+        let js = std::str::from_utf8(FILES.iter().find(|(p, _)| p.ends_with(".js")).unwrap().1).unwrap();
+        assert!(!js.contains('`'), "şablon dizgesi (ES2015 sonrası araçlarla karışır) kullanılmasın");
+        // Kaçış dizisi yerine bayt değerleri: satır sonu, ters bölü, tek ve çift tırnak.
+        const NL: u8 = 10;
+        const BS: u8 = 92;
+        const SQ: u8 = 39;
+        const DQ: u8 = 34;
+        let b = js.as_bytes();
+        let (mut i, mut line) = (0, 1);
+        let mut stack: Vec<(u8, usize)> = Vec::new();
+        while i < b.len() {
+            match b[i] {
+                NL => line += 1,
+                b'/' if b.get(i + 1) == Some(&b'/') => {
+                    while i < b.len() && b[i] != NL {
+                        i += 1;
+                    }
+                    continue;
+                }
+                b'/' if b.get(i + 1) == Some(&b'*') => {
+                    let end = js[i + 2..].find("*/").expect("kapanmayan yorum");
+                    line += js.as_bytes()[i..i + 2 + end].iter().filter(|c| **c == NL).count();
+                    i += end + 4;
+                    continue;
+                }
+                q @ (SQ | DQ) => {
+                    let start = line;
+                    i += 1;
+                    while b[i] != q {
+                        assert!(b[i] != NL, "{start}. satırdaki dizge satır sonunda kapanmıyor");
+                        i += if b[i] == BS { 2 } else { 1 };
+                    }
+                }
+                o @ (b'(' | b'[' | b'{') => stack.push((o, line)),
+                c @ (b')' | b']' | b'}') => {
+                    let (o, at) = stack.pop().unwrap_or_else(|| panic!("{line}. satırda fazladan '{}'", c as char));
+                    let want = match o {
+                        b'(' => b')',
+                        b'[' => b']',
+                        _ => b'}',
+                    };
+                    assert_eq!(c, want, "{at}. satırda açılan parantez {line}. satırda yanlış kapanıyor");
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        assert!(stack.is_empty(), "kapanmayan parantez: {:?}", stack.last());
+    }
+
+    #[test]
     fn package_files_are_consistent() {
         let html = std::str::from_utf8(FILES[1].1).unwrap();
         assert!(html.contains("panel-id=\"PANEL_MODSTEAD_CAREER\"") && html.contains("ingamepanel-modstead"));
+        // Kod ve görünüm yükleyiciyle gelir (yerel sunucu ya da paketteki kopya); yükleyici aynı portları dener.
+        assert!(html.contains("src=\"ModsteadLoader.js\"") && !html.contains("src=\"ModsteadCareer.js\""));
+        let loader = std::str::from_utf8(panel_file("ModsteadLoader.js")).unwrap();
+        let ports = super::super::hud_server::PORTS.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(", ");
+        assert!(loader.contains(&format!("var PORTS = [{ports}];")), "yükleyicinin portları sunucuyla aynı değil");
+        assert!(loader.contains("\"ModsteadCareer.js\"") && loader.contains("\"ModsteadCareer.css\""));
         // .spb dosya kimliği ve içindeki adlar (metinler kodlu; boyutu kaynakla tutarlı).
         assert_eq!(&FILES[0].1[..2], &[0xAC, 0xEB]);
         assert_eq!(FILES[0].1.len(), 698);
-        let l: serde_json::Value = serde_json::from_str(&layout(1_700_000_000)).unwrap();
+        let l: serde_json::Value = serde_json::from_str(&HUD.layout(1_700_000_000)).unwrap();
         assert_eq!(l["content"].as_array().unwrap().len(), FILES.len());
         assert_eq!(l["content"][0]["date"], 133_444_736_000_000_000u64);
-        let m: serde_json::Value = serde_json::from_str(&manifest()).unwrap();
+        let m: serde_json::Value = serde_json::from_str(&HUD.manifest()).unwrap();
         assert_eq!(m["package_version"], HUD_VERSION);
         assert_eq!(m["total_package_size"].as_str().unwrap().len(), 20);
     }

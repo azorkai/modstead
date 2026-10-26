@@ -40,7 +40,7 @@ Oyundan bağımsız her şey. Bilerek Tauri'ye bağlı değildir; testler pencer
 | `jobs` | görev kuyruğu; `modstead://job` olayı; inceleme planı oyuna özel JSON | Otağ |
 | `nexus` / `nxm` | Nexus v2 GraphQL + v1 (oyun parametreli): arama (`search_with`: kategori süzgeci), kategori sayıları (`category_counts`), mod/dosya bilgisi; nxm ayrıştırma (alan adıyla), protokol kaydı | Otağ |
 | `github` | sürümler ve `digest` SHA-256 (isteğe bağlı belirteç) | Otağ |
-| `stores` | Steam kütüphaneleri/Workshop, GOG, Epic, Xbox tespiti | Vadi + Otağ |
+| `stores` | Steam kütüphaneleri/Workshop, GOG, Epic, Xbox tespiti; Microsoft Store uygulama sürümü (`appx_versions`, oyun güncellemesini fark etmek için) | Vadi + Otağ |
 | `version` | hoşgörülü sürüm karşılaştırma | Vadi |
 | `settings` / `paths` / `services` | genel ayarlar, veri klasörleri, oyunlara verilen ortak servisler | yeni |
 | `game` | **oyun sözleşmesi** (`Game`, `GameInfo`, `GameStatus`, `GameRegistry`) | yeni |

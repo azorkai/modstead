@@ -5,7 +5,8 @@ import { ArrowRight, Award, Briefcase, CircleCheck, Feather, Plane, Route as Rou
 import { useLang } from "@/lib/i18n";
 import { Badge, Button, EmptyState, Progress } from "@/ui";
 import { ActiveJob } from "./ActiveJob";
-import { HudCard } from "./Hud";
+import { HudCard, MenuCard } from "./Hud";
+import { JournalCard } from "./Journal";
 import { TONE_BG, TONE_TEXT, gradeTone, hours, landingTone, money, num } from "./format";
 import { useCareerT } from "./i18n";
 import { Route } from "./parts";
@@ -17,7 +18,7 @@ export function Dashboard({ view }: { view: CareerView }) {
   const setTab = useCareerUi((s) => s.setTab);
   return (
     <div className="grid grid-cols-[1.55fr_1fr] items-start gap-5">
-      <div className="min-w-0">
+      <div className="flex min-w-0 flex-col gap-5">
         {view.active ? (
           <ActiveJob view={view} active={view.active} />
         ) : (
@@ -35,11 +36,13 @@ export function Dashboard({ view }: { view: CareerView }) {
             </EmptyState>
           </section>
         )}
+        <JournalCard />
       </div>
       <div className="flex min-w-0 flex-col gap-5">
         <NextGoal view={view} />
         <Summary view={view} />
         <Recent view={view} />
+        <MenuCard />
         <HudCard />
       </div>
     </div>

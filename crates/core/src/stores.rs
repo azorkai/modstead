@@ -92,6 +92,32 @@ pub fn steam_workshop_dir(game_root: &Path, app_id: u32) -> Option<PathBuf> {
     w.is_dir().then_some(w)
 }
 
+/// Microsoft Store (MSIX) uygulamasının kurulu sürümleri. Kayıt defterinde her kurulum
+/// `…\AppModel\Repository\Packages\<Ad>_<sürüm>_<mimari>__<yayıncı>` anahtarıdır; `name` paketin adıdır
+/// (ör. `Publisher.App`). Oyun güncellenince sürüm değişir; oyunlar bunu güncellemeleri fark etmek için kullanır.
+#[cfg(windows)]
+pub fn appx_versions(name: &str) -> Vec<String> {
+    use winreg::RegKey;
+    use winreg::enums::HKEY_CURRENT_USER;
+    let Ok(k) = RegKey::predef(HKEY_CURRENT_USER).open_subkey("Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\CurrentVersion\\AppModel\\Repository\\Packages") else {
+        return Vec::new();
+    };
+    appx_versions_in(k.enum_keys().flatten(), name)
+}
+
+#[cfg(not(windows))]
+pub fn appx_versions(_name: &str) -> Vec<String> {
+    Vec::new()
+}
+
+fn appx_versions_in(keys: impl Iterator<Item = String>, name: &str) -> Vec<String> {
+    let prefix = format!("{name}_");
+    let mut v: Vec<String> = keys.filter_map(|k| k.strip_prefix(&prefix).and_then(|r| r.split('_').next()).filter(|s| !s.is_empty()).map(str::to_string)).collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
 /// GOG kayıt defteri: başlığı ya da oyun kimliği eşleşen kurulumların klasörleri.
 #[cfg(windows)]
 pub fn gog_games(matches: impl Fn(&str, &str) -> bool) -> Vec<PathBuf> {
@@ -343,6 +369,13 @@ pub fn verified(candidates: Vec<(PathBuf, &'static str)>, valid: impl Fn(&Path) 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn appx_version_from_package_keys() {
+        let keys = ["Publisher.App_1.9.21.0_x64__abc", "Publisher.App_1.10.2.0_x64__abc", "Publisher.AppOther_2.0.0.0_x64__abc", "Publisher.App_1.9.21.0_neutral__abc", "Other_1.0_x64__x"];
+        assert_eq!(appx_versions_in(keys.iter().map(|s| s.to_string()), "Publisher.App"), ["1.10.2.0", "1.9.21.0"]);
+        assert!(appx_versions_in(std::iter::empty(), "Publisher.App").is_empty());
+    }
 
     #[test]
     fn parses_vdf_paths() {

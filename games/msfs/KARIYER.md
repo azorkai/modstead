@@ -5,9 +5,9 @@
 Sıfırdan başlayan bir pilotun iş alıp büyüdüğü, uçuşlarının simde hazırlanıp takip edildiği ve seyir defterine
 işlendiği kariyer sistemi. MSFS 2024 için tasarlandı; MSFS 2020'de de çalışır (aşağıdaki sınırla).
 
-**Modstead'e gömülüdür.** Kariyerin verisi, kuralları ve sim bağlantısı Modstead'in içindedir; kariyer için simin içine
-paket kurulmaz. Modstead kapalıyken kariyer yoktur. İsteğe bağlı sim içi panel (bölüm 3a) yalnızca Modstead'in
-yazdığını gösterir; Modstead kapalıyken "bağlı değil" der.
+**Modstead'e gömülüdür.** Kariyerin verisi, kuralları ve sim bağlantısı Modstead'in içindedir; kariyerin kendisi için
+simin içine paket kurulmaz. Modstead kapalıyken kariyer yoktur. İsteğe bağlı sim içi panel (bölüm 3a) ve ana menü
+kutusu (bölüm 3b) yalnızca Modstead'in verdiğini gösterir; Modstead kapalıyken panel "bağlı değil" der, kutu görünmez.
 
 ## 1. Araştırma: başkaları nasıl yapıyor?
 
@@ -58,15 +58,56 @@ sim çökünce uçuşun kaybı (aktif uçuş 20 sn'de bir diske yazılır, sim a
 2. Kalkış havalimanının park yerleri **simin kendi verisinden** alınır (`RequestFacilityData`: TAXI_PARKING tür,
    ad, numara, yarıçap, referans noktasına göre kayma). İşe ve uçağın boyutuna uygun yer seçilir: hafif uçak GA
    apronuna, yolcu jeti kapıya, kargo jeti kargo apronuna. Önbelleğe yazılır (30 gün).
-3. `.FLT` (uçak başlığı, boya, park yeri, konum, saat, canlı hava) ve `.PLN` (doğrudan rota) yazılır.
-4. Kullanıcı zaten doğru uçakla bir uçuştaysa uçak doğrudan park yerine taşınır (`Initial Position`); değilse
-   `SimConnect_FlightLoad` denenir.
-5. Uçuş açılınca konum denetlenir; park yerinden 150 m'den uzaksa taşınır. Yük istasyonlara yazılır (1. istasyon
-   pilot sayılır, yük kalanlara dağıtılır).
+3. `.FLT` (uçak başlığı, boya, park yeri ya da pist ucu, konum, saat, canlı hava, plan) ve `.PLN` (doğrudan rota)
+   yazılır.
+4. Kullanıcı zaten doğru uçakla bir uçuştaysa uçak doğrudan park yerine ya da pist başına taşınır
+   (`Initial Position`); değilse `SimConnect_FlightLoad` gönderilir. Sim ana menüde de olsa başka bir uçuşta da olsa
+   yükleme doğrudan yapılır.
+5. Uçuş açılınca konum denetlenir; hedeften 150 m'den uzaksa taşınır. Yük istasyonlara yazılır (1. istasyon pilot
+   sayılır, yük kalanlara dağıtılır).
 6. 150 saniyede uçuş açılmazsa **elle kip**: kullanıcı serbest uçuşu kalkış havalimanında açar, "Park yerine taşı"ya
    basar. Kontrol kapısı yeşile dönünce takip kurulur; motorlar çalışınca ya da uçak hareket edince uçuş başlar.
 
-Modstead'in kendi ışınlaması 30 saniyelik bir pencereyle hile sayılmaz.
+Modstead'in kendi ışınlaması 30 saniyelik bir pencereyle hile sayılmaz. Uçuş yüklenirken ve sim bir uçuşu yükleyip
+uçağı yerleştirirken (`FLT_LOAD`, `TELEPORT_*`, `SimStart` sonrası 5 sn) takip güncellenmez: yüklemede görülen anlık
+hızlar (8 kt) uçuşu "başladı" saymasın.
+
+### MSFS 2024'te gerçek simde öğrenilenler (25.10.2026, sim 1.9.21.0)
+
+- **Uçuş dosyası biçimi.** 2024, `FlightLoad` ile yalnızca kendi serbest uçuş dosyasının yapısını açar; eksik yapıdaki
+  dosyayı hata vermeden yok sayar (2020 biçimimiz ana menüde hiçbir şey yapmadı). `flt::write_flt_2024`, simin
+  `MISSIONS\Custom\CustomFlight\CustomFlight.FLT` dosyasından uçağa özel bölümler (yakıt, motor, ışık, kokpit
+  değişkenleri) atılarak çıkarılan şablondur: `[ObjectFile]`/`[WolfProgram]` serbest uçuş mantığı, kabin hizmetleri,
+  ATC, pencere. `[Departure]`/`[Arrival]` yazılmaz (2024 uçağı başka yere koyabiliyor). Plan `[GPS_Engine]` ile verilir:
+  yerden başlarken uçağın yeri değişmiyor, simin GPS'ine aktif plan olarak giriyor (sıradaki nokta varış).
+- **Uçulamayan modeller.** `EnumerateSimObjectsAndLiveries` listesindeki 520 başlığın 351'i yapay zekâ trafiği için
+  "Passive" modeller; listeden çıkarılır ve seçilemez (`aircraft::is_passive`).
+- **Menü de veri gönderir.** 2024 ana menüdeyken kullanıcı uçağının verisini son uçuşun konumuyla göndermeyi sürdürür
+  (ilk açılışta yer tutucu 0°, 90°). Uçuşta mı sorusunu kamera cevaplar (`CAMERA STATE`, saniyede bir, değişince):
+  32 ana menü, 12 dünya haritası, 35 geçiş, 31 kullanıcı uçağın dışında / "Uçuşa hazır", 16 oyun içi sinema, 29 ESC
+  menüsü, 2 kokpit, 3 dış kamera. Menü kameralarında gelen veri uçuş sayılmaz; sim duraklatılınca veri durur ama kamera
+  uçuşu gösterir.
+- **Pist başı.** Simin `FLIGHT_RUNWAY` durumu yalnızca ana menüden yüklenince sağlıklı açılır ("Uçuşa hazır" → kısa kalkış
+  sineması → kokpit, motorlar çalışır). Açık bir uçuşun üstüne yüklenince "Uçuşa hazır" gelmez ve sinemada (kamera 16)
+  takılı kalır; kamera değişkeni de yazılamaz. Bu yüzden uçuş açıkken pist başı `PREFLIGHT_TAXI` ile yüklenir: pilot
+  koltukta, motorlar çalışır, sinema yok. Ardından kamera 31'de kalıyorsa Modstead kamerayı kokpite (2) alır.
+  ("Görüşü sıfırla", `CAMERA REQUEST ACTION` 1, kamerayı dışarı attığı için kullanılmaz.)
+- **Park yeri.** 2024 park yerinden başlarken kullanıcıyı bilerek uçağın yanında başlatır (dış kontrol); Shift+C ile
+  binilir. Kamerayı kokpite çevirmek pilotu koltuğa oturtmuyor, dışarıdaki pilotun gözüne geçiyor: dokunulmaz.
+- **Motorlar dışarıdan açılmıyor.** `ENGINE_AUTO_START` olayı ve `GENERAL ENG COMBUSTION` değişkeni 2024 uçaklarında etki
+  etmiyor; motorlar ancak simin taksi/pist durumuyla çalışır gelir.
+- **Avionik.** `FlightPlanLoad` yalnızca simin ATC planını doldurur; aviyoniklere plan göndermek için simin içindeki
+  JavaScript'e açık "Planned Route API" gerekir (Working Title, DevSupport, 2025). `[GPS_Engine]` simin GPS'ine yükler.
+
+Bütün bunlar kariyer günlüğünde izlenebilir (aşağıda).
+
+### Kariyer günlüğü
+
+`career::journal`: simle konuşmanın ve takibin ayrıntılı, sürekli kaydı (`<önbellek>/career/logs/career.log`, 4 MB'de
+döner, iki eski kopya). Bağlantı, her başlatma adımı, FlightLoad'un yolu ve hedefi, simin akış ve sistem olayları,
+kamera değişimleri, menü/uçuş geçişleri, ışınlamalar, SimConnect istisnaları, takip evreleri ve cezalar, kullanıcının
+komutları, paket kurulumları ve simin içinden gelen işlemler yazılır. Kariyer → Panel'deki "Günlük" kartı son satırları
+gösterir.
 
 ## 3. Mimari
 
@@ -82,11 +123,16 @@ games/msfs/src/career/
   aircraft.rs     uçak sınıfları; simden okunan değerlerle ya da addan sınıflandırma
   airports.rs     gömülü havalimanı veritabanı (airports.tsv) ve coğrafi hesaplar
   hud.rs          sim içi panel: L: değişkenleri, paketin kurulumu
-  flt.rs          park yeri seçimi, .FLT/.PLN yazımı, SimBrief bağlantısı
+  hud_server.rs   simin içindeki sayfalar için 127.0.0.1'de yerel sunucu: kod, kariyer verisi, kariyer işlemleri
+  menu.rs         MSFS 2024 ana menü kutusu: simin kendi bileşeninden paket üretimi, güncelleme koruması
+  families.rs     uçak aileleri: simdeki başlık için gerçek uçak tipi ve fotoğrafı
+  journal.rs      kariyer günlüğü: sim bağlantısının, uçuş başlatmanın ve takibin ayrıntılı kaydı
+  flt.rs          park yeri seçimi, .FLT/.PLN yazımı (2020 ve 2024 biçimi), SimBrief bağlantısı
   model.rs        kalıcı veri; mod.rs: Career (işlemler, uçuş sonu hesap); commands.rs: msfs_career_* komutları
-games/msfs/ui/career/   Kariyer sayfası (Panel, İş ilanları, Seyir defteri, Lisanslar, Hangar ve finans)
+games/msfs/ui/career/   Kariyer sayfası (Panel, İş ilanları, Seyir defteri, Lisanslar, Hangar ve finans); aircraft/ fotoğraflar ve aileler
 games/msfs/tools/       airports.py (OurAirports → airports.tsv), map.py (Natural Earth → ui/career/map/)
-games/msfs/hud/         sim içi panel paketi (package/) ve panel tanımının kaynağı (source/); hud.rs kurar ve besler
+games/msfs/hud/         araç çubuğu paneli paketi (package/) ve tanımının kaynağı (source/); ana menü paketi
+                        (menu-package/) ve ana menü arayüzü (menu/, hud_server.rs verir)
 ```
 
 **Sim bağlantısı.** MSFS 2024 her kurulumda `SimConnect.xml`'e yerel bir IPv4 girişi (öntanımlı 500) yazar;
@@ -107,12 +153,26 @@ saati, kaza bayrağı. Bir değişkeni tanımayan sürümde sim hata döner; Mod
 `msfs://career` (veri değişti). Uçuş bitince Modstead bildirimi.
 
 **Veri:** `games/msfs/career/{career.json, logbook.json, tracks/<uçuş>.json}` (kalıcı);
-önbellek `…/career/{aircraft.json, sim-airports.json, airports/<ICAO>.json, flights/<iş>/}`.
+önbellek `…/career/{aircraft.json, sim-airports.json, airports/<ICAO>.json, flights/<iş>/, logs/career.log}`.
 
 ## 3a. Sim içi panel (HUD)
 
 MSFS araç çubuğuna eklenen bir Modstead paneli: rota, evre, ilerleme, kalan mesafe, tahmini varış, puan, son teslim,
 son iniş, ücret; hazırlıkta kontrol kapısı. Tam ekranda ve VR'da da görünür (masaüstü üstü pencere bunu yapamaz).
+
+**Ekranlar** (başlık çubuğunda durum noktası: yeşil bağlı, gri bağlanıyor, kırmızı bağlı değil):
+
+| Durum | Gösterilen |
+|---|---|
+| Bağlanıyor | Panel açılınca `SEQ` bir kez artana kadar (en çok 2,5 sn). |
+| Modstead bağlı değil | Neden ve ne yapılacağı. Dil hiç öğrenilmediyse İngilizcesi de altta. |
+| Kariyer yok / aktif iş yok | Ne yapılacağı ve Modstead'deki yol (Modstead › MSFS › Kariyer, Kariyer › İş ilanları). |
+| Hazırlanıyor / kalkışa hazır | Rota, mesafe, planlanan süre, ücret, son teslim, kontrol kapısı (adlarıyla). Hazırken yalnızca kalan öneriler ve takibin ne zaman başladığı. |
+| Uçuşta | Rota çizgisi ilerlemeyle dolar; kalan nm ve varış süresi büyük; puan ve not, kesinti sayısı, son inişin fpm ve G'si, ücret, teslim süresi (gecikince sarı); evre çizelgesi (taksi → park) ve sıradaki evre. |
+| Kesildi | Kalan ve toplam mesafe, puan, ücret, teslim; aynı yerden sürdürme notu. |
+
+Panel boyutu değişince bütün yerleşim orantılı ölçeklenir (yazı boyutu panelin iç boyutundan hesaplanır, ölçüler em).
+Geniş ve alçak panelde iki sütuna geçer; dar panelde kontrol listesi tek sütun olur.
 
 **Neden bu yol** (araştırma özeti):
 - `SimConnect_Text` 2020'de kullanılamaz, 2024 başvurusunda hiç yok.
@@ -124,8 +184,11 @@ son iniş, ücret; hazırlıkta kontrol kapısı. Tam ekranda ve VR'da da görü
 **Veri yolu:**
 - Modstead, açık SimConnect bağlantısından saniyede bir `L:MODSTEAD_HUD_*` değişkenlerini yazar
   (`AddToDataDefinition` + `SetDataOnSimObject`).
-- Alanlar `hud.rs` → `FIELDS`. ICAO kodları taban-37 sayıya çevrilir.
-- Panel (`ModsteadCareer.js`) yalnızca okur ve gösterir. `SEQ` 4 saniye artmazsa "Modstead bağlı değil" der.
+- Alanlar `hud.rs` → `FIELDS`. ICAO kodları taban-37 sayıya çevrilir. Kontrol kapısı `CHECK_LIST`'te tek sayıdır:
+  `CHECK_IDS` sırasıyla kontrol başına taban-4 basamak (0 yok, 1 tamam, 2 eksik, 3 eksik öneri).
+- Panel (`ModsteadCareer.js`) yalnızca okur ve gösterir. `SEQ` 4 saniye artmazsa "Modstead bağlı değil" der. Panel
+  açıldığındaki ilk `SEQ` yalnızca başlangıçtır: `L:` değişkeni Modstead kapandıktan sonra da son değerinde kalır.
+- Dil `LANG`'dan gelir; panel son bilinen dili simin veri deposunda (`MODSTEAD_HUD_LANG`) tutar.
 - Sim `L:` tanımlarını reddederse (eski 2020) o oturumda yazım durur.
 
 **Paket** (`games/msfs/hud/package`):
@@ -137,11 +200,116 @@ son iniş, ücret; hazırlıkta kontrol kapısı. Tam ekranda ve VR'da da görü
   bir kez üretildi. Doğrulama:
   - Aynı kodlayıcı kurulu bir panelin `.spb`'sini bayt bayt aynı üretti.
   - Bizim dosya geri çözülünce bütün alanlar doğru okundu.
-- Tanım değişirse `.spb` MSFS geliştirici kipinde ya da SDK paket aracıyla yeniden derlenmeli ve `HUD_VERSION`
-  artırılmalı.
+- Tanım değişirse `.spb` MSFS geliştirici kipinde, SDK paket aracıyla ya da aynı kodlayıcıyla yeniden üretilmeli ve
+  `HUD_VERSION` artırılmalı. 0.2.0'da varsayılan boyut 24×30'dan 35×37'ye (en az 26×26) çıktı; birim ekran
+  yüksekliğinin yüzdesidir (simin Görev adımları paneli 36×22, METAR 45×15, ATC 48×55). Sim kullanıcının verdiği
+  boyutu hatırlar; yeni varsayılan panel ilk açılışta ya da yerleşim sıfırlanınca görünür.
 
-**Henüz gerçek simde denenmedi.** Panelin araç çubuğunda göründüğü ve `L:` değişkenlerinin okunduğu ilk gerçek
-uçuşta doğrulanacak. 2024'te zengin metin için CommBus (`SimConnect_CallCommBusEvent`) sonraki adım.
+**Simin panel kabuğu** (MSFS 2024, `fs-base-ui/html_ui/Templates/ingameUi`): `ingame-ui` > başlık
+(`ingame-ui-header`: başlık, küçült, büyüt, sabitle, kapat) + `.ingameUiContent` > `.ingameUiWrapper` > panelin
+kendi öğeleri. `ingame-ui`'nin zemini `--backgroundColorContrastedPanel` (yarı saydam açık gri), başlığın
+`--backgroundColorPanel`'dir; başlık metni `.spb`'deki `Name`'den gelir ve büyük harfe çevrilir. Panel tanımı
+`headerVisible` ve `noBackground` özelliklerini de destekler (başlık gizlenirse kapat düğmesi de gider; kullanılmadı).
+
+**İlk gerçek deneme (2024, 0.1.0) ve düzeltmeler (0.2.0):**
+- *Metinler boştu:* kurulu `ModsteadCareer.js`'de bir dizgenin içinde gerçek satır sonu vardı (`"\n"` yerine). Bu
+  sözdizimi hatası betiğin tamamını durdurdu: özel öğe hiç tanımlanmadı, `SimVar` okunmadı. Görünen nokta, ok ve boş
+  hap yalnızca CSS'ti (nokta CSS'te yeşildi, bağlantıyı göstermiyordu). `hud.rs` testi artık dizgeleri ve parantezleri
+  denetliyor. Ayrıca alan ve yöntem adları `ms` önekli: `HTMLElement.lang` gibi yerleşik özelliklerle çakışma
+  (`this.lang = null` özniteliği "null" yapar) ve simin `UIElement` taban sınıfıyla ad çakışması olmasın.
+- *Koyu zemin yarıda kalıyordu:* `content-fit="false"` ile iki ara katman yükseklik almıyor, kök yalnızca içerik
+  kadar uzuyordu; altı `ingame-ui`'nin gri zemini. Artık `content-fit="true"` (simin `fittedContent` sınıfı) ve ara
+  katmanlar esniyor; zemin `ingame-ui`'nin kendisinde, kenar boşluğu yok.
+- *Gri başlık çubuğu "MODSTEAD CAREER":* simin düğmeleri kaldı; şerit aynı koyu yüzeye alındı, başlık metninin
+  yerine durum noktası + MODSTEAD + Kariyer/Career yazılıyor. Türkçe metinler büyük harfle yazılı: simin motoru
+  `text-transform` ile "i"yi "I" yapar, "İ" yapmaz.
+- Yazı tipi simin kendi Roboto'su (`font-family: "Roboto-Regular"`, kalınlıklar 300/400/600/700); eski CSS'teki
+  "Roboto Mono" simde yoktu.
+
+0.2.0 simin kendi `common.css`, `ingameUi` şablon CSS'i ve Roboto yazı tipleriyle kurulan bir deneme sayfasında her
+durum ve dört boyutta denendi. Gerçek simde (Coherent GT) DOM ve hesaplanmış stil denetimi henüz yapılmadı; hata
+ayıklayıcı `http://127.0.0.1:19999`, sayfa `pagelist.json`'da `ModsteadCareer.html` adresiyle bulunur (kimlik her
+açılışta değişir).
+
+**Simi kapatmadan güncelleme (0.3.0):** sim panelleri ve paket listesini yalnızca açılışta okur; oyun açıkken mod
+klasörüne de yazılmaz. Bu yüzden panelin kendisi artık küçük bir yükleyicidir (`ModsteadLoader.js`): Modstead açıksa
+kodu (`/hud/app.js`), görünümü (`/hud/app.css`) ve işaretlemeyi (`/hud/body.html`) Modstead'in yerel sunucusundan alır,
+kapalıysa paketteki kopyayı kullanır; 5 saniyede bir sürümü (`/hud/v`) yoklar ve değişince kendini yeniler. Paket
+güncellemesi yine sim kapalıyken yapılır; kartta "Sim kapanınca güncelle" seçeneği vardır.
+
+### Yerel sunucu
+
+`career::hud_server` (kullanıcının onayıyla eklendi): yalnızca `127.0.0.1`'de, `47213`–`47215` portlarından ilk boş
+olanda dinler. Uçlar ve kurallar `hud/menu/API.md`'de. Özet:
+- Simin sayfalarına kod, görünüm ve kariyer verisi verir: durum, canlı veri, iş panosu, uçaklar ve fotoğrafları.
+- Simin içinden kariyer işlemlerini alır: iş kabulü, uçak seçimi, başlatma, iptal.
+- `Host` yalnızca `127.0.0.1`/`localhost` olabilir; bu, DNS yeniden bağlamaya karşı koruma.
+- CORS izni ve `POST` yalnızca simin `coui://` sayfalarına açık.
+- Dosya ya da kabuk erişimi yok; diskten dosya okumaz.
+
+Uçak fotoğrafları derlemede gömülür (`build.rs`); aile eşleştirmesi arayüzle ortak `ui/career/aircraft/families.json`
+dosyasındadır.
+
+## 3b. Ana menü kutusu
+
+<p align="center">
+  <img src="../../docs/screenshots/msfs-2024-main-menu-career-tile.png" alt="MSFS 2024 ana menüsünde simin kendi kutularının yanında Modstead Kariyer kutusu: aktif iş LTBA–LTBU, uçuşu başlatmaya hazır" width="488">
+</p>
+
+MSFS 2024'ün ana menüsüne "Modstead Kariyer" kutusu ve tam ekran kariyer penceresi (`career::menu`,
+`hud/menu-package`, arayüz `hud/menu`). 26.10.2026'da gerçek simde (1.9.21.0, fs-base-ui 0.1.10) denendi. Bu bölümdeki
+görüntüler simde, örnek bir kariyerle alındı.
+
+**Nasıl giriyor.** MSFS 2024, simin kendi HTML dosyalarının (`mainUI.html` dahil) Community'den değiştirilmesine izin
+vermez. Ana menünün kök bileşeni ise değiştirilebilir: `fs-base-ui/cookedcomps` altındaki MasterPage
+(`{7DA60FBA-EF32-48F2-974D-F8BEA35337A4}`, tek satırlık `.html` ve `.json`). Modstead kurulumda bu bileşenin
+**kullanıcının simindeki kopyasını** okur, son `</ui-resource-element>`'ten önce görünmez bir resim ekler ve pakete
+yazar. Resmin `onload`'u yükleyiciyi (`/Modstead/ModsteadMenuLoader.js`) yalnızca ana menüde ve bir kez çalıştırır.
+- Kutunun ve pencerenin kodu yerel sunucudan gelir (`/menu/app.js`, `/menu/app.css`). Yükleyici sürümü 5 saniyede bir
+  sorar; Modstead güncellenince eskisini kaldırıp yenisini yükler, sim yeniden başlatılmaz.
+- Modstead kapalıyken menüye bir şey eklenmez. Paket yalnızca MSFS 2024'e bağlanır.
+- Başka bir paket aynı bileşeni değiştiriyorsa kurulum yapılmaz ve kart nedenini söyler.
+
+**Koruma** (kullanıcının onayıyla): bir sim güncellemesi bileşeni değiştirirse eski kopya menüyü bozabilir.
+- Pakete simin sürümü, fs-base-ui sürümü ve bileşenin özeti yazılır (`modstead-menu.json`). Store'da sim sürümü kayıt
+  defterindeki paket anahtarından (`stores::appx_versions`), Steam'de `appmanifest`'teki `buildid`'den okunur.
+- Modstead açıkken 30 saniyede bir, sim kapalıysa denetler. Bileşen değişmişse yeniden üretir; üretemezse paketi
+  kaldırır ve haber verir.
+- Bilinen açık: sim Modstead kapalıyken güncellenir ve Modstead'siz açılırsa koruma o açılışta çalışamaz.
+
+**Fare.** Simin menüsünde fare olayları (mousedown, click) yalnızca `data-input-group` taşıyan öğelere ulaşır; diğerleri
+yalnızca üzerine gelmeyi alır, tıklama simin kendisine gider. Kutu `generic-button`, pencere `inputLocker` taşır.
+
+**Klavye ve oyun kolu.** Pencere açıkken tuşları simin ana menüsü de işler: ESC "Masaüstüne çık" sorusunu açar, Space ve
+Q/E arkadaki kutulara ve sekmelere gider. Simin kendi sayfaları gibi davranırız:
+- Simin ana menü modülü (`coui://html_UI/Global/lib.js`, `import()` ile aynı canlı örnek) giriş yığınını
+  (`UIInputStackListener`), `setInputBar`/`clearInputBar` ve `InputBarParams`/`InputBarButtonParams`'ı dışa aktarır.
+  Kısaltılmış dışa aktarım adları her güncellemede değişebildiği için sınıf ve fonksiyon adlarıyla bulunur.
+- Pencere açılınca `KEY_MENU_SR_*` eylemleri (geri, seç, yön, sonraki/önceki sekme) giriş yığınına eklenir ve simin alt
+  çubuğuna (input bar) kendi düğmelerimiz konur: "ESC Kapat/Geri · Seç · Q E Sekme değiştir". Kapanınca ikisi de
+  kaldırılır; simin çubuğu ("ESC Masaüstüne Çık · R Sürüm notları") geri gelir.
+- Bağlam `MAX`'tır (simin geçişleri ve `lockInput` de bunu kullanır). `DEFAULT`'ta ana menü odak değişince kendi
+  eylemlerini sonradan yeniden kaydedip tuşları geri alıyordu (Space arkadaki Market kutusunu açtı). Simin kendi açılır
+  penceresi (çıkış sorusu, bildirim) gelince bağlam bırakılır, pencere kalkınca geri alınır.
+- Klavyede "seç" Space'tir (simin alt çubuğundaki ⎵); Enter menüde sayfaya ulaşmaz.
+- Modül bulunamazsa (eski sim) kendi alt çubuğumuz ve sayfanın klavye olayları kullanılır.
+
+**Pencere.** Sekmeler: Aktif iş (görsel, kalkış–varış şeridi: pist, uzunluk, rakım; yük, yakıt, irtifa, müşteri, son
+teslim, XP; sağda uçak, başlangıç ve hazırlık denetimleri), İş ilanları, Uçak seçimi ve Pilot (seviye/XP, itibar, pilot
+puanı, kariyer özeti, lisanslar, son uçuşlar). Zemin tam opaktır; yarı saydamken arkadaki sim kutuları sızıyordu.
+Simin yazı tipinde "→" yok (kutu çıkar): metinde "–" kullanılır, rota oku SVG'dir.
+
+<table>
+  <tr>
+    <td width="50%"><img src="../../docs/screenshots/msfs-2024-main-menu-career-jobs.png" alt="MSFS 2024 ana menüsündeki Modstead kariyer penceresinde iş ilanları ve seçilen kargo işinin ayrıntıları"><br><sub><b>İş ilanları</b> simin içinde</sub></td>
+    <td width="50%"><img src="../../docs/screenshots/msfs-2024-main-menu-career-pilot.png" alt="MSFS 2024 ana menüsündeki Modstead kariyer penceresinde Pilot sekmesi: lisanslar ve son uçuşlar"><br><sub><b>Pilot</b> sekmesi simin içinde</sub></td>
+  </tr>
+</table>
+
+**Deneme.** Sim dışında: başsız Edge ve sahte veriyle simin ana menüsünü taklit eden sayfa. Simde: Coherent hata
+ayıklayıcısı (`127.0.0.1:19999`, yalnızca okuma ve canlı yükleme); gerçek tıklama ve tuşlar yalnızca sim öndeyken.
+
+2024'te zengin metin için CommBus (`SimConnect_CallCommBusEvent`) sonraki adım.
 
 ## 4. Kurallar ve formüller
 
@@ -222,6 +390,9 @@ yakıt eklenmesi, havada başlayan uçuş, kaza (puan 0, ücret yok, kaza itibar
   - Görünen alandaki havalimanları gömülü veritabanından gelir (`msfs_career_map_airports`).
   - Harita sürükleyerek kaydırılır. Tıklandıktan sonra ya da Ctrl basılıyken tekerlek yakınlaştırır, böylece
     sayfa kaydırması haritaya takılmaz.
+- **Uçak fotoğrafları:** [Wikimedia Commons](https://commons.wikimedia.org/), her fotoğraf kendi lisansıyla (CC BY,
+  CC BY-SA ya da kamu malı). Her fotoğrafın sahibi, lisansı ve kaynağı
+  [`ui/career/aircraft/CREDITS.md`](ui/career/aircraft/CREDITS.md) dosyasında; projenin GPL-3.0 lisansına girmezler.
 - **Protokol:** SimConnect paket düzeni [node-simconnect](https://github.com/EvenAR/node-simconnect) ve MSFS SDK
   belgeleri referans alınarak Rust'ta yeniden yazıldı (kod kopyalanmadı).
 
@@ -237,9 +408,13 @@ node scripts/dev.mjs msfs --preview   # http://127.0.0.1:1421/?view=game:msfs:ca
 
 - **MSFS 2020** öntanımlı olarak yalnızca adlandırılmış boru açar. `SimConnect.xml`'de IPv4 girişi yoksa bağlantı
   kurulmaz (durum bunu söyler). Boru desteği `tokio`'nun `net` özelliğiyle eklenebilir (bağımlılık kararı).
-- **FlightLoad** 2024'te her zaman uçuşu açmayabilir; elle kip bunun için var. Gerçek simde denenip ayarlanacak.
+- **FlightLoad** 2024'te gerçek simde denendi (bölüm 2). Ana menüden ve uçuş açıkken park yeri ve pist başı açılıyor.
+  Ana menüden pist başı (`FLIGHT_RUNWAY`) kullanıcı denemesi bekliyor. Elle kip yedek olarak duruyor.
+- **Motorlar** dışarıdan çalıştırılamıyor (2024 uçakları olayı yok sayıyor); park yerinden başlarken kullanıcı çalıştırır.
 - **Yakıt** otomatik yazılmıyor (2024'ün modüler yakıt sistemi uçağa özel); plan değeri gösteriliyor.
-- **Sim içi panel** gerçek simde henüz denenmedi (bölüm 3a).
+- **Aviyonik:** plan simin GPS'ine giriyor; G1000/FMS'de görünüp görünmediği doğrulanmadı. Görünmüyorsa sim içi sayfa
+  Planned Route API ile gönderecek.
+- **Sim içi panel 0.3.0** uçuşta gerçek simde henüz denenmedi (bölüm 3a). Ana menü kutusu ve penceresi denendi (3b).
 - **Sırada:** sim içi panele 2024 CommBus ile zengin metin, kesilen uçuşu son konuma ışınlayarak sürdürme, müşteri ve bölge başına itibar, A/B/C bakımları ve
   arıza riski, çok bacaklı işler ve havayolu sözleşmeleri, işe alınan pilotlar ve şirket, SimBrief OFP'sinden
   yakıt/yük, hava durumuna göre iş (IR gerektiren).

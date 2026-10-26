@@ -1,7 +1,7 @@
 // Kariyer komutlarının sarmalayıcıları (games/msfs/src/career/commands.rs). Hepsi `msfs_career_` önekli.
 
 import { invoke } from "@/lib/ipc";
-import type { AircraftClass, AircraftOption, AirportHit, CareerView, CreateRequest, FlightDetail, Job, LedgerEntry, Live, LogEntry, HudStatus, MapAirport } from "./types";
+import type { AircraftClass, AircraftOption, AirportHit, CareerView, CreateRequest, FlightDetail, Job, LedgerEntry, Live, LogEntry, HudStatus, MapAirport, MenuStatus, StartAt } from "./types";
 
 export const careerApi = {
   state: () => invoke<CareerView>("msfs_career_state"),
@@ -14,7 +14,7 @@ export const careerApi = {
   refreshAircraft: () => invoke<void>("msfs_career_refresh_aircraft"),
   pickAircraft: (title: string, livery: string, fleetId: string | null) => invoke<void>("msfs_career_pick_aircraft", { title, livery, fleetId }),
   setClass: (title: string, cls: AircraftClass | null) => invoke<void>("msfs_career_set_class", { title, class: cls }),
-  launch: () => invoke<void>("msfs_career_launch"),
+  launch: (start?: StartAt) => invoke<void>("msfs_career_launch", { start: start ?? null }),
   reposition: () => invoke<void>("msfs_career_reposition"),
   finish: () => invoke<LogEntry>("msfs_career_finish"),
   abandon: () => invoke<LogEntry | null>("msfs_career_abandon"),
@@ -35,7 +35,14 @@ export const careerApi = {
   live: () => invoke<Live>("msfs_career_live"),
   simbrief: () => invoke<string | null>("msfs_career_simbrief"),
   revealPlan: () => invoke<void>("msfs_career_reveal_plan"),
+  journal: (limit = 200) => invoke<string[]>("msfs_career_journal", { limit }),
+  revealJournal: () => invoke<void>("msfs_career_reveal_journal"),
   hud: () => invoke<HudStatus>("msfs_career_hud"),
   hudInstall: () => invoke<HudStatus>("msfs_career_hud_install"),
   hudRemove: () => invoke<HudStatus>("msfs_career_hud_remove"),
+  hudQueue: (on: boolean) => invoke<HudStatus>("msfs_career_hud_queue", { on }),
+  menu: () => invoke<MenuStatus>("msfs_career_menu"),
+  menuInstall: () => invoke<MenuStatus>("msfs_career_menu_install"),
+  menuRemove: () => invoke<MenuStatus>("msfs_career_menu_remove"),
+  menuQueue: (on: boolean) => invoke<MenuStatus>("msfs_career_menu_queue", { on }),
 };

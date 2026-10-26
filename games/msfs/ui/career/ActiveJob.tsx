@@ -18,8 +18,10 @@ import {
   Package,
   Pause,
   Plane,
+  PlaneTakeoff,
   Play,
   RefreshCw,
+  SquareParking,
   Timer,
   TriangleAlert,
 } from "lucide-react";
@@ -33,13 +35,15 @@ import { Fact, KindIcon, Route } from "./parts";
 import { invalidateCareer, useLive } from "./queries";
 import { RouteMap } from "./RouteMap";
 import { useCareerUi } from "./store";
-import type { ActiveView, CareerView, Check, FlightEvent, Live, Phase } from "./types";
+import { AircraftPhoto } from "./aircraft/AircraftPhoto";
+import type { ActiveView, CareerView, Check, FlightEvent, Live, Phase, StartAt } from "./types";
 
 export function ActiveJob({ view, active }: { view: CareerView; active: ActiveView }) {
   const t = useCareerT();
   const { data: live } = useLive();
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"cancel" | "abandon" | null>(null);
+  const [start, setStart] = useState<StartAt>(active.start ?? { runway: false, end: null });
   const setPick = useCareerUi((s) => s.setPick);
   const openFlight = useCareerUi((s) => s.openFlight);
   const job = active.job;
@@ -128,8 +132,12 @@ export function ActiveJob({ view, active }: { view: CareerView; active: ActiveVi
       </div>
 
       {/* Uçak */}
-      <div className="mx-5 mt-4 flex items-center gap-3 rounded-[14px] border border-line bg-surface-2/40 px-4 py-3">
-        <Plane className="size-4 shrink-0 text-muted" />
+      <div className="mx-5 mt-4 flex items-center gap-3 rounded-[14px] border border-line bg-surface-2/40 px-3 py-2.5">
+        {active.aircraft ? (
+          <AircraftPhoto title={active.aircraft.title} cls={active.aircraft.class} className="aspect-[16/9] w-24 shrink-0 rounded-lg" />
+        ) : (
+          <Plane className="mx-1 size-4 shrink-0 text-muted" />
+        )}
         <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium text-muted">{t.active.aircraft}</div>
           {active.aircraft ? (
@@ -149,6 +157,8 @@ export function ActiveJob({ view, active }: { view: CareerView; active: ActiveVi
         )}
       </div>
 
+      {!flying && <StartChoice value={start} onChange={setStart} ends={active.runwayEnds} disabled={preparing} />}
+
       {/* Durum + eylemler */}
       <div className="px-5 pb-5 pt-4">
         <StageLine active={active} live={live ?? null} />
@@ -156,6 +166,13 @@ export function ActiveJob({ view, active }: { view: CareerView; active: ActiveVi
 
         {!flying && <Gate checks={live?.checks ?? []} hint={t.active.gateHint} />}
         {flying && flight && <LiveFlight flight={flight} live={live!} />}
+
+        {!flying && live?.inFlight && live.camera === 16 && (
+          <p className="mt-3 flex items-start gap-2 rounded-xl bg-warn/10 px-3 py-2 text-[12px] text-warn">
+            <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+            {t.active.cinematic}
+          </p>
+        )}
 
         {live?.aircraft?.managesOwnLoading && !flying && (
           <p className="mt-3 flex items-start gap-2 rounded-xl bg-info/10 px-3 py-2 text-[12px] text-info">
@@ -172,7 +189,7 @@ export function ActiveJob({ view, active }: { view: CareerView; active: ActiveVi
               icon={active.stage === "ready" ? <RefreshCw className="size-4" /> : <Play className="size-4 fill-current" />}
               disabled={!active.aircraft || busy !== null || preparing}
               loading={busy === "launch" || preparing}
-              onClick={() => act("launch", careerApi.launch)}
+              onClick={() => act("launch", () => careerApi.launch(start))}
             >
               {preparing ? t.active.preparing : active.stage === "ready" ? t.active.prepareAgain : live?.launch?.step === "manual" ? t.active.restart : t.active.start}
             </Button>
@@ -259,6 +276,58 @@ function StageLine({ active, live }: { active: ActiveView; live: Live | null }) 
 
 const STEPS = ["waiting_sim", "fetching_airport", "loading", "positioning", "done"] as const;
 
+/** Uçuşun simde nerede başlayacağı: park yerinde soğuk ya da pist başında motorlar çalışır. */
+function StartChoice({ value, onChange, ends, disabled }: { value: StartAt; onChange: (v: StartAt) => void; ends: string[]; disabled?: boolean }) {
+  const t = useCareerT();
+  const option = (runway: boolean, icon: React.ReactNode, title: string, hint: string) => {
+    const on = value.runway === runway;
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onChange({ ...value, runway })}
+        className={clsx(
+          "flex min-w-0 flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:opacity-60",
+          on ? "border-[color-mix(in_oklab,var(--accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)]" : "border-line hover:bg-surface-2/60",
+        )}
+      >
+        <span className={clsx("flex size-8 shrink-0 items-center justify-center rounded-lg", on ? "accent-surface text-accent-ink" : "bg-surface-2 text-muted")}>{icon}</span>
+        <span className="min-w-0">
+          <span className="block text-[13px] font-semibold text-fg">{title}</span>
+          <span className="block truncate text-[11.5px] text-muted">{hint}</span>
+        </span>
+      </button>
+    );
+  };
+  return (
+    <div className="mx-5 mt-3">
+      <div className="mb-1.5 text-[11px] font-medium text-muted">{t.active.startAt}</div>
+      <div className="flex gap-2">
+        {option(false, <SquareParking className="size-4" />, t.active.atParking, t.active.atParkingHint)}
+        {option(true, <PlaneTakeoff className="size-4" />, t.active.atRunway, t.active.atRunwayHint)}
+      </div>
+      {value.runway && ends.length > 0 && (
+        <label className="mt-2 flex items-center gap-2">
+          <span className="text-[11.5px] text-muted">{t.active.runwayEnd}</span>
+          <select
+            value={value.end ?? ""}
+            disabled={disabled}
+            onChange={(e) => onChange({ runway: true, end: e.target.value || null })}
+            className="h-7 rounded-lg border border-line-strong bg-surface-2 px-2 text-[12px] text-fg outline-none"
+          >
+            <option value="">{t.active.autoEnd}</option>
+            {ends.map((e) => (
+              <option key={e} value={e}>
+                {e}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+    </div>
+  );
+}
+
 function LaunchSteps({ launch, from }: { launch: NonNullable<Live["launch"]>; from: string }) {
   const t = useCareerT();
   const manual = launch.step === "manual";
@@ -283,8 +352,7 @@ function LaunchSteps({ launch, from }: { launch: NonNullable<Live["launch"]>; fr
           ))}
         </ol>
       )}
-      {manual && <div className="mb-1 text-[12.5px] font-semibold text-warn">{t.active.manual}</div>}
-      <p className="text-[12.5px] leading-relaxed text-fg-2">{manual ? `${launch.note} ${t.active.manualBody(from)}` : launch.note}</p>
+      {manual && <div className="mb-1 text-[12.5px] font-semibold text-warn">{t.active.manual}</div>}      <p className="text-[12.5px] leading-relaxed text-fg-2">{manual ? `${launch.note} ${t.active.manualBody(from)}` : launch.note}</p>
     </div>
   );
 }

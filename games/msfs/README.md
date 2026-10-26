@@ -25,7 +25,7 @@ Yalnızca hedefi kütüphanede olan bağlantılar kaldırılır; başka araçlar
 | `browser.rs` | uygulama içi mod tarayıcısı (yeteneksiz pencere, indirme yakalama) |
 | `migrate.rs` | Hangar verisinin ilk açılışta aktarımı (anahtarlar Kimlik Bilgisi Yöneticisi'ne) |
 | `commands.rs` | `msfs_` önekli komutlar |
-| `career/` | **Kariyer kipi**: SimConnect (DLL'siz, TCP), ilan panosu, otomatik uçuş başlatma, uçuş takibi, seyir defteri, lisanslar, filo ve kredi. Ayrıntı: [`KARIYER.md`](KARIYER.md) (İngilizcesi [`CAREER.md`](CAREER.md)) |
+| `career/` | **Kariyer kipi**: SimConnect (DLL'siz, TCP), ilan panosu, otomatik uçuş başlatma, uçuş takibi, seyir defteri, lisanslar, filo ve kredi; sim içi araç çubuğu paneli, MSFS 2024 ana menü kutusu ve onları besleyen yerel sunucu (`127.0.0.1`). Ayrıntı: [`KARIYER.md`](KARIYER.md) (İngilizcesi [`CAREER.md`](CAREER.md)) |
 
 Karantina: `<kütüphane>\.modstead\staging\<görev>` (kütüphaneyle aynı birim; son adım yeniden adlandırma).
 Veri: `games/msfs/{settings,mods,profiles}.json`.

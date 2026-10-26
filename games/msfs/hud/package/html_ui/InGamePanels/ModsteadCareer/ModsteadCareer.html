@@ -4,7 +4,6 @@
 		<title>Modstead Career</title>
 		<meta charset="utf-8"/>
 		<link rel="stylesheet" href="/SCSS/common.css"/>
-		<link rel="stylesheet" href="ModsteadCareer.css"/>
 		<script type="text/javascript" src="/JS/coherent.js"></script>
 		<script type="text/javascript" src="/JS/common.js"></script>
 		<script type="text/javascript" src="/JS/dataStorage.js"></script>
@@ -12,38 +11,92 @@
 		<script type="text/javascript" src="/JS/Services/ToolBarPanels.js"></script>
 		<link rel="import" href="/templates/ingameUi/ingameUi.html"/>
 		<link rel="import" href="/templates/ingameUiHeader/ingameUiHeader.html"/>
-		<script type="text/javascript" src="ModsteadCareer.js"></script>
+		<!-- Panelin kodu ve görünümü: Modstead açıksa yerel sunucusundan (simi kapatmadan güncellenir), değilse
+		     paketteki ModsteadCareer.js/.css. Bkz. ModsteadLoader.js. -->
+		<script type="text/javascript" src="ModsteadLoader.js"></script>
 	</head>
 	<body class="border-box">
 		<ingamepanel-modstead>
-			<ingame-ui id="ModsteadCareer" panel-id="PANEL_MODSTEAD_CAREER" title="Modstead" content-fit="false" min-width="22" min-height="18">
-				<div id="ms-root" class="ms-root">
-					<div class="ms-top">
-						<span id="ms-dot" class="ms-dot"></span>
-						<span id="ms-status" class="ms-status"></span>
-						<span id="ms-kind" class="ms-kind"></span>
+			<!-- content-fit: içerik panelin bütün yüksekliğini alır (simin kendi panelleri gibi). -->
+			<ingame-ui id="ModsteadCareer" panel-id="PANEL_MODSTEAD_CAREER" title="Modstead" content-fit="true" min-width="26" min-height="26">
+				<div id="ms-root" class="ms-root ms-connecting">
+					<!-- Boş durumlar: bağlanıyor, bağlı değil, kariyer yok, aktif iş yok. -->
+					<div id="ms-empty" class="ms-empty">
+						<div class="ms-glyph"><i class="ms-glyph-dot"></i><i class="ms-glyph-line"></i><i class="ms-glyph-dot"></i></div>
+						<div id="ms-empty-title" class="ms-empty-title"></div>
+						<div id="ms-empty-body" class="ms-empty-body"></div>
+						<div id="ms-empty-path" class="ms-path"></div>
+						<div id="ms-empty-alt" class="ms-empty-alt"></div>
 					</div>
-					<div id="ms-off" class="ms-off">
-						<div id="ms-off-title" class="ms-off-title"></div>
-						<div id="ms-off-body" class="ms-off-body"></div>
-					</div>
+					<!-- Aktif iş: hazırlanıyor, hazır, uçuşta, kesildi. -->
 					<div id="ms-job" class="ms-job">
+						<!-- Geniş panelde iki sütun yan yana, diğerlerinde alt alta. -->
+						<div class="ms-col-a">
+						<div class="ms-head">
+							<span id="ms-kind" class="ms-tag"></span>
+							<span id="ms-state" class="ms-state"></span>
+						</div>
 						<div class="ms-route">
 							<span id="ms-from" class="ms-icao"></span>
-							<span class="ms-arrow"></span>
-							<span id="ms-to" class="ms-icao"></span>
-							<span id="ms-phase" class="ms-phase"></span>
+							<div class="ms-track">
+								<div class="ms-track-base"></div>
+								<div id="ms-track-fill" class="ms-track-fill"></div>
+								<div id="ms-track-dot" class="ms-track-dot"></div>
+								<div class="ms-track-end"></div>
+							</div>
+							<span id="ms-to" class="ms-icao ms-icao-to"></span>
 						</div>
-						<div class="ms-bar"><div id="ms-progress" class="ms-progress"></div></div>
-						<div class="ms-grid">
-							<div class="ms-cell"><div id="ms-l-dist" class="ms-label"></div><div id="ms-dist" class="ms-value"></div></div>
-							<div class="ms-cell"><div id="ms-l-eta" class="ms-label"></div><div id="ms-eta" class="ms-value"></div></div>
-							<div class="ms-cell"><div id="ms-l-score" class="ms-label"></div><div id="ms-score" class="ms-value"></div></div>
-							<div class="ms-cell"><div id="ms-l-due" class="ms-label"></div><div id="ms-due" class="ms-value"></div></div>
-							<div class="ms-cell"><div id="ms-l-land" class="ms-label"></div><div id="ms-land" class="ms-value"></div></div>
-							<div class="ms-cell"><div id="ms-l-pay" class="ms-label"></div><div id="ms-pay" class="ms-value ms-pay"></div></div>
+						<div class="ms-big">
+							<div class="ms-big-cell">
+								<div id="ms-l-a" class="ms-label"></div>
+								<div id="ms-a" class="ms-big-value"></div>
+							</div>
+							<div class="ms-big-cell ms-big-cell-2">
+								<div id="ms-l-b" class="ms-label"></div>
+								<div id="ms-b" class="ms-big-value"></div>
+							</div>
+						</div>
+						</div>
+						<div class="ms-col-b">
+						<div id="ms-row-flight" class="ms-row">
+							<div class="ms-cell">
+								<div id="ms-l-score" class="ms-label"></div>
+								<div id="ms-score" class="ms-value"></div>
+							</div>
+							<div class="ms-cell ms-cell-2">
+								<div id="ms-l-land" class="ms-label"></div>
+								<div id="ms-land" class="ms-value"></div>
+							</div>
+						</div>
+						<div class="ms-row">
+							<div class="ms-cell">
+								<div id="ms-l-pay" class="ms-label"></div>
+								<div id="ms-pay" class="ms-value"></div>
+							</div>
+							<div class="ms-cell ms-cell-2">
+								<div id="ms-l-due" class="ms-label"></div>
+								<div id="ms-due" class="ms-value"></div>
+							</div>
+						</div>
+						<div class="ms-fill"></div>
+						<!-- Uçuşta: evre çizelgesi. -->
+						<div id="ms-phases" class="ms-phases">
+							<div id="ms-steps" class="ms-steps"></div>
+							<div class="ms-steps-cap">
+								<span id="ms-step-now" class="ms-step-now"></span>
+								<span id="ms-step-next" class="ms-step-next"></span>
+							</div>
+						</div>
+						<!-- Hazırlıkta: kontrol kapısı. -->
+						<div id="ms-gate" class="ms-gate">
+							<div class="ms-gate-head">
+								<span id="ms-gate-title" class="ms-label"></span>
+								<span id="ms-gate-count" class="ms-gate-count"></span>
+							</div>
+							<div id="ms-checks" class="ms-checks"></div>
 						</div>
 						<div id="ms-note" class="ms-note"></div>
+						</div>
 					</div>
 				</div>
 			</ingame-ui>

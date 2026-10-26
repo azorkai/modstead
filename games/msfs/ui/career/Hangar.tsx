@@ -265,7 +265,7 @@ function SimAircraft({ view }: { view: CareerView }) {
                   <div className="truncate text-[12.5px] font-medium text-fg">{o.title}</div>
                   <div className="text-[11px] text-muted">
                     {t.hangar.source[o.classSource]}
-                    {o.liveries.length > 1 && ` · ${o.liveries.length} ${t.pick.livery.toLowerCase()}`}
+                    {o.liveries.length > 1 && ` · ${t.pick.liveries(o.liveries.length)}`}
                   </div>
                 </div>
                 {o.managesOwnLoading && <Badge tone="info">EFB</Badge>}

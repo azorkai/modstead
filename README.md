@@ -10,7 +10,7 @@ until you review and approve it.
 
 For Microsoft Flight Simulator, Modstead also includes a free **[MSFS 2024 career mode](#msfs-2024-career-mode)**: a job
 board, pilot licences and checkrides, automatic flight setup, flight tracking over SimConnect, a logbook, your own
-aircraft and an in-sim toolbar panel.
+aircraft, an in-sim toolbar panel and a career page in the MSFS 2024 main menu.
 
 Built with [Tauri 2](https://tauri.app) (Rust) and React 19. Licensed under GPL-3.0.
 
@@ -48,7 +48,8 @@ and penalty is documented.
   airline flights, filtered by your licences and reputation, with a route map. Fly for an operator, or on your own
   account after the CPL.
 - **Automatic flight setup:** Modstead starts the sim if needed, picks a suitable parking spot from the sim's own
-  airport data, writes the flight and route plan (`.FLT`/`.PLN`), moves the aircraft and loads the payload.
+  airport data (or puts you on the runway with the engines running), writes the flight and route plan (`.FLT`/`.PLN`,
+  the route goes into the sim's GPS), moves the aircraft and loads the payload. Tested in the real MSFS 2024.
 - **Flight tracking and score:** flight phases, landing rate and G at touchdown, bounces, overspeed, stall and flap
   warnings, and cheat detection (slew, teleport, refuelling in the air). The score earns XP and reputation; money only
   follows real events such as delays, fuel, rent and damage.
@@ -58,11 +59,15 @@ and penalty is documented.
   aircraft purchases, maintenance and a loan.
 - **In-sim toolbar panel** for MSFS 2020 and 2024 with the route, phase, remaining distance, ETA, score and pay, also in
   full screen and VR.
-- **Free and local:** no subscription, no account and no server; works offline. SimBrief is one click away.
+- **Career page in the MSFS 2024 main menu:** a *Modstead Career* tile next to the sim's own tiles opens a full-screen
+  page where you take a job, pick an aircraft (with real photos) and start the flight without leaving the sim. Mouse,
+  keyboard and controller work as on the sim's own pages.
+- **Free and local:** no subscription, no account and no online server; works offline. SimBrief is one click away.
 
 > **It runs inside Modstead.** The career is not a separate add-on: its data, rules and sim connection live in the
-> Modstead app, and nothing is installed into the sim for it. With Modstead closed, flights are not tracked and the
-> optional in-sim panel shows "Modstead not connected".
+> Modstead app, and the career itself needs nothing inside the sim. The toolbar panel and the main menu tile are optional
+> packages that show what Modstead serves on `127.0.0.1`. With Modstead closed, flights are not tracked, the panel shows
+> "Modstead not connected" and the tile does not appear.
 
 <table>
   <tr>
@@ -105,13 +110,37 @@ local IPv4 entry in `SimConnect.xml` ([how](games/msfs/CAREER.md#does-it-work-wi
 </p>
 
 An optional panel for the MSFS 2020 and 2024 toolbar. It reads values that Modstead writes once a second through
-SimConnect, so it needs no extra port or program. Install it from Career → Dashboard → *In-sim panel*; it goes into the
-Community folder like any other mod. The image is a browser preview of the panel's own code with simulated values, not a
-capture from the sim; the panel has not been tested in a live sim yet.
+SimConnect; while Modstead is open it also takes its code from Modstead's local server, so a Modstead update reaches the
+panel without restarting the sim. Install it from Career → Dashboard → *In-sim panel*; it goes into the Community folder
+like any other mod. The image is a browser preview of the panel's own code inside the sim's panel frame with simulated
+values, not a capture from the sim. An earlier version was tried in MSFS 2024 and fixed; the current one (0.3.0) has not
+been flown with yet.
+
+### Career page in the MSFS 2024 main menu
+
+<p align="center">
+  <img src="docs/screenshots/msfs-2024-main-menu-career-tile.png" alt="Modstead Career tile in the MSFS 2024 main menu next to the sim's own tiles, showing the active job LTBA to LTBU ready to start" width="488">
+</p>
+
+An optional *Modstead Career* tile for the MSFS 2024 main menu. It opens a full-screen page with four tabs: the active
+job (route strip with runways and elevations, payload, fuel, deadline, aircraft, start at the gate or on the runway, and
+the preparation checks), the job board, aircraft choice with photos and the pilot profile (level, reputation, licences,
+recent flights). ESC, Space, Q/E and the arrow keys work as on the sim's own pages, and the sim's key bar shows the
+page's own shortcuts. Install it from Career → Dashboard; Modstead builds the package from your own sim's menu component
+and removes it by itself if a sim update changes that component. Tried in MSFS 2024 1.9.21.0.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/msfs-2024-main-menu-career-jobs.png" alt="Job board tab of the Modstead career page inside the MSFS 2024 main menu with ambulance, cargo, charter, passenger, bush and ferry jobs"><br><sub><b>Job board</b> inside the sim</sub></td>
+    <td width="50%"><img src="docs/screenshots/msfs-2024-main-menu-career-pilot.png" alt="Pilot tab of the Modstead career page inside the MSFS 2024 main menu: level and XP, reputation, pilot rating, career summary, licences and recent flights"><br><sub><b>Pilot</b> tab inside the sim</sub></td>
+  </tr>
+</table>
+
+The main menu images were captured in the sim with a sample career and the Turkish interface.
 
 Rules, formulas, licence requirements, the research behind the design and the architecture:
 **[MSFS 2024 career mode documentation](games/msfs/CAREER.md)** ([Türkçe](games/msfs/KARIYER.md)). The career mode is in
-early development like the rest of Modstead; automatic flight loading still needs tuning in the real sim.
+early development like the rest of Modstead.
 
 ## Features
 
@@ -152,13 +181,13 @@ Yes. Modstead is free and open source under the GNU General Public License v3.0.
 
 ### Does Modstead have a career mode for MSFS 2024?
 Yes. Modstead includes a free career mode for Microsoft Flight Simulator 2024 with a job board, licences and checkrides,
-automatic flight setup, flight tracking over SimConnect, a logbook, aircraft ownership and an in-sim toolbar panel. It
-also works with MSFS 2020 once a local IPv4 SimConnect port is enabled. See the
+automatic flight setup, flight tracking over SimConnect, a logbook, aircraft ownership, an in-sim toolbar panel and a
+career page in the MSFS 2024 main menu. It also works with MSFS 2020 once a local IPv4 SimConnect port is enabled. See the
 [career mode documentation](games/msfs/CAREER.md).
 
 ### Is the career mode an alternative to OnAir, NeoFly or FSEconomy?
 It covers similar ground (jobs, an economy, licences and a logbook) but is free, open source and fully local: no
-subscription, no account and no server, with every formula documented. It has no shared online world or multiplayer
+subscription, no account and no online server, with every formula documented. It has no shared online world or multiplayer
 economy. The [career documentation](games/msfs/CAREER.md#research-how-other-msfs-career-add-ons-work) compares the
 approaches.
 

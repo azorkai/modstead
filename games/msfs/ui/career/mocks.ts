@@ -1,6 +1,6 @@
 // Kariyer önizleme verisi. Adres: ?view=game:msfs:career  ·  &career=new (ilk kayıt) | idle (aktif iş yok) | ready (kontrol kapısı)
 
-import type { Airport, AirportHit, CareerView, HudStatus, ClassInfo, FlightDetail, Job, Landing, LedgerEntry, Live, LogEntry, TrackPoint } from "./types";
+import type { Airport, AirportHit, CareerView, HudStatus, MenuStatus, ClassInfo, FlightDetail, Job, Landing, LedgerEntry, Live, LogEntry, TrackPoint } from "./types";
 
 const params = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
 const mode = params.get("career") ?? "flying";
@@ -60,6 +60,17 @@ let hud: HudStatus = {
     { id: "msfs2024", short: "2024", linked: params.get("hud") === "installed", running: false },
     { id: "msfs2020", short: "2020", linked: params.get("hud") === "installed", running: false },
   ],
+};
+
+let menuPkg: MenuStatus = {
+  library: true,
+  installed: false,
+  version: null,
+  latest: "0.1.0",
+  sims: [{ id: "msfs2024", short: "2024", linked: false, running: false }],
+  simVersion: "store:1.9.21.0",
+  installedFor: null,
+  blocked: null,
 };
 
 function mapAirports(a: Record<string, unknown>) {
@@ -186,13 +197,27 @@ const pilot = {
   creditLimit: 512_000,
 };
 
+// Arka uçtaki İngilizce açıklamalar (src/career/progression.rs → about_en).
+const ABOUT_EN: Record<string, string> = {
+  spl: "Training flights with an instructor at the flight school. Every career starts here.",
+  ppl: "Small cargo, aircraft ferry and bush work in light aircraft.",
+  cpl: "Paid passengers and charters, single turboprops and flying on your own account (company).",
+  me: "Twin piston and twin turboprop aircraft.",
+  ir: "Night and bad-weather work; required for jets.",
+  heli: "Short-range, medical and charter work by helicopter.",
+  jet: "Business jets, and regional jets with an ATPL.",
+  atpl: "Regional turboprops and scheduled airline flights.",
+  narrow: "A320 family, 737 and similar.",
+  wide: "787, 777, A350 and long-haul flights.",
+};
+
 const lic = (id: string, short: string, nameTr: string, nameEn: string, aboutTr: string, requires: string[], hoursNeeded: number, levelNeeded: number, fee: number, examClass: ClassInfo["id"], held: boolean, ready = false) => ({
   id,
   short,
   nameTr,
   nameEn,
   aboutTr,
-  aboutEn: aboutTr,
+  aboutEn: ABOUT_EN[id] ?? aboutTr,
   requires,
   hours: hoursNeeded,
   level: levelNeeded,
@@ -264,6 +289,8 @@ const view: CareerView = {
           acceptedAt: now - 1800,
           deadlineAt: now + 20 * 3600,
           aircraft: { title: "Cessna Skyhawk G1000 Asobo", livery: "", class: "light_piston", fleetId: null },
+          start: { runway: false, end: null },
+          runwayEnds: ["05", "23", "17L", "35R"],
           stage: mode === "ready" ? "ready" : "flying",
           launchNote: null,
           from: apt(active.from),
@@ -377,7 +404,22 @@ export const careerMocks: Record<string, (args?: Record<string, unknown>) => unk
   msfs_career_live: () => live,
   msfs_career_simbrief: () => "https://dispatch.simbrief.com/options/custom?orig=LTBA&dest=LTBU&type=C172",
   msfs_career_reveal_plan: () => null,
+  msfs_career_reveal_journal: () => null,
+  msfs_career_journal: () => [
+    "2026-10-25 16:40:02.114 [bağlantı] SimConnect oturumu açıldı: msfs2024 127.0.0.1:500 protokol 6 sürüm 12.2.282174.999",
+    "2026-10-25 16:40:02.120 [sim] ana menü / dünya haritası (yer tutucu konum -0.0000, 90.0003)",
+    "2026-10-25 16:41:15.402 [komut] uçuşu başlat: LTBA → LTBU · Cessna Skyhawk G1000 Asobo · park yeri",
+    "2026-10-25 16:41:16.010 [başlatma] FlightLoad gönderiliyor: …\\flights\\LTBA-1\\Modstead.flt · Cessna Skyhawk G1000 Asobo · LTBA park 12",
+    "2026-10-25 16:41:31.877 [akış] FLT_LOADED",
+    "2026-10-25 16:41:32.203 [sim] kamera 16 oyun içi sinema → 2 kokpit",
+    "2026-10-25 16:41:36.540 [takip] kontrol kapısı tamam: takip kuruldu (Cessna Skyhawk G1000 Asobo, 40.97612, 28.81463)",
+  ],
   msfs_career_hud: () => hud,
   msfs_career_hud_install: () => (hud = { ...hud, installed: true, version: hud.latest, sims: hud.sims.map((s) => ({ ...s, linked: true })) }),
   msfs_career_hud_remove: () => (hud = { ...hud, installed: false, version: null, sims: hud.sims.map((s) => ({ ...s, linked: false })) }),
+  msfs_career_hud_queue: (args) => (hud = { ...hud, queued: !!(args as { on?: boolean } | undefined)?.on }),
+  msfs_career_menu: () => menuPkg,
+  msfs_career_menu_install: () => (menuPkg = { ...menuPkg, installed: true, version: menuPkg.latest, installedFor: menuPkg.simVersion, sims: menuPkg.sims.map((s) => ({ ...s, linked: true })) }),
+  msfs_career_menu_remove: () => (menuPkg = { ...menuPkg, installed: false, version: null, installedFor: null, sims: menuPkg.sims.map((s) => ({ ...s, linked: false })) }),
+  msfs_career_menu_queue: (args) => (menuPkg = { ...menuPkg, queued: !!(args as { on?: boolean } | undefined)?.on }),
 };

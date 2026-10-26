@@ -127,6 +127,16 @@ pub enum Stage {
     Interrupted,
 }
 
+/// Uçuşun simde nerede başlayacağı.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct StartAt {
+    /// Pist başında, motorlar çalışır ve kalkışa hazır (simin `FLIGHT_RUNWAY` durumu); değilse park yerinde, soğuk.
+    pub runway: bool,
+    /// İstenen pist ucu ("06L"); boşsa en uzun pistin birincil ucu.
+    pub end: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ActiveJob {
@@ -134,6 +144,7 @@ pub struct ActiveJob {
     pub accepted_at: i64,
     pub deadline_at: i64,
     pub aircraft: Option<AircraftPick>,
+    pub start: StartAt,
     pub stage: Stage,
     /// Otomatik başlatmanın son durumu (arayüzde ilerleme metni).
     pub launch_note: Option<String>,

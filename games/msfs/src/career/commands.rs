@@ -8,7 +8,7 @@ use tauri::State;
 
 use super::aircraft::Class;
 use super::airports::{Airport, Size, db, distance_nm};
-use super::model::{Job, LedgerEntry, LogEntry};
+use super::model::{Job, LedgerEntry, LogEntry, StartAt};
 use super::tracker::TrackPoint;
 use super::{AircraftOption, Career, CareerView, CreateRequest, Live, jobs};
 use crate::Msfs;
@@ -84,8 +84,8 @@ pub async fn msfs_career_set_class(game: G<'_>, title: String, class: Option<Cla
 }
 
 #[tauri::command]
-pub async fn msfs_career_launch(game: G<'_>) -> AppResult<()> {
-    run(&game, |c| c.launch()).await
+pub async fn msfs_career_launch(game: G<'_>, start: Option<StartAt>) -> AppResult<()> {
+    run(&game, move |c| c.launch(start)).await
 }
 
 #[tauri::command]
@@ -222,6 +222,51 @@ pub async fn msfs_career_hud_install(game: G<'_>) -> AppResult<super::hud::HudSt
     .await?
 }
 
+/// Ana menü kutusunun durumu (paket, sim sürümü, kurulduğu sürüm).
+#[tauri::command]
+pub async fn msfs_career_menu(game: G<'_>) -> AppResult<super::menu::MenuStatus> {
+    let g: Msfs = game.inner().clone();
+    Ok(tokio::task::spawn_blocking(move || super::menu::status(&g)).await?)
+}
+
+#[tauri::command]
+pub async fn msfs_career_menu_install(game: G<'_>) -> AppResult<super::menu::MenuStatus> {
+    let g: Msfs = game.inner().clone();
+    tokio::task::spawn_blocking(move || {
+        let s = super::menu::install(&g)?;
+        g.rescan();
+        g.changed();
+        Ok(s)
+    })
+    .await?
+}
+
+#[tauri::command]
+pub async fn msfs_career_menu_remove(game: G<'_>) -> AppResult<super::menu::MenuStatus> {
+    let g: Msfs = game.inner().clone();
+    tokio::task::spawn_blocking(move || {
+        let s = super::menu::remove(&g)?;
+        g.rescan();
+        g.changed();
+        Ok(s)
+    })
+    .await?
+}
+
+#[tauri::command]
+pub async fn msfs_career_menu_queue(game: G<'_>, on: bool) -> AppResult<super::menu::MenuStatus> {
+    let g: Msfs = game.inner().clone();
+    Ok(tokio::task::spawn_blocking(move || super::menu::queue(&g, on)).await?)
+}
+
+/// "Sim kapanınca kur": sim açıkken kurulamayan paneli sim kapanır kapanmaz kurar.
+#[tauri::command]
+pub async fn msfs_career_hud_queue(game: G<'_>, on: bool) -> AppResult<super::hud::HudStatus> {
+    let g: Msfs = game.inner().clone();
+    Ok(tokio::task::spawn_blocking(move || super::hud::queue(&g, on)).await?)
+}
+
+/// Paneli kütüphaneden ve simlerden kaldırır (simler kapalıyken).
 #[tauri::command]
 pub async fn msfs_career_hud_remove(game: G<'_>) -> AppResult<super::hud::HudStatus> {
     let g: Msfs = game.inner().clone();
@@ -272,6 +317,24 @@ pub fn msfs_career_live(game: G<'_>) -> Live {
 #[tauri::command]
 pub async fn msfs_career_simbrief(game: G<'_>) -> AppResult<Option<String>> {
     run(&game, |c| Ok(c.simbrief_url())).await
+}
+
+/// Kariyer günlüğünün son satırları (bkz. `career::journal`).
+#[tauri::command]
+pub async fn msfs_career_journal(game: G<'_>, limit: Option<usize>) -> AppResult<Vec<String>> {
+    let n = limit.unwrap_or(200).min(2000);
+    run(&game, move |c| Ok(c.journal_tail(n))).await
+}
+
+/// Günlük dosyasını Gezgin'de seçili gösterir.
+#[tauri::command]
+pub async fn msfs_career_reveal_journal(game: G<'_>) -> AppResult<()> {
+    run(&game, |c| {
+        let path = c.journal_path();
+        modstead_core::platform::hidden_command("explorer.exe").arg(format!("/select,{}", path.display())).spawn()?;
+        Ok(())
+    })
+    .await
 }
 
 /// Aktif işin uçuş planını yazar ve klasörünü Gezgin'de açar (PLN'yi EFB'ye sürüklemek için).

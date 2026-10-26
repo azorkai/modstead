@@ -30,6 +30,7 @@ const DEF_AC: u32 = 2;
 const DEF_INIT: u32 = 3;
 const DEF_PAYLOAD: u32 = 4;
 const DEF_HUD: u32 = 5;
+const DEF_CAM: u32 = 6;
 const DEF_FAC: u32 = 10;
 
 const REQ_TEL: u32 = 1;
@@ -37,12 +38,16 @@ const REQ_AC: u32 = 2;
 const REQ_LIV_A: u32 = 3;
 const REQ_LIV_H: u32 = 4;
 const REQ_AIRPORTS: u32 = 5;
+const REQ_CAM: u32 = 6;
 const REQ_FAC_BASE: u32 = 1000;
 
 const EV_SIMSTART: u32 = 1;
 const EV_SIMSTOP: u32 = 2;
 const EV_PAUSE: u32 = 3;
 const EV_CRASHED: u32 = 4;
+/// `CAMERA STATE`: kokpit ve 2024'te kullanıcının uçağın dışında başladığı durum (uçuş açılınca görülür).
+const CAMERA_COCKPIT: u32 = 2;
+const CAMERA_OUTSIDE: u32 = 31;
 
 /// Telemetri alanları (sıra = gelen verinin sırası).
 const TEL: &[(&str, &str)] = &[
@@ -146,6 +151,15 @@ pub struct Launch {
     pub flight_started: bool,
     pub teleported: bool,
     pub payload_done: bool,
+    /// Uçuş, sim menüdeyken mi yüklendi ("Uçuşa hazır" ve sinema gelir; pist durumu kullanılabilir).
+    pub from_menu: bool,
+    /// Simin akış olayları: uçuş başladı (FLIGHT_START), açılış sineması sürüyor (RTC_START…RTC_END).
+    pub sim_started: bool,
+    pub rtc: bool,
+    /// Kokpite alma denemeleri ve kokpitte geçen süre.
+    pub cockpit_tries: u8,
+    pub cockpit_at: Option<Instant>,
+    pub control_at: Option<Instant>,
     pub note: String,
 }
 
@@ -160,6 +174,12 @@ impl Launch {
             flight_started: false,
             teleported: false,
             payload_done: false,
+            from_menu: false,
+            sim_started: false,
+            rtc: false,
+            cockpit_tries: 0,
+            cockpit_at: None,
+            control_at: None,
             note: if opened_sim {
                 tr!("Sim açılıyor; ana menüye geldiğinde Modstead uçuşu yükleyecek.", "Starting the sim; Modstead will load the flight once it reaches the main menu.").into()
             } else {
@@ -200,6 +220,12 @@ pub struct Engine {
     fixed_target: Option<Target>,
     /// Sim içi panelin `L:` değişkenleri.
     hud: super::hud::Feed,
+    /// Günlük için: sim ana menüde mi (yer tutucu konum geliyor), son bilinen uçuşta durumu.
+    in_menu: bool,
+    was_in_flight: bool,
+    /// Sim uçuş yükleyip uçağı yerleştirirken (FLT_LOAD, TELEPORT, SimStart) gelen anlık hızlar takibi
+    /// başlatmasın: bu ana kadar takip güncellenmez.
+    settle_until: Option<Instant>,
 }
 
 impl Engine {
@@ -227,7 +253,14 @@ impl Engine {
             connected_at: None,
             fixed_target: None,
             hud: Default::default(),
+            in_menu: false,
+            was_in_flight: false,
+            settle_until: None,
         }
+    }
+
+    fn note(&self, area: &str, msg: impl AsRef<str>) {
+        self.career.note(area, msg);
     }
 
     #[cfg(test)]
@@ -239,6 +272,7 @@ impl Engine {
     fn request_data(out: &mut Outbox) {
         out.send(Request::RequestDataOnSimObject { request: REQ_TEL, define: DEF_TEL, object: OBJECT_USER, period: Period::SimFrame, flags: 0, interval: 6 });
         out.send(Request::RequestDataOnSimObject { request: REQ_AC, define: DEF_AC, object: OBJECT_USER, period: Period::Second, flags: super::simconnect::DATA_FLAG_CHANGED, interval: 0 });
+        out.send(Request::RequestDataOnSimObject { request: REQ_CAM, define: DEF_CAM, object: OBJECT_USER, period: Period::Second, flags: super::simconnect::DATA_FLAG_CHANGED, interval: 0 });
     }
 
     fn request_detail(&mut self, out: &mut Outbox, icao: &str) {
@@ -252,18 +286,7 @@ impl Engine {
     }
 
     fn detail(&self, icao: &str) -> Option<AirportDetail> {
-        let mut c = self.career.caches.lock().unwrap();
-        if let Some(d) = c.details.get(icao) {
-            return Some(d.clone());
-        }
-        let path = self.career.cache_path(&format!("airports/{}.json", fsx::sanitize_name(icao)));
-        let d: AirportDetail = fsx::read_json(&path);
-        // Sahne güncellenmiş olabilir: 30 günden eski önbellek yeniden istenir.
-        if d.icao == icao && fsx::now_ts() - d.fetched_at < 30 * 86400 {
-            c.details.insert(icao.to_string(), d.clone());
-            return Some(d);
-        }
-        None
+        self.career.cached_detail(icao)
     }
 
     fn on_facility(&mut self, request: u32, kind: u32, data: &[u8]) {
@@ -318,37 +341,39 @@ impl Engine {
         }
     }
 
-    /// Kalkış havalimanında işe uygun park yeri ve konumu.
-    fn departure_spot(&self) -> Option<(String, Option<Parking>, f64, f64, f64, f64, Option<(String, String)>)> {
+    /// Kalkış noktası: işe uygun park yeri ya da (istendiyse) pist ucu.
+    fn departure_spot(&self) -> Option<Spot> {
         let d = self.career.lock_data();
         let a = d.active.as_ref()?;
         let class = a.aircraft.as_ref().and_then(|p| p.class).or(a.job.class)?;
         let cargo = a.job.pax == 0 && a.job.cargo_kg > 0;
         let seed = a.job.id.bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(b as u64));
         let from = a.job.from.clone();
+        let start = a.start.clone();
         drop(d);
         let apt = db().get(&from)?;
-        let elev_ft = apt.elevation_ft as f64;
-        match self.detail(&from) {
-            Some(det) => {
-                let rwy = det.runways.iter().max_by(|a, b| a.length_m.total_cmp(&b.length_m)).map(flt::runway_ends);
-                let p = flt::choose_parking(&det, class, cargo, seed).cloned();
-                match &p {
-                    Some(p) => {
-                        let (lat, lon) = flt::parking_position(&det, p);
-                        Some((from, Some(p.clone()), lat, lon, det.alt_m * 3.28084, p.heading as f64, rwy))
-                    }
-                    None => Some((from, None, det.lat, det.lon, det.alt_m * 3.28084, 0.0, rwy)),
-                }
+        let Some(det) = self.detail(&from) else {
+            return Some(Spot { icao: from, parking: None, runway_end: None, lat: apt.lat, lon: apt.lon, alt_ft: apt.elevation_ft as f64, heading: 0.0, runway: None });
+        };
+        let runway = det.runways.iter().max_by(|a, b| a.length_m.total_cmp(&b.length_m)).map(flt::runway_ends);
+        if start.runway {
+            if let Some(e) = flt::choose_runway_end(&det, start.end.as_deref()) {
+                return Some(Spot { icao: from, parking: None, lat: e.lat, lon: e.lon, alt_ft: e.alt_ft, heading: e.heading, runway_end: Some(e.name), runway });
             }
-            None => Some((from, None, apt.lat, apt.lon, elev_ft, 0.0, None)),
         }
+        Some(match flt::choose_parking(&det, class, cargo, seed).cloned() {
+            Some(p) => {
+                let (lat, lon) = flt::parking_position(&det, &p);
+                Spot { icao: from, lat, lon, alt_ft: det.alt_m * 3.28084, heading: p.heading as f64, parking: Some(p), runway_end: None, runway }
+            }
+            None => Spot { icao: from, parking: None, runway_end: None, lat: det.lat, lon: det.lon, alt_ft: det.alt_m * 3.28084, heading: 0.0, runway },
+        })
     }
 
-    /// Uçağı park yerine taşır (Modstead'in kendi ışınlaması hile sayılmaz).
+    /// Uçağı park yerine ya da pist ucuna taşır (Modstead'in kendi ışınlaması hile sayılmaz).
     fn reposition(&mut self, out: &mut Outbox) {
-        let Some((icao, parking, lat, lon, alt, hdg, _)) = self.departure_spot() else { return };
-        if parking.is_none() {
+        let Some(Spot { icao, parking, runway_end, lat, lon, alt_ft: alt, heading: hdg, .. }) = self.departure_spot() else { return };
+        if parking.is_none() && runway_end.is_none() {
             if self.detail(&icao).is_none() {
                 self.pending_reposition = true;
                 self.request_detail(out, &icao);
@@ -370,7 +395,7 @@ impl Engine {
             t.grace_until = self.grace_abs;
         }
         out.send(Request::SetDataOnSimObject { define: DEF_INIT, object: OBJECT_USER, data });
-        log::info!("kariyer: uçak {icao} park yerine taşındı ({lat:.5}, {lon:.5})");
+        self.note("başlatma", format!("uçak {icao} {} taşındı ({lat:.5}, {lon:.5}, yön {hdg:.0}°)", runway_end.map(|e| format!("{e} pist başına")).unwrap_or_else(|| "park yerine".into())));
     }
 
     /// İşin yükünü istasyonlara yazar (dış EFB'li uçaklarda yapılmaz).
@@ -403,37 +428,42 @@ impl Engine {
     }
 
     /// FLT ve PLN dosyalarını yazar; FLT yolunu döner.
-    fn write_files(&self) -> AppResult<String> {
-        let (job, pick) = {
+    fn write_files(&self, hot_start: bool) -> AppResult<String> {
+        let (job, pick, callsign) = {
             let d = self.career.lock_data();
             let a = d.active.as_ref().ok_or_else(|| AppError::msg("aktif iş yok"))?;
-            (a.job.clone(), a.aircraft.clone().unwrap_or_default())
+            (a.job.clone(), a.aircraft.clone().unwrap_or_default(), d.pilot.as_ref().map(|p| p.callsign.clone()).unwrap_or_default())
         };
         let (from, to) = (db().get(&job.from).ok_or_else(|| AppError::NotFound(job.from.clone()))?, db().get(&job.to).ok_or_else(|| AppError::NotFound(job.to.clone()))?);
-        let (_, parking, lat, lon, alt, hdg, rwy) = self.departure_spot().ok_or_else(|| AppError::msg("kalkış yeri yok"))?;
+        let spot = self.departure_spot().ok_or_else(|| AppError::msg("kalkış yeri yok"))?;
         let dir = self.career.flights_dir().join(fsx::sanitize_name(&job.id));
         std::fs::create_dir_all(&dir)?;
         let pln_name = format!("{}_{}", job.from, job.to);
         let ifr = matches!(job.class, Some(c) if !matches!(c, super::aircraft::Class::LightPiston | super::aircraft::Class::Helicopter));
         fsx::atomic_write(&dir.join(format!("{pln_name}.pln")), flt::write_pln(from, to, job.plan.cruise_alt_ft, ifr).as_bytes())?;
         let title = format!("Modstead: {} - {}", job.from, job.to);
-        let flt_text = flt::write_flt(&flt::FlightSetup {
+        let setup = flt::FlightSetup {
             title: &title,
             description: &format!("{} {}", job.client, job.cargo),
             aircraft_title: &pick.title,
             livery: &pick.livery,
+            tail_number: &callsign,
             from,
             to,
-            parking: parking.as_ref(),
-            lat,
-            lon,
-            alt_ft: alt,
-            heading: hdg,
-            runway: rwy,
+            parking: spot.parking.as_ref(),
+            runway_start: spot.runway_end.is_some(),
+            hot_start,
+            lat: spot.lat,
+            lon: spot.lon,
+            alt_ft: spot.alt_ft,
+            heading: spot.heading,
+            runway: spot.runway.clone(),
             pln_name: Some(&pln_name),
             cruise_alt_ft: job.plan.cruise_alt_ft,
             when: chrono::Utc::now(),
-        });
+        };
+        let sim_2024 = self.career.live.lock().unwrap().link.sim.as_deref() != Some(crate::sims::SIM_2020);
+        let flt_text = if sim_2024 { flt::write_flt_2024(&setup) } else { flt::write_flt(&setup) };
         let path = dir.join("Modstead.flt");
         fsx::atomic_write(&path, &flt::to_ansi(&flt_text))?;
         let s = path.display().to_string();
@@ -455,8 +485,8 @@ impl Engine {
         let Some(mut l) = self.career.live.lock().unwrap().launch_state.clone() else { return };
         let in_flight = self.in_flight();
         let live = self.career.live();
-        let from = self.career.lock_data().active.as_ref().map(|a| (a.job.from.clone(), a.aircraft.as_ref().map(|p| p.title.clone()).unwrap_or_default()));
-        let Some((from, pick_title)) = from else {
+        let from = self.career.lock_data().active.as_ref().map(|a| (a.job.from.clone(), a.aircraft.as_ref().map(|p| p.title.clone()).unwrap_or_default(), a.start.runway));
+        let Some((from, pick_title, runway_start)) = from else {
             self.career.live.lock().unwrap().launch_state = None;
             return;
         };
@@ -475,24 +505,25 @@ impl Engine {
             Step::FetchingAirport => {
                 if self.detail(&from).is_some() || elapsed > Duration::from_secs(8) {
                     let same_aircraft = live.aircraft.as_ref().is_some_and(|a| a.title == pick_title);
-                    if in_flight && same_aircraft {
+                    let engines = live.telemetry.as_ref().is_some_and(|t| t.engines_on);
+                    if in_flight && same_aircraft && (!runway_start || engines) {
+                        // Aynı uçakla zaten uçuştaysa uçuş yeniden yüklenmez, uçak taşınır. Pist başı istenip motorlar
+                        // kapalıysa taşımak yetmez (dışarıdan motor çalıştırılamıyor): uçuş taksi durumuyla yüklenir.
                         self.reposition(out);
                         l.teleported = true;
-                        l.go(Step::Positioning, tr!("Uçak park yerine taşınıyor…", "Moving the aircraft to the parking spot…"));
+                        l.go(
+                            Step::Positioning,
+                            if runway_start {
+                                tr!("Uçak pist başına taşınıyor…", "Moving the aircraft onto the runway…")
+                            } else {
+                                tr!("Uçak park yerine taşınıyor…", "Moving the aircraft to the parking spot…")
+                            },
+                        );
                     } else {
-                        match self.write_files() {
-                            Ok(path) => {
-                                self.flight_load_sent = out.send(Request::FlightLoad { path });
-                                l.go(
-                                    Step::Loading,
-                                    tr!(
-                                        "Uçuş simde yükleniyor. Sim bir onay isterse \"Uçuşa hazır\" düğmesine basın.",
-                                        "Loading the flight in the sim. If the sim asks, press \"Ready to fly\"."
-                                    ),
-                                );
-                            }
-                            Err(e) => l.go(Step::Manual, e.to_string()),
-                        }
+                        // Menüde de, başka bir uçuştayken de uçuş doğrudan yüklenir. 2024'te açık uçuşun üstüne
+                        // `FLIGHT_RUNWAY` yüklemek açılış sinemasında takılıyor; o yolda taksi durumu yazılır
+                        // (bkz. `flt::FlightSetup::hot_start`).
+                        self.load_flight(out, &mut l);
                     }
                 }
             }
@@ -517,7 +548,7 @@ impl Engine {
                 }
                 if !l.teleported {
                     let far = match (self.departure_spot(), live.telemetry.as_ref()) {
-                        (Some((_, Some(_), lat, lon, ..)), Some(t)) => distance_nm(lat, lon, t.lat, t.lon) * 1852.0 > 150.0,
+                        (Some(s), Some(t)) if s.parking.is_some() || s.runway_end.is_some() => distance_nm(s.lat, s.lon, t.lat, t.lon) * 1852.0 > 150.0,
                         _ => false,
                     };
                     if far && live.telemetry.as_ref().is_some_and(|t| t.on_ground && t.gs_kt < 2.0) {
@@ -528,16 +559,67 @@ impl Engine {
                 } else if !l.payload_done && elapsed > Duration::from_secs(4) {
                     self.apply_payload(out);
                     l.payload_done = true;
+                    l.since = Instant::now();
+                } else if l.payload_done && !runway_start {
+                    // Park yeri: 2024 kullanıcıyı bilerek uçağın yanında başlatır (dış kontrol, CAMERA STATE 30/31).
+                    // Kameraya dokunulmaz: kamerayı kokpite çevirmek pilotu koltuğa oturtmuyor, yalnızca dışarıdaki
+                    // pilotun gözüne geçiyor.
                     let own = live.aircraft.as_ref().is_some_and(|a| a.manages_own_loading);
-                    l.go(
-                        Step::Done,
-                        if own {
-                            tr!("Hazır. Bu uçak yükü ve yakıtı kendi EFB'sinden yönetiyor: plandaki değerleri EFB'ye girin.", "Ready. This aircraft manages payload and fuel in its own EFB: enter the planned values there.")
-                                .to_string()
+                    let outside = matches!(live.camera, Some(30 | CAMERA_OUTSIDE));
+                    let note = if own {
+                        tr!("Hazır. Bu uçak yükü ve yakıtı kendi EFB'sinden yönetiyor: plandaki değerleri EFB'ye girin.", "Ready. This aircraft manages payload and fuel in its own EFB: enter the planned values there.").to_string()
+                    } else if outside {
+                        tr!(
+                            "Hazır. Sim sizi uçağın yanında başlattı: binmek için Shift+C. Yakıtı plana göre ayarlayın; motorları çalıştırdığınızda takip başlar.",
+                            "Ready. The sim starts you next to the aircraft: press Shift+C to board. Set fuel as planned; tracking starts when you start the engines."
+                        )
+                        .to_string()
+                    } else {
+                        tr!("Hazır. Yakıtı plana göre ayarlayın; motorları çalıştırdığınızda takip başlar.", "Ready. Set fuel as planned; tracking starts when you start the engines.").to_string()
+                    };
+                    l.go(Step::Done, note);
+                } else if l.payload_done {
+                    let cam = live.camera;
+                    // Pist başı (taksi ya da pist durumu): pilot koltuktadır ama 2024 kamerayı 31'de bırakıyor ve ESC'den
+                    // dönünce dış kameraya geçiyor. Uçuş başlayınca kamera kokpite alınır. Sinema sürerken kamera
+                    // yazılamaz; açık uçuşun üstüne yüklenince RTC_END hiç gelmediği için sinema bayrağına değil
+                    // kameraya bakılır. ("Görüşü sıfırla" isteği kamerayı dışarı attığı için kullanılmaz.)
+                    let after_ready = l.sim_started || (!l.from_menu && elapsed > Duration::from_secs(5));
+                    if cam == Some(CAMERA_OUTSIDE) && after_ready && l.cockpit_tries < 3 && l.cockpit_at.is_none_or(|t| t.elapsed() > Duration::from_secs(3)) {
+                        self.set_camera(out, CAMERA_COCKPIT);
+                        l.cockpit_tries += 1;
+                        l.cockpit_at = Some(Instant::now());
+                    }
+                    let end = self.departure_spot().and_then(|s| s.runway_end);
+                    if !in_control(cam) {
+                        // Aynı metin her karede yazılır; günlüğe ve arayüze yalnızca değişince gider.
+                        l.control_at = None;
+                        l.note = match (&end, l.rtc && cam != Some(CAMERA_OUTSIDE)) {
+                            (_, true) => tr!("Simin açılış sineması oynuyor…", "The sim's intro cinematic is playing…").to_string(),
+                            (Some(e), false) => tr!(
+                                format!("Uçak {e} pist başında. Simde \"Uçuşa hazır\"a basın; Modstead sizi kokpite alır."),
+                                format!("The aircraft is lined up on runway {e}. Press \"Ready to fly\" in the sim; Modstead puts you in the cockpit.")
+                            ),
+                            (None, false) => tr!("Uçuş hazır. Simde \"Uçuşa hazır\"a basın; Modstead sizi kokpite alır.", "The flight is ready. Press \"Ready to fly\" in the sim; Modstead puts you in the cockpit.").to_string(),
+                        };
+                    } else if l.control_at.get_or_insert_with(Instant::now).elapsed() > Duration::from_secs(3) {
+                        // Kokpitte: motorlar simin taksi/pist durumuyla çalışmış olmalı. 2024 uçakları dışarıdan gelen
+                        // motor çalıştırma olayını ve değişkenini yok sayıyor; çalışmıyorsa kullanıcıya söylenir.
+                        let engines = live.telemetry.as_ref().is_some_and(|t| t.engines_on);
+                        let e = end.unwrap_or_default();
+                        let note = if engines {
+                            tr!(
+                                format!("Hazır: {e} pist başında, kokpittesiniz ve motorlar çalışıyor. Park frenini bırakıp kalkabilirsiniz."),
+                                format!("Ready: lined up on runway {e}, in the cockpit with the engines running. Release the parking brake and take off.")
+                            )
                         } else {
-                            tr!("Hazır. Yakıtı plana göre ayarlayın; motorları çalıştırdığınızda takip başlar.", "Ready. Set fuel as planned; tracking starts when you start the engines.").to_string()
-                        },
-                    );
+                            tr!(
+                                format!("Uçak {e} pist başında, kokpittesiniz. Motorları çalıştırın (Ctrl+E otomatik çalıştırır); takip motorlar çalışınca başlar."),
+                                format!("Lined up on runway {e}, in the cockpit. Start the engines (Ctrl+E auto-starts); tracking begins once they run.")
+                            )
+                        };
+                        l.go(Step::Done, note);
+                    }
                 }
             }
             Step::Done | Step::Manual => {}
@@ -545,9 +627,46 @@ impl Engine {
         self.store_launch(l);
     }
 
+    fn set_camera(&self, out: &mut Outbox, state: u32) {
+        self.note("sim", format!("kamera isteniyor: {}", camera_name(state)));
+        out.send(Request::SetDataOnSimObject { define: DEF_CAM, object: OBJECT_USER, data: (state as f64).to_le_bytes().to_vec() });
+    }
+
+    /// Uçuş dosyalarını yazıp simden yüklemesini ister. Sim ana menüdeyse pist başı simin "kalkışa hazır"
+    /// durumuyla (motorlar çalışır) yazılır; açık bir uçuşun üstüne yüklenirken o durum kullanılamaz.
+    fn load_flight(&mut self, out: &mut Outbox, l: &mut Launch) {
+        // Kamera belirleyicidir: sim duraklatılınca (ESC) veri akışı durur ama uçuş açıktır. Kamera hiç
+        // gelmediyse (eski sim) veri akışına bakılır.
+        let camera = self.career.live.lock().unwrap().camera;
+        l.from_menu = if camera.is_some() { camera_in_menu(camera) } else { !self.in_flight() };
+        match self.write_files(l.from_menu) {
+            Ok(path) => {
+                let spot = self.departure_spot();
+                let what = spot
+                    .map(|s| format!("{} {} ({:.5}, {:.5}, yön {:.0}°)", s.icao, s.runway_end.map(|e| format!("pist {e} başı")).or(s.parking.map(|p| format!("park {}", flt::parking_label(&p)))).unwrap_or_else(|| "referans noktası".into()), s.lat, s.lon, s.heading))
+                    .unwrap_or_default();
+                let aircraft = self.career.lock_data().active.as_ref().and_then(|a| a.aircraft.as_ref().map(|p| p.title.clone())).unwrap_or_default();
+                self.note("başlatma", format!("FlightLoad gönderiliyor ({}): {path} · {aircraft} · {what}", if l.from_menu { "sim menüde" } else { "sim uçuşta" }));
+                self.flight_load_sent = out.send(Request::FlightLoad { path });
+                l.go(
+                    Step::Loading,
+                    tr!(
+                        "Uçuş simde yükleniyor. Sim \"Uçuşa hazır\" ekranını gösterirse düğmeye basın.",
+                        "Loading the flight in the sim. If the sim shows the \"Ready to fly\" screen, press the button."
+                    ),
+                );
+            }
+            Err(e) => l.go(Step::Manual, e.to_string()),
+        }
+    }
+
     fn store_launch(&self, l: Launch) {
         let note = l.note.clone();
         let step = l.step;
+        let prev = self.career.live.lock().unwrap().launch_state.as_ref().map(|p| (p.step, p.note.clone()));
+        if prev.as_ref().is_none_or(|(s, n)| *s != step || *n != note) {
+            self.note("başlatma", format!("{step:?}: {note}"));
+        }
         self.career.live.lock().unwrap().launch_state = Some(l);
         let mut d = self.career.lock_data();
         if let Some(a) = d.active.as_mut() {
@@ -637,6 +756,9 @@ impl Engine {
         }
         let (class, _) = Career::class_of(&d, &title, &model);
         drop(d);
+        if self.career.live.lock().unwrap().aircraft.as_ref().is_none_or(|a| a.title != title) {
+            self.note("sim", format!("uçak: {title} ({model}, {atc_id}, sınıf {})", class.map(|c| format!("{c:?}")).unwrap_or_else(|| "?".into())));
+        }
         self.career.live.lock().unwrap().aircraft = Some(AircraftNow { manages_own_loading: manages_own_loading(&title), title, atc_model: model, atc_id, class, specs });
         if changed {
             self.career.changed();
@@ -652,6 +774,10 @@ impl Engine {
         }
         let now_ms = fsx::now_ms();
         let aircraft = self.career.live.lock().unwrap().aircraft.clone();
+        // Modstead uçuşu yüklerken ya da uçağı yerleştirirken gelen anlık hızlar (yüklemede 8 kt görüldü) takibi
+        // "başladı" saymasın: başlatma bitene kadar takip güncellenmez.
+        let settling = self.settle_until.is_some_and(|t| Instant::now() < t);
+        let launching = settling || self.career.live.lock().unwrap().launch_state.as_ref().is_some_and(|l| !matches!(l.step, Step::Done | Step::Manual));
         let mut finished = None;
         let mut save = false;
         {
@@ -683,7 +809,8 @@ impl Engine {
                 let at_dep = t.on_ground && distance_nm(t.lat, t.lon, dep.lat, dep.lon) <= 3.0;
                 let class = aircraft.as_ref().and_then(|ac| ac.class);
                 let fits = class.is_some_and(|c| check_aircraft_for_job(&p, &a.job, c).is_ok());
-                if at_dep && fits && !t.slew {
+                // Yükleme sırasında gelen veri eski uçağa ait olabilir: kontrol kapısı başlatma bitince kurulur.
+                if at_dep && fits && !t.slew && !launching {
                     if a.tracker.is_none() {
                         let mut tr = Tracker::new(
                             &a.job.id,
@@ -694,6 +821,7 @@ impl Engine {
                         );
                         tr.grace_until = self.grace_abs.max(t.abs_time + 10.0);
                         a.tracker = Some(tr);
+                        self.note("takip", format!("kontrol kapısı tamam: takip kuruldu ({}, {:.5}, {:.5})", aircraft.as_ref().map(|a| a.title.as_str()).unwrap_or("?"), t.lat, t.lon));
                         if matches!(a.stage, Stage::Accepted | Stage::Launching) {
                             a.stage = Stage::Ready;
                         }
@@ -708,6 +836,7 @@ impl Engine {
                 } else if a.tracker.is_some() && !at_dep {
                     // Başlamadan kalkış yerinden ayrıldı (başka uçuş açtı): kapı yeniden kurulacak.
                     a.tracker = None;
+                    self.note("takip", format!("başlamadan kalkış yerinden ayrıldı ({:.5}, {:.5}); takip kaldırıldı", t.lat, t.lon));
                     if a.stage == Stage::Ready {
                         a.stage = Stage::Accepted;
                     }
@@ -715,10 +844,23 @@ impl Engine {
                 }
             }
 
-            if let Some(tr) = a.tracker.as_mut() {
+            if let Some(tr) = a.tracker.as_mut().filter(|_| !launching) {
                 let was = tr.started();
+                let (phase, events, invalid) = (tr.phase, tr.events.len(), tr.invalid.is_some());
                 tr.update(&t, now_ms);
+                if tr.phase != phase {
+                    self.note("takip", format!("evre {phase:?} → {:?} ({:.0} ft, {:.0} kt, {:.0} fpm)", tr.phase, t.alt_ft, t.gs_kt, t.vs_fpm));
+                }
+                for e in tr.events.iter().skip(events) {
+                    self.note("takip", format!("olay {} (değer {:.1}, ceza {})", e.code, e.value, e.penalty));
+                }
+                if !invalid {
+                    if let Some(why) = &tr.invalid {
+                        self.note("takip", format!("uçuş geçersiz sayıldı: {why}"));
+                    }
+                }
                 if tr.started() && !was {
+                    self.note("takip", "uçuş başladı (blok kalkışı)");
                     a.stage = Stage::Flying;
                     save = true;
                 }
@@ -733,6 +875,7 @@ impl Engine {
             if finished.is_some() {
                 let entry = self.career.complete(&mut d, None);
                 drop(d);
+                self.note("takip", format!("uçuş bitti: {} · {} → {} · puan {} · net ${}", entry.result, entry.job.from, entry.arrived, entry.summary.score, entry.settlement.net));
                 notify_done(&self.career, &entry);
                 self.career.changed();
                 return;
@@ -757,6 +900,10 @@ impl Engine {
         let mut live = self.career.live.lock().unwrap();
         let in_flight = live.last_data.is_some_and(|t| t.elapsed() < Duration::from_secs(3));
         live.in_flight = in_flight;
+        if in_flight != self.was_in_flight {
+            self.was_in_flight = in_flight;
+            self.career.note("sim", if in_flight { "uçuşta (veri geliyor)" } else { "uçuşta değil (3 sn veri yok)" });
+        }
         let t = live.telemetry.clone().filter(|_| in_flight);
         live.nearest = t.as_ref().filter(|t| t.on_ground).and_then(|t| db().nearest(t.lat, t.lon, 3.0)).map(|(a, _)| a.icao.clone());
         live.checks = Vec::new();
@@ -842,6 +989,61 @@ impl Engine {
     }
 }
 
+/// Uçuşun simde başlayacağı nokta.
+struct Spot {
+    icao: String,
+    parking: Option<Parking>,
+    /// Pist başından başlanıyorsa ucun adı ("06L").
+    runway_end: Option<String>,
+    lat: f64,
+    lon: f64,
+    alt_ft: f64,
+    heading: f64,
+    /// En uzun pist (2020 FLT'sindeki `[Departure]` için).
+    runway: Option<(String, String)>,
+}
+
+/// Ana menü ve dünya haritası: sim kullanıcı uçağını yer tutucu bir konumda tutar (2020'de 0°, 0°; 2024'te
+/// 0°, 90°, duraklatılmış ve havada). Bu veri uçuş sayılmaz; yoksa menüdeki uçak "uçuşta" görünür ve takip
+/// menüye dönüşü 4000 nm'lik bir ışınlanma sanır.
+fn menu_placeholder(t: &Telemetry) -> bool {
+    t.lat.abs() < 1e-3 && (t.lon.abs() < 1e-3 || (t.lon - 90.0).abs() < 1e-2)
+}
+
+/// Kullanıcı uçağın başında mı: kokpit, dış, drone ve benzeri uçuş kameraları. Açılış sineması (16),
+/// "Uçuşa hazır" ekranı (2024'te 31), avatar (30), menüler ve bilinmeyen durumlar değil. Kamera hiç
+/// gelmiyorsa (eski sim) uçuş açıldıktan sonra uçağın başında sayılır.
+fn in_control(camera: Option<u32>) -> bool {
+    matches!(camera, None | Some(2..=10))
+}
+
+/// Menüler ve ara ekranlar. 2024 bunlarda da kullanıcı uçağının verisini (son uçuşun konumuyla) göndermeyi
+/// sürdürür; bu veri uçuş sayılmaz. Gerçek simde görülen değerler: 32 ana menü, 12 dünya haritası, 35 geçiş.
+/// Ayrıca 11 bekleme, 13–15 hangar ve menü sinemaları, 21 hangar.
+fn camera_in_menu(camera: Option<u32>) -> bool {
+    matches!(camera, Some(11..=15 | 21 | 32 | 35))
+}
+
+/// `CAMERA STATE` değerinin günlükteki adı. 2024'ün belgelenmemiş değerleri (29–36) sayıyla kalır.
+fn camera_name(v: u32) -> String {
+    let n = match v {
+        2 => "kokpit",
+        3 => "dış",
+        4 => "drone",
+        5 => "sabit",
+        6 => "çevre",
+        9 => "vitrin",
+        11 => "bekleme",
+        12 => "dünya haritası",
+        15 => "menü sineması",
+        16 => "oyun içi sinema",
+        17 => "tekrar",
+        30 => "avatar",
+        _ => "",
+    };
+    if n.is_empty() { v.to_string() } else { format!("{v} {n}") }
+}
+
 fn notify_done(career: &Career, e: &super::model::LogEntry) {
     let money = if e.settlement.net >= 0 { format!("+${}", e.settlement.net) } else { format!("-${}", -e.settlement.net) };
     let title = match e.result.as_str() {
@@ -878,6 +1080,9 @@ impl Handler for Engine {
 
     fn on_open(&mut self, out: &mut Outbox, target: &Target, version: (u32, u32, u32, u32)) {
         log::info!("SimConnect bağlandı: {} protokol {} sim {}.{}.{}.{}", target.sim, target.protocol, version.0, version.1, version.2, version.3);
+        self.note("bağlantı", format!("SimConnect oturumu açıldı: {} {} protokol {} sürüm {}.{}.{}.{}", target.sim, target.addr, target.protocol, version.0, version.1, version.2, version.3));
+        self.in_menu = false;
+        self.was_in_flight = false;
         self.protocol = target.protocol;
         self.connected = true;
         self.connected_at = Some(Instant::now());
@@ -899,6 +1104,7 @@ impl Handler for Engine {
             }
         }
         out.send(Request::AddToDataDefinition { define: DEF_INIT, name: "Initial Position".into(), units: String::new(), datatype: DataType::InitPosition, epsilon: 0.0 });
+        out.send(Request::AddToDataDefinition { define: DEF_CAM, name: "CAMERA STATE".into(), units: "number".into(), datatype: DataType::Float64, epsilon: 0.0 });
         self.hud = Default::default();
         for f in super::hud::FIELDS {
             if let Some(id) = out.send(Request::AddToDataDefinition { define: DEF_HUD, name: super::hud::var_name(f), units: "number".into(), datatype: DataType::Float64, epsilon: 0.0 }) {
@@ -927,7 +1133,9 @@ impl Handler for Engine {
 
     fn on_recv(&mut self, out: &mut Outbox, msg: Recv) {
         match msg {
-            Recv::Exception { send_id, .. } => {
+            Recv::Exception { send_id, exception, index } => {
+                let what = if self.flight_load_sent == Some(send_id) { " — FlightLoad isteği" } else { "" };
+                self.note("simconnect", format!("istisna {exception} (gönderim {send_id}, alan {index}){what}"));
                 if let Some(i) = self.tel_sent.get(&send_id) {
                     log::info!("SimConnect bu simde '{}' değişkenini tanımıyor; atlanıyor", TEL[*i].0);
                     self.tel_missing.insert(*i);
@@ -947,34 +1155,72 @@ impl Handler for Engine {
             }
             Recv::SimObjectData { request: REQ_TEL, data, .. } => {
                 let t = self.parse_telemetry(&data);
-                // Ana menüde konum 0,0 gelebilir.
-                if t.lat == 0.0 && t.lon == 0.0 {
+                let camera = self.career.live.lock().unwrap().camera;
+                if menu_placeholder(&t) || camera_in_menu(camera) {
+                    if !self.in_menu {
+                        self.in_menu = true;
+                        self.note("sim", format!("menüde (kamera {}, konum {:.4}, {:.4}); gelen veri uçuş sayılmıyor", camera.map(camera_name).unwrap_or_else(|| "?".into()), t.lat, t.lon));
+                    }
                     return;
+                }
+                if self.in_menu {
+                    self.in_menu = false;
+                    self.note("sim", format!("uçuş verisi geliyor: {:.5}, {:.5} · {} · {:.0} ft · motor {}", t.lat, t.lon, if t.on_ground { "yerde" } else { "havada" }, t.alt_ft, if t.engines_on { "çalışıyor" } else { "kapalı" }));
                 }
                 self.on_telemetry(t);
             }
             Recv::SimObjectData { request: REQ_AC, data, .. } => self.on_aircraft(&data),
+            Recv::SimObjectData { request: REQ_CAM, data, .. } => {
+                let v = Reader::new(&data).f64();
+                let cam = (v >= 0.0 && v < 1000.0).then_some(v as u32);
+                let prev = std::mem::replace(&mut self.career.live.lock().unwrap().camera, cam);
+                if prev != cam {
+                    self.note("sim", format!("kamera {} → {}", prev.map(camera_name).unwrap_or_else(|| "?".into()), cam.map(camera_name).unwrap_or_else(|| "?".into())));
+                }
+            }
             Recv::Event { event, data, .. } => match event {
-                EV_SIMSTART => Self::request_data(out),
-                EV_PAUSE => self.career.live.lock().unwrap().paused = data != 0,
+                EV_SIMSTART => {
+                    self.note("sim", "SimStart");
+                    self.settle_until = Some(Instant::now() + Duration::from_secs(5));
+                    Self::request_data(out)
+                }
+                EV_PAUSE => {
+                    self.note("sim", format!("duraklatma durumu {data}"));
+                    self.career.live.lock().unwrap().paused = data != 0
+                }
                 EV_CRASHED => {
+                    self.note("sim", "Crashed (kaza)");
                     let abs = self.career.live.lock().unwrap().telemetry.as_ref().map(|t| t.abs_time).unwrap_or(0.0);
                     let mut d = self.career.lock_data();
                     if let Some(tr) = d.active.as_mut().and_then(|a| a.tracker.as_mut()) {
                         tr.crash(abs);
                     }
                 }
-                EV_SIMSTOP => self.career.live.lock().unwrap().in_flight = false,
+                EV_SIMSTOP => {
+                    self.note("sim", "SimStop");
+                    self.career.live.lock().unwrap().in_flight = false
+                }
                 _ => {}
             },
             Recv::Flow { event, .. } => {
                 let name = flow::name(event);
-                log::debug!("akış olayı: {name}");
+                self.note("akış", name);
+                if matches!(event, flow::FLT_LOAD | flow::FLT_LOADED | flow::TELEPORT_START | flow::TELEPORT_DONE) {
+                    self.settle_until = Some(Instant::now() + Duration::from_secs(5));
+                }
                 let abs = self.career.live.lock().unwrap().telemetry.as_ref().map(|t| t.abs_time).unwrap_or(0.0);
                 if matches!(event, flow::FLIGHT_START | flow::FLT_LOADED) {
                     Self::request_data(out);
                     if let Some(l) = self.career.live.lock().unwrap().launch_state.as_mut() {
                         l.flight_started = true;
+                    }
+                }
+                if let Some(l) = self.career.live.lock().unwrap().launch_state.as_mut() {
+                    match event {
+                        flow::FLIGHT_START => l.sim_started = true,
+                        flow::RTC_START => l.rtc = true,
+                        flow::RTC_END => l.rtc = false,
+                        _ => {}
                     }
                 }
                 let mut d = self.career.lock_data();
@@ -1068,10 +1314,14 @@ impl Handler for Engine {
         self.connected = matches!(state, LinkState::Connected { .. });
         {
             let mut live = self.career.live.lock().unwrap();
+            if live.link.state != view.state || live.link.detail != view.detail {
+                self.career.note("bağlantı", format!("{}{}{}", view.state, view.sim.as_deref().map(|s| format!(" ({s})")).unwrap_or_default(), view.detail.as_deref().map(|d| format!(": {d}")).unwrap_or_default()));
+            }
             live.link = view;
             if !self.connected {
                 live.in_flight = false;
                 live.last_data = None;
+                live.camera = None;
             }
         }
         if was_connected && !self.connected {
@@ -1102,6 +1352,25 @@ mod tests {
     use crate::career::progression::Difficulty;
     use crate::career::simconnect::Framer;
     use crate::career::CreateRequest;
+
+    #[test]
+    fn main_menu_position_is_not_a_flight() {
+        let at = |lat: f64, lon: f64| Telemetry { lat, lon, ..Default::default() };
+        // MSFS 2024 ana menüsünden gerçek bir okuma.
+        assert!(menu_placeholder(&at(-2.1556896488427017e-7, 90.00032277330374)));
+        assert!(menu_placeholder(&at(0.0, 0.0)));
+        assert!(!menu_placeholder(&at(40.8986, 29.3092)));
+        assert!(!menu_placeholder(&at(0.3, 90.0)));
+        // 2024 menüde son uçuşun konumunu göndermeyi sürdürür; kamera ayırır (gerçek simden: 32, 12, 35).
+        for c in [32, 12, 35] {
+            assert!(camera_in_menu(Some(c)), "{c}");
+        }
+        for c in [2, 3, 16, 30, 31] {
+            assert!(!camera_in_menu(Some(c)), "{c}");
+        }
+        assert!(!camera_in_menu(None));
+        assert!(in_control(Some(2)) && in_control(None) && !in_control(Some(31)) && !in_control(Some(16)));
+    }
 
     fn recv_packet(id: u32, fields: &[u8]) -> Vec<u8> {
         let mut v = Vec::new();

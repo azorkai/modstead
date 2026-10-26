@@ -65,6 +65,16 @@ export interface HudStatus {
   version: string | null;
   latest: string;
   sims: { id: string; short: string; linked: boolean; running: boolean }[];
+  /** "Sim kapanınca kur" bekliyor mu. */
+  queued?: boolean;
+}
+
+/** Ana menü kutusu: paket durumu ve sim sürümü koruması ("store:1.9.21.0"). */
+export interface MenuStatus extends HudStatus {
+  simVersion: string | null;
+  installedFor: string | null;
+  /** Bu makinede kurulamıyorsa nedeni (simin menü bileşeni yok ya da tanınmıyor; başka bir mod aynı bileşeni değiştiriyor). */
+  blocked: string | null;
 }
 
 /** Haritadaki havalimanı (`msfs_career_map_airports`). */
@@ -176,10 +186,20 @@ export interface ActiveView {
   acceptedAt: number;
   deadlineAt: number;
   aircraft: AircraftPick | null;
+  start: StartAt;
+  /** Kalkış havalimanının pist uçları ("06L", "24R"). */
+  runwayEnds: string[];
   stage: Stage;
   launchNote: string | null;
   from: Airport | null;
   to: Airport | null;
+}
+
+/** Uçuşun simde başlayacağı yer: park yerinde soğuk ya da pist başında motorlar çalışır. */
+export interface StartAt {
+  runway: boolean;
+  /** Boşsa en uzun pistin birincil ucu. */
+  end: string | null;
 }
 
 export interface FleetAircraft {
@@ -375,6 +395,8 @@ export interface Live {
   checks: Check[];
   launch: { step: "waiting_sim" | "fetching_airport" | "loading" | "positioning" | "done" | "manual"; note: string; elapsedS: number } | null;
   flight: FlightLive | null;
+  /** Simin CAMERA STATE değeri: 2 kokpit, 16 açılış sineması ("Uçuşa hazır" bekleniyor). */
+  camera?: number | null;
 }
 
 export interface LedgerEntry {

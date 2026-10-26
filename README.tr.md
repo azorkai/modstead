@@ -8,8 +8,8 @@ yöneticisidir. Her indirme ve arşiv bir güvenlik hattından geçer (izinli ka
 içerik denetimi ve Microsoft Defender taraması); siz inceleyip onaylamadan hiçbir şey kurulmaz.
 
 Microsoft Flight Simulator için ücretsiz bir **[MSFS 2024 kariyer kipi](#msfs-2024-kariyer-kipi)** de içerir: iş ilanları,
-lisanslar ve sınav uçuşları, otomatik uçuş hazırlığı, SimConnect ile uçuş takibi, seyir defteri, kendi uçakların ve sim
-içi araç çubuğu paneli.
+lisanslar ve sınav uçuşları, otomatik uçuş hazırlığı, SimConnect ile uçuş takibi, seyir defteri, kendi uçakların, sim
+içi araç çubuğu paneli ve MSFS 2024 ana menüsünde kariyer sayfası.
 
 [Tauri 2](https://tauri.app) (Rust) ve React 19 ile yazıldı. Lisans: GPL-3.0.
 
@@ -41,17 +41,26 @@ kesintinin formülü belgelidir.
 
 - **İş ilanları:** kargo, yolcu, charter, uçak teslimi, arazi, ambulans ve havayolu işleri; lisansa ve itibara göre,
   harita üzerinde. CPL'den sonra "kendi hesabına" işler.
-- **Otomatik hazırlık:** gerekirse sim açılır, simin kendi verisinden uygun park yeri seçilir, `.FLT`/`.PLN` yazılır,
-  uçak taşınır ve yük yüklenir.
+- **Otomatik hazırlık:** gerekirse sim açılır, simin kendi verisinden uygun park yeri seçilir (ya da motorlar çalışır
+  hâlde pist başından başlanır), `.FLT`/`.PLN` yazılır ve rota simin GPS'ine girer, uçak taşınır ve yük yüklenir.
+  Gerçek MSFS 2024'te denendi.
 - **Takip ve puan:** uçuş evreleri, iniş hızı ve G'si, sekme, aşırı hız, stall, hile tespiti. Puan XP ve itibarı
   belirler; para yalnızca gerçek olaylardan (gecikme, yakıt, kira, hasar) etkilenir.
 - **Lisanslar**, **seyir defteri**, **hangar ve finans** (uçak alımı, bakım, kredi) ve MSFS 2020/2024 için **sim içi
   araç çubuğu paneli**.
-- **Ücretsiz ve yerel:** abonelik, hesap ve sunucu yok; çevrim dışı çalışır.
+- **MSFS 2024 ana menüsünde kariyer sayfası:** simin kendi kutularının yanındaki *Modstead Kariyer* kutusu tam ekran bir
+  sayfa açar; simden çıkmadan iş alır, uçağını (gerçek fotoğraflarıyla) seçer ve uçuşu başlatırsın. Fare, klavye ve oyun
+  kolu simin kendi sayfalarındaki gibi çalışır.
+- **Ücretsiz ve yerel:** abonelik, hesap ve çevrim içi sunucu yok; çevrim dışı çalışır.
 
 > **Modstead'in içinde çalışır.** Kariyer ayrı bir eklenti değildir; verisi, kuralları ve sim bağlantısı Modstead'dedir
-> ve kariyer için simin içine bir şey kurulmaz. Modstead kapalıyken uçuşlar takip edilmez; isteğe bağlı sim içi panel
-> "Modstead bağlı değil" der.
+> ve kariyerin kendisi için simin içine bir şey kurulmaz. Araç çubuğu paneli ve ana menü kutusu, Modstead'in
+> `127.0.0.1`'de verdiğini gösteren isteğe bağlı paketlerdir. Modstead kapalıyken uçuşlar takip edilmez, panel "Modstead
+> bağlı değil" der ve kutu görünmez.
+
+<p align="center">
+  <img src="docs/screenshots/msfs-2024-main-menu-career-tile.png" alt="MSFS 2024 ana menüsünde simin kendi kutularının yanında Modstead Kariyer kutusu: aktif iş LTBA–LTBU, uçuşu başlatmaya hazır" width="488">
+</p>
 
 <table>
   <tr>
@@ -62,12 +71,18 @@ kesintinin formülü belgelidir.
     <td width="50%"><img src="docs/screenshots/msfs-career-logbook.png" alt="MSFS seyir defteri: rota, uçak, blok süresi, iniş hızı, not ve net kazanç"><br><sub><b>Seyir defteri</b></sub></td>
     <td width="50%"><img src="docs/screenshots/msfs-in-sim-toolbar-panel.png" alt="Modstead'in MSFS araç çubuğu paneli: seyirde, inişten sonra ve kalkışa hazır"><br><sub><b>Sim içi panel</b> (tarayıcı önizlemesi)</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/msfs-2024-main-menu-career-jobs.png" alt="MSFS 2024 ana menüsündeki Modstead kariyer sayfasında iş ilanları"><br><sub><b>Ana menüde iş ilanları</b> (simden)</sub></td>
+    <td width="50%"><img src="docs/screenshots/msfs-2024-main-menu-career-pilot.png" alt="MSFS 2024 ana menüsündeki Modstead kariyer sayfasında Pilot sekmesi: seviye, itibar, lisanslar ve son uçuşlar"><br><sub><b>Ana menüde Pilot sekmesi</b> (simden)</sub></td>
+  </tr>
 </table>
 
-Ekran görüntüleri önizleme kipinden, örnek verilerle alındı; sim içi panelin görüntüsü panelin kendi kodunun tarayıcıda
-benzetilmiş değerlerle önizlemesidir, simden alınmadı. Kurallar, formüller, araştırma ve mimari:
+Uygulamanın ekran görüntüleri önizleme kipinden, örnek verilerle alındı. Sim içi panelin görüntüsü, panelin kendi
+kodunun simin panel çerçevesi içinde benzetilmiş değerlerle tarayıcı önizlemesidir; panelin önceki sürümü gerçek simde
+denenip düzeltildi, güncel sürümü (0.3.0) uçuşta henüz denenmedi. Ana menü görüntüleri simde, örnek bir kariyerle
+alındı; kutu ve sayfa MSFS 2024 1.9.21.0'da denendi. Kurallar, formüller, araştırma ve mimari:
 **[KARIYER.md](games/msfs/KARIYER.md)** ([English](games/msfs/CAREER.md)). Kariyer kipi de erken geliştirme
-aşamasındadır; otomatik uçuş açma ve sim içi panel gerçek simde henüz denenmedi.
+aşamasındadır.
 
 ## Özellikler
 
@@ -107,7 +122,7 @@ Evet. Modstead, GNU Genel Kamu Lisansı v3.0 ile ücretsiz ve açık kaynaktır.
 
 ### Modstead'de MSFS 2024 için kariyer kipi var mı?
 Evet. İş ilanları, lisanslar ve sınav uçuşları, otomatik uçuş hazırlığı, SimConnect ile takip, seyir defteri, uçak
-sahipliği ve sim içi araç çubuğu paneli olan ücretsiz bir kariyer kipi içerir. MSFS 2020'de `SimConnect.xml`'e yerel bir
+sahipliği, sim içi araç çubuğu paneli ve MSFS 2024 ana menüsünde kariyer sayfası olan ücretsiz bir kariyer kipi içerir. MSFS 2020'de `SimConnect.xml`'e yerel bir
 IPv4 girişi eklenince çalışır. Ayrıntı: [KARIYER.md](games/msfs/KARIYER.md).
 
 ### Modstead ile mod kurmak güvenli mi?

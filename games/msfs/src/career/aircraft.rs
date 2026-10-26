@@ -518,9 +518,24 @@ pub fn manages_own_loading(title: &str) -> bool {
         .any(|k| t.contains(k))
 }
 
+/// Yapay zekâ trafiği ve gösteri için "pasif" modeller ("Asobo PassiveAircraft Bonanza 33", "Pitts Special S1
+/// Reno Passive Toto Asobo"). Kullanıcı bunlarla uçamaz; MSFS 2024'ün listesinde uçakların üçte ikisi bunlardır.
+pub fn is_passive(title: &str) -> bool {
+    title.split(|c: char| !c.is_ascii_alphanumeric()).any(|w| w.eq_ignore_ascii_case("passive") || w.eq_ignore_ascii_case("passiveaircraft"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn passive_models_are_not_offered() {
+        assert!(is_passive("Asobo PassiveAircraft Bonanza 33"));
+        assert!(is_passive("Asobo Aero L-39 Albatros Passive American Patriot"));
+        assert!(is_passive("Pitts Special S1 Reno Passive Toto Asobo"));
+        assert!(!is_passive("C172SP G1000 Passengers"));
+        assert!(!is_passive("Beechcraft Bonanza"));
+    }
 
     #[test]
     fn every_class_has_info_and_sane_numbers() {

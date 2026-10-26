@@ -1,162 +1,640 @@
-/* Modstead Kariyer paneli. Simin arayüz motoru eski: color-mix, :has ve gap yerine düz renk ve kenar boşluğu. */
+/* Modstead Kariyer paneli.
+   Simin arayüz motoru (Coherent GT) eski: color-mix, :has, flex gap, grid ve rgb(… / a) yok; düz renk, kenar boşluğu
+   ve flex kullanılır. İçerikteki bütün ölçüler em: JS (fit) kökün yazı boyutunu panelin boyutuna göre ayarlar.
+   Renkler Modstead'in koyu temasından (yüzey #15161b, metin #eceef2/#a6abb6, sönük #6c717d, vurgu #ff8a3d). */
+
+/* --- Çerçeve: simin panel kabuğu (ingame-ui) ------------------------------------------------------------------ */
 
 ingame-ui#ModsteadCareer {
 	display: flex;
 	flex-direction: column;
 	height: 100% !important;
 	width: 100% !important;
+	padding: 0;
+	background-color: rgba(19, 20, 24, 0.96);
 }
+
+/* Başlık çubuğu: simin düğmeleri (küçült, büyüt, sabitle, kapat) kalır; gri şerit ve "MODSTEAD CAREER" yerine
+   aynı yüzeyde kendi başlığımız. */
+ingame-ui#ModsteadCareer ingame-ui-header {
+	background: transparent;
+	margin-bottom: 0;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+ingame-ui#ModsteadCareer.ms-branded ingame-ui-header .wrap .title {
+	display: none;
+}
+
+ingame-ui#ModsteadCareer .ms-brand {
+	display: flex;
+	align-items: center;
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	padding-left: calc(var(--screenHeight) * (12px / 1080));
+	font-size: calc(var(--screenHeight) * (15px / 1080));
+	text-transform: none;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+ingame-ui#ModsteadCareer .ms-brand-dot {
+	flex: 0 0 auto;
+	width: 0.5em;
+	height: 0.5em;
+	border-radius: 50%;
+	margin-right: 0.6em;
+	background-color: #3fcf8f;
+}
+
+ingame-ui#ModsteadCareer .ms-brand-wait .ms-brand-dot {
+	background-color: #a6abb6;
+}
+
+ingame-ui#ModsteadCareer .ms-brand-off .ms-brand-dot {
+	background-color: #f0636c;
+}
+
+ingame-ui#ModsteadCareer .ms-brand-name {
+	flex: 0 0 auto;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	color: #eceef2;
+}
+
+ingame-ui#ModsteadCareer .ms-brand-sub {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-left: 0.55em;
+	padding-left: 0.55em;
+	border-left: 1px solid rgba(255, 255, 255, 0.18);
+	color: #a6abb6;
+}
+
+/* İçerik zinciri: simin kabuğundaki iki ara katman yükseklik almazsa kök yalnızca içerik kadar uzar ve altta gri
+   zemin kalır (ilk gerçek denemede böyleydi). Hepsi esner. */
+ingame-ui#ModsteadCareer .ingameUiContent {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	width: 100%;
+	min-height: 0;
+}
+
+ingame-ui#ModsteadCareer .ingameUiWrapper {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	width: 100%;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+}
+
+/* --- Kök ------------------------------------------------------------------------------------------------------ */
 
 ingame-ui#ModsteadCareer .ms-root {
 	display: flex;
 	flex-direction: column;
-	height: 100%;
-	padding: 10px 14px 12px;
-	color: #f2f3f5;
-	font-size: 15px;
-	background: rgba(14, 16, 20, 0.92);
-}
-
-ingame-ui#ModsteadCareer .ms-top {
-	display: flex;
-	align-items: center;
-	margin-bottom: 10px;
-}
-
-ingame-ui#ModsteadCareer .ms-dot {
-	width: 8px;
-	height: 8px;
-	border-radius: 50%;
-	margin-right: 8px;
-	background: #3ecf8e;
-	box-shadow: 0 0 6px rgba(62, 207, 142, 0.7);
-}
-
-ingame-ui#ModsteadCareer .is-offline .ms-dot {
-	background: #8a8f98;
-	box-shadow: none;
-}
-
-ingame-ui#ModsteadCareer .ms-status {
-	flex: 1;
-	font-size: 12px;
-	font-weight: bold;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: #a3a8b1;
-}
-
-ingame-ui#ModsteadCareer .ms-kind {
-	font-size: 12px;
-	font-weight: bold;
-	color: #ff9a4d;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-}
-
-ingame-ui#ModsteadCareer .ms-off-title {
-	font-size: 19px;
-	font-weight: bold;
-	margin: 6px 0 6px;
-}
-
-ingame-ui#ModsteadCareer .ms-off-body {
-	font-size: 14px;
-	line-height: 1.4;
-	color: #a3a8b1;
-}
-
-ingame-ui#ModsteadCareer .ms-route {
-	display: flex;
-	align-items: center;
-}
-
-ingame-ui#ModsteadCareer .ms-icao {
-	font-family: "Roboto Mono", "Consolas", monospace;
-	font-size: 26px;
-	font-weight: bold;
-	letter-spacing: 0.02em;
-}
-
-ingame-ui#ModsteadCareer .ms-arrow {
-	width: 28px;
-	height: 2px;
-	margin: 0 10px;
-	background: #ff8a3d;
-	position: relative;
-}
-
-ingame-ui#ModsteadCareer .ms-arrow::after {
-	content: "";
-	position: absolute;
-	right: -1px;
-	top: -4px;
-	border-left: 7px solid #ff8a3d;
-	border-top: 5px solid transparent;
-	border-bottom: 5px solid transparent;
-}
-
-ingame-ui#ModsteadCareer .ms-phase {
-	margin-left: auto;
-	padding: 3px 10px;
-	border-radius: 999px;
-	font-size: 12px;
-	font-weight: bold;
-	color: #ffb27a;
-	background: rgba(255, 138, 61, 0.14);
-	border: 1px solid rgba(255, 138, 61, 0.35);
-}
-
-ingame-ui#ModsteadCareer .ms-bar {
-	height: 4px;
-	margin: 12px 0 12px;
-	border-radius: 2px;
-	background: rgba(255, 255, 255, 0.1);
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow: hidden;
-}
-
-ingame-ui#ModsteadCareer .ms-progress {
-	height: 100%;
-	width: 0;
-	background: #ff8a3d;
-}
-
-ingame-ui#ModsteadCareer .ms-grid {
-	display: flex;
-	flex-wrap: wrap;
-	margin: 0 -5px;
-}
-
-ingame-ui#ModsteadCareer .ms-cell {
-	width: 50%;
-	padding: 5px;
-	box-sizing: border-box;
+	padding: 0.95em 1.1em 1em;
+	font-family: "Roboto-Regular", "Roboto", sans-serif;
+	font-size: 15px;
+	line-height: 1.25;
+	color: #eceef2;
 }
 
 ingame-ui#ModsteadCareer .ms-label {
-	font-size: 11px;
-	color: #8a8f98;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	font-size: 0.68em;
+	font-weight: 700;
+	letter-spacing: 0.09em;
+	color: #6c717d;
+	white-space: nowrap;
 }
 
-ingame-ui#ModsteadCareer .ms-value {
-	margin-top: 2px;
-	font-size: 18px;
-	font-weight: bold;
+ingame-ui#ModsteadCareer .ms-num {
+	font-weight: 400;
+}
+
+ingame-ui#ModsteadCareer .ms-unit {
+	margin-left: 0.18em;
+	margin-right: 0.38em;
+	font-size: 0.56em;
+	font-weight: 400;
+	color: #a6abb6;
 }
 
 ingame-ui#ModsteadCareer .ms-warn {
-	color: #ff7a59;
+	color: #f0b64a;
 }
 
-ingame-ui#ModsteadCareer .ms-pay {
-	color: #3ecf8e;
+/* --- Boş durumlar --------------------------------------------------------------------------------------------- */
+
+ingame-ui#ModsteadCareer .ms-empty {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	flex: 1 1 auto;
+	padding-bottom: 1.2em;
+}
+
+/* Küçük rota imi: iki uç ve kesik çizgi (henüz rota yok). */
+ingame-ui#ModsteadCareer .ms-glyph {
+	display: flex;
+	align-items: center;
+	width: 5.2em;
+	margin-bottom: 1.1em;
+}
+
+ingame-ui#ModsteadCareer .ms-glyph-dot {
+	display: block;
+	width: 0.55em;
+	height: 0.55em;
+	border-radius: 50%;
+	border: 2px solid #6c717d;
+}
+
+ingame-ui#ModsteadCareer .ms-glyph-line {
+	display: block;
+	flex: 1 1 auto;
+	height: 0;
+	margin: 0 0.35em;
+	border-top: 2px dashed #6c717d;
+}
+
+ingame-ui#ModsteadCareer .ms-idle .ms-glyph-dot,
+ingame-ui#ModsteadCareer .ms-nocareer .ms-glyph-dot {
+	border-color: #ff8a3d;
+}
+
+ingame-ui#ModsteadCareer .ms-offline .ms-glyph-dot:last-child {
+	border-color: #f0636c;
+}
+
+ingame-ui#ModsteadCareer .ms-empty-title {
+	font-size: 1.45em;
+	font-weight: 700;
+	line-height: 1.15;
+}
+
+ingame-ui#ModsteadCareer .ms-empty-body {
+	margin-top: 0.5em;
+	font-size: 0.95em;
+	line-height: 1.45;
+	color: #a6abb6;
+}
+
+ingame-ui#ModsteadCareer .ms-path {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	margin-top: 1em;
+}
+
+ingame-ui#ModsteadCareer .ms-path-item {
+	padding: 0.28em 0.6em;
+	border-radius: 0.3em;
+	font-size: 0.85em;
+	font-weight: 700;
+	color: #eceef2;
+	background-color: rgba(255, 255, 255, 0.07);
+}
+
+ingame-ui#ModsteadCareer .ms-path-item:last-child {
+	color: #ff8a3d;
+	background-color: rgba(255, 138, 61, 0.12);
+}
+
+/* Ara ok: iki kenarlıktan çizilen küçük açılı ok. */
+ingame-ui#ModsteadCareer .ms-path-sep {
+	width: 0.36em;
+	height: 0.36em;
+	margin: 0 0.55em 0 0.4em;
+	border-top: 2px solid #6c717d;
+	border-right: 2px solid #6c717d;
+	transform: rotate(45deg);
+}
+
+ingame-ui#ModsteadCareer .ms-empty-alt {
+	margin-top: 1.2em;
+	padding-top: 0.8em;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+	font-size: 0.8em;
+	line-height: 1.45;
+	color: #6c717d;
+}
+
+/* --- Aktif iş ------------------------------------------------------------------------------------------------- */
+
+ingame-ui#ModsteadCareer .ms-job {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+ingame-ui#ModsteadCareer .ms-col-a {
+	display: flex;
+	flex-direction: column;
+}
+
+ingame-ui#ModsteadCareer .ms-col-b {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+/* Geniş panel: rota ve büyük rakamlar solda, ayrıntılar sağda. */
+ingame-ui#ModsteadCareer .is-wide .ms-job {
+	flex-direction: row;
+}
+
+ingame-ui#ModsteadCareer .is-wide .ms-col-a,
+ingame-ui#ModsteadCareer .is-wide .ms-col-b {
+	flex: 1 1 0px;
+	min-width: 0;
+}
+
+ingame-ui#ModsteadCareer .is-wide .ms-col-b {
+	margin-left: 1.2em;
+	padding-left: 1.2em;
+	border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+ingame-ui#ModsteadCareer .is-wide .ms-col-b .ms-row:first-child,
+ingame-ui#ModsteadCareer .ms-prep.is-wide .ms-col-b .ms-row,
+ingame-ui#ModsteadCareer .ms-ready.is-wide .ms-col-b .ms-row {
+	margin-top: 0;
+	padding-top: 0;
+	border-top: 0;
+}
+
+ingame-ui#ModsteadCareer .ms-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+ingame-ui#ModsteadCareer .ms-tag {
+	padding: 0.2em 0.5em;
+	border-radius: 0.25em;
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	font-size: 0.7em;
+	font-weight: 700;
+	letter-spacing: 0.09em;
+	color: #a6abb6;
+}
+
+ingame-ui#ModsteadCareer .ms-state {
+	display: flex;
+	align-items: center;
+	font-size: 0.85em;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+ingame-ui#ModsteadCareer .ms-state::before {
+	content: "";
+	width: 0.5em;
+	height: 0.5em;
+	margin-right: 0.45em;
+	border-radius: 50%;
+	background-color: #a6abb6;
+}
+
+ingame-ui#ModsteadCareer .ms-state-fly {
+	color: #ff8a3d;
+}
+
+ingame-ui#ModsteadCareer .ms-state-fly::before {
+	background-color: #ff8a3d;
+}
+
+ingame-ui#ModsteadCareer .ms-state-ok {
+	color: #3fcf8f;
+}
+
+ingame-ui#ModsteadCareer .ms-state-ok::before {
+	background-color: #3fcf8f;
+}
+
+ingame-ui#ModsteadCareer .ms-state-wait {
+	color: #a6abb6;
+}
+
+ingame-ui#ModsteadCareer .ms-state-warn {
+	color: #f0b64a;
+}
+
+ingame-ui#ModsteadCareer .ms-state-warn::before {
+	background-color: #f0b64a;
+}
+
+/* Rota: kalkış — ilerleme çizgisi — varış. Çizgi hem ok hem ilerleme çubuğudur. */
+ingame-ui#ModsteadCareer .ms-route {
+	display: flex;
+	align-items: center;
+	margin-top: 0.75em;
+}
+
+ingame-ui#ModsteadCareer .ms-icao {
+	font-size: 2.05em;
+	font-weight: 700;
+	line-height: 1.1;
+	letter-spacing: 0.02em;
+	white-space: nowrap;
+}
+
+ingame-ui#ModsteadCareer .ms-track {
+	position: relative;
+	flex: 1 1 auto;
+	height: 0.9em;
+	margin: 0 0.75em;
+}
+
+ingame-ui#ModsteadCareer .ms-track-base {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 0.38em;
+	height: 0.14em;
+	background-color: rgba(255, 255, 255, 0.16);
+}
+
+ingame-ui#ModsteadCareer .ms-track-fill {
+	position: absolute;
+	left: 0;
+	top: 0.38em;
+	width: 0;
+	height: 0.14em;
+	background-color: #ff8a3d;
+}
+
+ingame-ui#ModsteadCareer .ms-track-dot {
+	position: absolute;
+	top: 0.13em;
+	left: 0;
+	width: 0.64em;
+	height: 0.64em;
+	margin-left: -0.32em;
+	border-radius: 50%;
+	background-color: #ff8a3d;
+}
+
+/* Varış ucu: küçük halka. */
+ingame-ui#ModsteadCareer .ms-track-end {
+	position: absolute;
+	right: -0.1em;
+	top: 0.2em;
+	width: 0.5em;
+	height: 0.5em;
+	border-radius: 50%;
+	border: 2px solid rgba(255, 255, 255, 0.35);
+	background-color: rgb(19, 20, 24);
+}
+
+ingame-ui#ModsteadCareer .ms-prep .ms-track-dot,
+ingame-ui#ModsteadCareer .ms-ready .ms-track-dot {
+	background-color: #a6abb6;
+}
+
+ingame-ui#ModsteadCareer .ms-interrupted .ms-track-fill,
+ingame-ui#ModsteadCareer .ms-interrupted .ms-track-dot {
+	background-color: #f0b64a;
+}
+
+/* Büyük rakamlar. */
+ingame-ui#ModsteadCareer .ms-big {
+	display: flex;
+	margin-top: 1em;
+}
+
+ingame-ui#ModsteadCareer .ms-big-cell {
+	flex: 1 1 0px;
+	min-width: 0;
+}
+
+ingame-ui#ModsteadCareer .ms-big-cell-2 {
+	padding-left: 1em;
+	border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+ingame-ui#ModsteadCareer .ms-big-value {
+	margin-top: 0.1em;
+	font-size: 2.2em;
+	line-height: 1.1;
+	white-space: nowrap;
+}
+
+ingame-ui#ModsteadCareer .ms-prep .ms-big-value,
+ingame-ui#ModsteadCareer .ms-ready .ms-big-value {
+	font-size: 1.5em;
+}
+
+/* İkincil değerler: iki sütun, satır çizgili. */
+ingame-ui#ModsteadCareer .ms-row {
+	display: flex;
+	margin-top: 0.8em;
+	padding-top: 0.65em;
+	border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+ingame-ui#ModsteadCareer .ms-row + .ms-row {
+	margin-top: 0.65em;
+}
+
+ingame-ui#ModsteadCareer .ms-cell {
+	flex: 1 1 0px;
+	min-width: 0;
+}
+
+ingame-ui#ModsteadCareer .ms-cell-2 {
+	padding-left: 1em;
+}
+
+ingame-ui#ModsteadCareer .ms-value {
+	margin-top: 0.15em;
+	font-size: 1.2em;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+ingame-ui#ModsteadCareer .ms-grade {
+	margin-left: 0.15em;
+	margin-right: 0.45em;
+	font-size: 0.7em;
+	font-weight: 700;
+	color: #a6abb6;
+}
+
+ingame-ui#ModsteadCareer .ms-pen,
+ingame-ui#ModsteadCareer .ms-late {
+	font-size: 0.62em;
+	font-weight: 700;
+	color: #f0b64a;
+}
+
+ingame-ui#ModsteadCareer .ms-sep {
+	display: inline-block;
+	width: 1px;
+	height: 0.75em;
+	margin: 0 0.55em 0 0.15em;
+	background-color: rgba(255, 255, 255, 0.18);
+}
+
+ingame-ui#ModsteadCareer .ms-fill {
+	flex: 1 1 auto;
+	min-height: 0.6em;
+}
+
+/* Evre çizelgesi. */
+ingame-ui#ModsteadCareer .ms-steps {
+	display: flex;
+}
+
+ingame-ui#ModsteadCareer .ms-step {
+	flex: 1 1 0px;
+	height: 0.3em;
+	margin-right: 0.22em;
+	border-radius: 0.15em;
+	background-color: rgba(255, 255, 255, 0.12);
+}
+
+ingame-ui#ModsteadCareer .ms-step:last-child {
+	margin-right: 0;
+}
+
+ingame-ui#ModsteadCareer .ms-step.is-done {
+	background-color: rgba(255, 138, 61, 0.45);
+}
+
+ingame-ui#ModsteadCareer .ms-step.is-now {
+	background-color: #ff8a3d;
+}
+
+ingame-ui#ModsteadCareer .ms-steps-cap {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 0.5em;
+	font-size: 0.82em;
+	white-space: nowrap;
+}
+
+ingame-ui#ModsteadCareer .ms-step-now {
+	font-weight: 700;
+	color: #ff8a3d;
+}
+
+ingame-ui#ModsteadCareer .ms-step-next {
+	color: #6c717d;
+}
+
+/* Kontrol kapısı. */
+ingame-ui#ModsteadCareer .ms-gate-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.35em;
+}
+
+ingame-ui#ModsteadCareer .ms-gate-count {
+	font-size: 0.8em;
+	font-weight: 700;
+	color: #f0b64a;
+}
+
+ingame-ui#ModsteadCareer .ms-gate-count.is-ok {
+	color: #3fcf8f;
+}
+
+ingame-ui#ModsteadCareer .ms-checks {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+ingame-ui#ModsteadCareer .ms-check {
+	display: flex;
+	align-items: center;
+	width: 50%;
+	box-sizing: border-box;
+	padding: 0.2em 0.6em 0.2em 0;
+	font-size: 0.82em;
+	color: #a6abb6;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+ingame-ui#ModsteadCareer .is-narrow .ms-check {
+	width: 100%;
+}
+
+ingame-ui#ModsteadCareer .ms-check-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* İşaret: tamamda dolu yeşil daire içinde tik, eksikte boş halka, öneride sarı halka. */
+ingame-ui#ModsteadCareer .ms-check-mark {
+	position: relative;
+	flex: 0 0 auto;
+	width: 0.95em;
+	height: 0.95em;
+	margin-right: 0.5em;
+	border-radius: 50%;
+	box-sizing: border-box;
+	border: 0.12em solid #6c717d;
+}
+
+ingame-ui#ModsteadCareer .ms-check.is-ok {
+	color: #eceef2;
+}
+
+ingame-ui#ModsteadCareer .ms-check.is-ok .ms-check-mark {
+	border-color: #3fcf8f;
+	background-color: #3fcf8f;
+}
+
+ingame-ui#ModsteadCareer .ms-check.is-ok .ms-check-mark::after {
+	content: "";
+	position: absolute;
+	left: 0.26em;
+	top: 0.1em;
+	width: 0.18em;
+	height: 0.4em;
+	border-right: 0.12em solid rgb(19, 20, 24);
+	border-bottom: 0.12em solid rgb(19, 20, 24);
+	transform: rotate(45deg);
+}
+
+ingame-ui#ModsteadCareer .ms-check.is-fail {
+	color: #eceef2;
+}
+
+ingame-ui#ModsteadCareer .ms-check.is-fail .ms-check-mark {
+	border-color: #f0636c;
+}
+
+ingame-ui#ModsteadCareer .ms-check.is-warn .ms-check-mark {
+	border-color: #f0b64a;
 }
 
 ingame-ui#ModsteadCareer .ms-note {
-	margin-top: auto;
-	padding-top: 10px;
-	font-size: 12px;
-	color: #a3a8b1;
+	margin-top: 0.7em;
+	font-size: 0.8em;
+	line-height: 1.4;
+	color: #6c717d;
+}
+
+ingame-ui#ModsteadCareer .ms-note-warn {
+	padding: 0.45em 0.65em;
+	border-left: 2px solid #f0b64a;
+	color: #eceef2;
+	background-color: rgba(240, 182, 74, 0.1);
 }

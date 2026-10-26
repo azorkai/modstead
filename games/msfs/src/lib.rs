@@ -366,6 +366,8 @@ pub fn init(app: &tauri::AppHandle, services: Arc<Services>) -> Arc<dyn Game> {
     let game = Msfs::new(services);
     install::clean_stale_staging(&game);
     game.career().start_link();
+    // Sim güncellenince ana menü kutusunu kaldıran koruma (bkz. career::menu).
+    career::menu::start_guard(game.clone());
     app.manage(game.clone());
     Arc::new(game)
 }
@@ -425,6 +427,11 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         career::commands::msfs_career_hud,
         career::commands::msfs_career_hud_install,
         career::commands::msfs_career_hud_remove,
+        career::commands::msfs_career_hud_queue,
+        career::commands::msfs_career_menu,
+        career::commands::msfs_career_menu_install,
+        career::commands::msfs_career_menu_remove,
+        career::commands::msfs_career_menu_queue,
         career::commands::msfs_career_buy,
         career::commands::msfs_career_sell,
         career::commands::msfs_career_repair,
@@ -434,5 +441,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         career::commands::msfs_career_live,
         career::commands::msfs_career_simbrief,
         career::commands::msfs_career_reveal_plan,
+        career::commands::msfs_career_journal,
+        career::commands::msfs_career_reveal_journal,
     ]
 }

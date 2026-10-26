@@ -128,6 +128,74 @@ pub fn runway_ends(r: &Runway) -> (String, String) {
     (format!("{:02}", r.primary_number), DESIGNATORS.get(r.primary_designator as usize).unwrap_or(&"NONE").to_string())
 }
 
+/// Bir pist ucu: ad ("06L"), uçağın kalkışa dizileceği nokta ve yön.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RunwayEnd {
+    pub name: String,
+    pub lat: f64,
+    pub lon: f64,
+    pub alt_ft: f64,
+    pub heading: f64,
+}
+
+/// Eşikten içeri doğru pay (m): eşik çizgileri ve kaydırılmış eşikler için; kısa pistlerde pistin dörtte biri.
+const LINEUP_MARGIN_M: f64 = 60.0;
+
+fn end_name(number: i32, designator: i32) -> String {
+    let letter = match designator {
+        1 => "L",
+        2 => "R",
+        3 => "C",
+        4 => "W",
+        5 => "A",
+        6 => "B",
+        _ => "",
+    };
+    format!("{number:02}{letter}")
+}
+
+/// Havalimanının pist uçları, en uzun pistten başlayarak (her pistin önce birincil ucu). Pist verisinde
+/// merkez ve birincil yön vardır: birincil uçta uçak birincil yöne bakar ve merkezin gerisinde durur.
+pub fn runway_ends_of(d: &AirportDetail) -> Vec<RunwayEnd> {
+    let mut rs: Vec<&Runway> = d.runways.iter().filter(|r| r.length_m > 0.0).collect();
+    rs.sort_by(|a, b| b.length_m.total_cmp(&a.length_m));
+    let mut out = Vec::new();
+    for r in rs {
+        let half = r.length_m as f64 / 2.0;
+        let back = (half - LINEUP_MARGIN_M.min(half / 2.0)).max(0.0);
+        let hdg = r.heading as f64;
+        for (number, designator, facing) in [(r.primary_number, r.primary_designator, hdg), (r.secondary_number, r.secondary_designator, (hdg + 180.0) % 360.0)] {
+            if number <= 0 {
+                continue;
+            }
+            // Uçak `facing` yönüne bakar; eşik ise merkezden tam ters yöndedir.
+            let b = (facing + 180.0).to_radians();
+            let (lat, lon) = offset(r.lat, r.lon, back * b.sin(), back * b.cos());
+            out.push(RunwayEnd { name: end_name(number, designator), lat, lon, alt_ft: r.alt_m * 3.28084, heading: facing });
+        }
+    }
+    out
+}
+
+/// İstenen pist ucu; adı tutmazsa aynı numaralı uç ("06R" istendi, simde "06L" var), o da yoksa ilk uç.
+pub fn choose_runway_end(d: &AirportDetail, wanted: Option<&str>) -> Option<RunwayEnd> {
+    let ends = runway_ends_of(d);
+    let norm = |s: &str| {
+        let s = s.trim().to_ascii_uppercase();
+        let digits: String = s.chars().take_while(|c| c.is_ascii_digit()).collect();
+        (digits.parse::<i32>().unwrap_or(-1), s.trim_start_matches(|c: char| c.is_ascii_digit()).to_string())
+    };
+    if let Some(w) = wanted.map(norm) {
+        if let Some(e) = ends.iter().find(|e| norm(&e.name) == w) {
+            return Some(e.clone());
+        }
+        if let Some(e) = ends.iter().find(|e| norm(&e.name).0 == w.0) {
+            return Some(e.clone());
+        }
+    }
+    ends.into_iter().next()
+}
+
 /// FLT'deki derece-dakika-saniye biçimi: `N40° 58' 33.60"`.
 pub fn dms(v: f64, lat: bool) -> String {
     let hemi = match (lat, v >= 0.0) {
@@ -156,10 +224,19 @@ pub struct FlightSetup<'a> {
     pub description: &'a str,
     pub aircraft_title: &'a str,
     pub livery: &'a str,
+    /// Kuyruk tescili (2024 dosyasında; boşsa sim kendi tescilini koyar).
+    pub tail_number: &'a str,
     pub from: &'a Airport,
     pub to: &'a Airport,
     pub parking: Option<&'a Parking>,
-    /// Başlangıç konumu (park yeri ya da havalimanı noktası) ve yönü.
+    /// Pist başında başla. 2020'de her zaman simin `FLIGHT_RUNWAY` durumu (motorlar çalışır).
+    pub runway_start: bool,
+    /// 2024, pist başı: sim ana menüdeyken simin kendi `FLIGHT_RUNWAY` durumu ("Uçuşa hazır" → kalkış sineması →
+    /// kokpit, motorlar çalışır). Açık bir uçuşun üstüne yüklenirken o durum "Uçuşa hazır"ı göstermeden sinemada
+    /// (CAMERA STATE 16) takılı kalıyor; o zaman `PREFLIGHT_TAXI` yazılır: koltukta, motorlar çalışır, sinemasız
+    /// (gerçek simde denendi).
+    pub hot_start: bool,
+    /// Başlangıç konumu (park yeri, pist ucu ya da havalimanı noktası) ve yönü.
     pub lat: f64,
     pub lon: f64,
     pub alt_ft: f64,
@@ -169,6 +246,17 @@ pub struct FlightSetup<'a> {
     pub cruise_alt_ft: u32,
     /// UTC zaman.
     pub when: chrono::DateTime<chrono::Utc>,
+}
+
+/// Simin uçağı hangi durumda hazırlayacağı: park yerinde soğuk, pistte motorlar çalışır.
+fn first_state(s: &FlightSetup) -> &'static str {
+    if s.runway_start {
+        "FLIGHT_RUNWAY"
+    } else if s.parking.is_some() {
+        "PREFLIGHT_GATE"
+    } else {
+        "PREFLIGHT_TAXI"
+    }
 }
 
 pub fn write_flt(s: &FlightSetup) -> String {
@@ -203,7 +291,7 @@ pub fn write_flt(s: &FlightSetup) -> String {
     }
     sec("Departure", &dep);
     sec("Arrival", &[("ICAO", s.to.icao.clone()), ("RunwayNumber", "".into()), ("RunwayDesignator", "NONE".into())]);
-    sec("FreeFlight", &[("FirstFlightState", if s.parking.is_some() { "PREFLIGHT_GATE" } else { "PREFLIGHT_TAXI" }.into())]);
+    sec("FreeFlight", &[("FirstFlightState", first_state(s).into())]);
     let mut sim = vec![("Sim", s.aircraft_title.to_string())];
     if !s.livery.is_empty() {
         sim.push(("Livery", s.livery.to_string()));
@@ -253,6 +341,342 @@ pub fn write_flt(s: &FlightSetup) -> String {
     }
     o
 }
+
+/// MSFS 2024 biçimi. Sim, ana menüden `FlightLoad` ile yalnızca kendi serbest uçuş dosyasının yapısını yükler:
+/// `[ObjectFile]`/`[WolfProgram]` serbest uçuş mantığı, kabin hizmetleri, ATC ve pencere bölümleri olmadan istek
+/// sessizce yok sayılır. Bu şablon simin `MISSIONS\Custom\CustomFlight\CustomFlight.FLT` dosyasından uçağa özel
+/// bölümler (yakıt, motor, ışık, kokpit değişkenleri) atılarak çıkarıldı ve gerçek simde denendi.
+/// `[Departure]`/`[Arrival]` yazılmaz: 2024 bunlarla uçağı başka yere koyabiliyor. Plan `[GPS_Engine]` ile
+/// verilir (yerden başlarken uçağın yerini değiştirmiyor; gerçek simde denendi).
+pub fn write_flt_2024(s: &FlightSetup) -> String {
+    use chrono::Datelike;
+    use chrono::Timelike;
+    let season = match s.when.month0() {
+        11 | 0 | 1 => "Winter",
+        2..=4 => "Spring",
+        5..=7 => "Summer",
+        _ => "Fall",
+    };
+    let text = format!(
+        r#"[Main]
+Title={title}
+Description={description}
+AppVersion=12.0.1
+FlightVersion=1
+MissionType=FreeFlight
+MissionLocation={from}
+OriginalFlight=
+FlightType=NORMAL
+StartingCameraCategory=Cockpit
+
+[Options]
+Sound=True
+Moonlight=False
+Save=False
+SaveOriginalFlightPlan=False
+TextDisplayPage=0
+SlewDisplayPage=0
+AxisIndicator=Off
+Titles=False
+
+[Sim.0]
+Sim={aircraft}
+Livery={livery}
+Pilot=Default
+Copilot=
+TailNumber={tail}
+AirlineCallSign=
+FlightNumber=
+AppendHeavy=False
+DisableMassSections=False
+{cabin}
+[ObjectFile]
+File.0=Missions\Asobo\FreeFlights\FreeFlight\FreeFlight
+File.1=Missions\Asobo\FreeFlights\FreeFlight\Generic_Logic_Pause
+File.2=missions\Asobo\FreeFlights\FreeFlight\Generic_Logic_MissionFailed
+File.3=Missions\Asobo\FreeFlights\FreeFlight\ToolBarSettings
+File.4=Missions\Asobo\FreeFlights\FreeFlight\FreeFlight_Services
+File.5=Missions\Asobo\FreeFlights\FreeFlight\Generic_Logic_FlightPath
+File.6=Missions\Asobo\FreeFlights\FreeFlight\Freeflight_BackOnTrack
+File.7=missions\Asobo\SR\Common\Generic\Utilities\Detent_Notif_Mgr
+File.8=missions\Asobo\SR\Common\Generic\FullFlight\FullFlightOverride
+
+[WolfProgram]
+NbFiles=1
+File.0=missions\Asobo\FreeFlights\FreeFlight\FreeFlightMain.wolf
+
+[FreeFlight]
+FirstFlightState={state}
+
+[Weather]
+UseWeatherFile=False
+UseLiveWeather=True
+WeatherCanBeLive=True
+CloudmapPosOverride=False
+CloudmapInitialPosX=0
+CloudmapInitialPosY=0
+FixedClouds=False
+DebugPublicAirflowDisplay=False
+
+[SoundPackages]
+NbFiles=0
+
+[TrafficOptions]
+AllowAmbientVehicleTraffic=True
+
+[DateTimeSeason]
+Season={season}
+Year={year}
+Day={day}
+Hours={hours}
+Minutes={minutes}
+Seconds={seconds}
+UseZuluTime=True
+
+[Panels]
+Panel.On=True
+HUD.On=False
+
+[Window.1]
+Order=255
+Active=True
+Undocked=False
+Maximized=False
+ScreenUniCoords=0, 0, 0, 0
+UndocCoords=0, 0, 0, 0
+
+[ATC_AgentManager]
+NumberofAgents=0
+
+[ATC_Aircraft.0]
+ActiveFlightPlan=False
+RequestedFlightPlan=False
+AcState=ACSTATE_REQUEST_TAXI_CLEARANCE_OUT_VFR_ATIS
+NumberofWaypoints=0
+ClearanceFlags=82
+CtCur=CLEARANCE_NONE
+WaypointNext=0
+AltCleared=-1
+HdgAssigned=-1
+SquawkAssigned=4608
+LandingSequence=LANDING_NONE
+DepartureRequest=DEPARTURE_VFR_REQUEST_NONE
+ParkingRequest=PARKING_NAME_NONE
+ParkingTypeRequest=PARKING_TYPE_NONE
+PatternLeg=PATTERN_LEG_NONE
+ApproachIndex=-1
+ApproachTransitionIndex=-1
+ApproachRequestIndex=-1
+ApproachTransitionRequestIndex=-1
+HelipadIndex=-1
+HelipadRequestIndex=-1
+RunwayIndex=-1
+RunwayRequestIndex=-1
+ParkingIndex=-1
+FlightFollowing=FLIGHT_FOLLOWING_NO
+AirspaceTransition=AIRSPACE_TRANSITION_NONE
+BVAirspaceTransition=BV_TYPE_NONE
+BVAirspaceTransitionReq=BV_TYPE_NONE
+TakeoffSequence=TAKEOFF_SEQUENCE_NONE
+LandingSequenceNumber=-1
+TaxiRouteCurrent=-1
+CruisingAltitude=-1
+RequestedCruisingAltitude=-1
+ExpectedAltitude=-1
+AircraftSignature=1,0
+
+[ATC_AircraftManager]
+NumberofAircraft=1
+
+[ATC_MessageSystem]
+FrequencyNodes=0
+
+[SimplifiedSim.0]
+Mode=None
+
+[SimVars.0]
+Latitude={lat}
+Longitude={lon}
+Altitude={alt}
+Pitch=0
+Bank=0
+Heading={heading:.2}
+PVelBodyAxis=0
+BVelBodyAxis=0
+HVelBodyAxis=0
+XVelBodyAxis=0
+YVelBodyAxis=0
+ZVelBodyAxis=0
+ZVelBodyAxis_IAS=0
+SimOnGround=True
+OnPlatformHeight=-9999999999
+
+[Slew.0]
+Active=False
+
+[Freeze.0]
+Location=False
+Altitude=False
+Attitude=False
+
+[SimScheduler]
+SimSpeed=001.00
+{gps}"#,
+        title = s.title,
+        description = s.description,
+        from = s.from.icao,
+        aircraft = s.aircraft_title,
+        livery = s.livery,
+        tail = s.tail_number,
+        cabin = CABIN_2024,
+        state = match (s.runway_start, s.hot_start, s.parking.is_some()) {
+            (true, true, _) => "FLIGHT_RUNWAY",
+            (true, false, _) => "PREFLIGHT_TAXI",
+            // Park yerinde 2024 kullanıcıyı uçağın yanında başlatır (dış kontrol); Shift+C ile binilir.
+            (false, _, true) => "PREFLIGHT_GATE",
+            (false, _, false) => "PREFLIGHT_TAXI",
+        },
+        season = season,
+        year = s.when.year(),
+        day = s.when.ordinal0(),
+        hours = s.when.hour(),
+        minutes = s.when.minute(),
+        seconds = s.when.second(),
+        lat = dms(s.lat, true),
+        lon = dms(s.lon, false),
+        alt = alt_str(s.alt_ft),
+        heading = s.heading,
+        // Yerden başlayan uçuşta plan simin GPS'ine yüklenir (gerçek simde: aktif plan, 2 nokta, sıradaki nokta
+        // varış). Havada başlarken 2024 planlı uçağı piste ışınlıyor; Modstead hep yerden başlatır.
+        gps = s.pln_name.map(|p| format!("\n[GPS_Engine]\nFilename={p}\n")).unwrap_or_default(),
+    );
+    text.replace('\n', "\r\n")
+}
+
+/// 2024 serbest uçuşunun kabin hizmetleri (yolcu, kargo, ambulans, paraşüt, vinç); uçak hangisini destekliyorsa o
+/// kullanılır. Simin kendi dosyasındaki gibi.
+const CABIN_2024: &str = r"
+[CabinService.0]
+Name=PassengerBoardingService
+GraphPath=navigation_graph_passenger.cfg
+CharacterQuality=SECONDARY
+
+[CabinServiceObject.0]
+CabinServiceName=PassengerBoardingService
+BehaviourName=PassengerBoarding
+Quantity=-1
+NodeTag=SIT
+Density=100
+CountByMass=True
+ReduceQuantityOnSharedSeatWithCopilot=True
+GeneratedCharacters=Passenger
+
+[CabinService.1]
+Name=CargoService
+GraphPath=navigation_graph_cargo.cfg
+CharacterQuality=SECONDARY
+
+[CabinService.2]
+Name=MedicService
+GraphPath=navigation_graph_medic.cfg
+CharacterQuality=SECONDARY
+
+[CabinServiceObject.1]
+CabinServiceName=MedicService
+BehaviourName=Wounded
+Quantity=-1
+NodeTag=PATIENT
+Density=100
+CountByMass=True
+ReduceQuantityOnSharedSeatWithCopilot=False
+GeneratedCharacters=Patient
+
+[CabinServiceObject.2]
+CabinServiceName=MedicService
+BehaviourName=Doctor
+Quantity=1
+NodeTag=SIT
+Density=100
+CountByMass=False
+ReduceQuantityOnSharedSeatWithCopilot=False
+GeneratedCharacters=Medic
+
+[CabinServiceObject.3]
+CabinServiceName=MedicService
+BehaviourName=Nurse
+Quantity=1
+NodeTag=SIT
+Density=100
+CountByMass=False
+ReduceQuantityOnSharedSeatWithCopilot=False
+GeneratedCharacters=Medic
+
+[CabinServiceObject.4]
+CabinServiceName=MedicService
+BehaviourName=Relative
+Quantity=1
+NodeTag=SIT
+Density=100
+CountByMass=False
+ReduceQuantityOnSharedSeatWithCopilot=False
+GeneratedCharacters=Passenger
+
+[CabinService.3]
+Name=SkydiveService
+GraphPath=navigation_graph_skydive.cfg
+CharacterQuality=SECONDARY
+
+[CabinServiceObject.5]
+CabinServiceName=SkydiveService
+BehaviourName=Skydiver
+Quantity=-1
+NodeTag=SIT
+Density=100
+CountByMass=True
+ReduceQuantityOnSharedSeatWithCopilot=False
+GeneratedCharacters=Skydiver
+
+[CabinServiceObject.6]
+CabinServiceName=SkydiveService
+BehaviourName=JumpMaster
+Quantity=1
+NodeTag=JUMPMASTER_SIT
+Density=100
+CountByMass=False
+ReduceQuantityOnSharedSeatWithCopilot=False
+GeneratedCharacters=Skydiver
+
+[CabinService.4]
+Name=HoistService
+GraphPath=navigation_graph_hoist_rescue.cfg
+CharacterQuality=SECONDARY
+
+[CabinServiceObject.7]
+CabinServiceName=HoistService
+BehaviourName=HoistController
+Quantity=-1
+NodeTag=SIDE
+Density=100
+CountByMass=True
+ReduceQuantityOnSharedSeatWithCopilot=False
+GeneratedCharacters=AirRescue
+
+[CabinServiceObject.8]
+CabinServiceName=HoistService
+BehaviourName=Rescuer
+Quantity=1
+NodeTag=
+Density=100
+CountByMass=False
+ReduceQuantityOnSharedSeatWithCopilot=False
+GeneratedCharacters=AirRescue
+
+[Copilot]
+CopilotWeight=-1
+PilotWeight=170
+SpawnCopilot=TRUE
+CopilotProfil=
+";
 
 fn xml_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
@@ -373,9 +797,12 @@ mod tests {
             description: "Yedek parça",
             aircraft_title: "Cessna Skyhawk G1000 Asobo",
             livery: "",
+            tail_number: "TC-MOD",
             from: a,
             to: b,
             parking: Some(p),
+            runway_start: false,
+            hot_start: false,
             lat: 40.97,
             lon: 28.81,
             alt_ft: 163.0,
@@ -393,6 +820,73 @@ mod tests {
         let pln = write_pln(a, b, 4500, false);
         assert!(pln.contains("<DepartureID>LTBA</DepartureID>") && pln.contains("<FPType>VFR</FPType>") && pln.contains("ATCWaypoint id=\"LTBU\""));
         assert!(roxmltree::Document::parse(&pln).is_ok());
+
+        // 2024: simin kendi serbest uçuş yapısı ve plan; kalkış/varış yok (2024 uçağı başka yere koyabiliyor).
+        let f24 = write_flt_2024(&s);
+        for needle in ["AppVersion=12.0.1", "MissionLocation=LTBA", "Sim=Cessna Skyhawk G1000 Asobo", "TailNumber=TC-MOD", "[WolfProgram]", "FreeFlightMain.wolf", "[CabinService.0]", "[Copilot]", "FirstFlightState=PREFLIGHT_GATE", "SimOnGround=True", "[ATC_AircraftManager]", "[GPS_Engine]\r\nFilename=LTBA_LTBU", "\r\n"] {
+            assert!(f24.contains(needle), "{needle}\n{f24}");
+        }
+        for absent in ["[Departure]", "[Arrival]", "\r\r"] {
+            assert!(!f24.contains(absent), "{absent}");
+        }
+        assert!(f24.lines().all(|l| !l.trim_end_matches('\r').starts_with(' ')));
+    }
+
+    #[test]
+    fn runway_ends_line_up_on_the_threshold() {
+        // LTFJ, simin kendi verisi: tek pist 24R/06L, 3120 m.
+        let d = AirportDetail {
+            icao: "LTFJ".into(),
+            runways: vec![Runway { lat: 40.89855, lon: 29.30923, alt_m: 94.0, heading: 244.1, length_m: 3120.0, primary_number: 24, primary_designator: 2, secondary_number: 6, secondary_designator: 1, surface: 4 }],
+            ..Default::default()
+        };
+        let ends = runway_ends_of(&d);
+        assert_eq!(ends.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["24R", "06L"]);
+        let (r24, r06) = (&ends[0], &ends[1]);
+        assert!((r24.heading - 244.1).abs() < 0.01 && (r06.heading - 64.1).abs() < 0.01);
+        // 24R eşiği kuzeydoğuda, 06L güneybatıda; ikisi de merkezden ~1500 m.
+        assert!(r24.lat > 40.89855 && r24.lon > 29.30923);
+        assert!(r06.lat < 40.89855 && r06.lon < 29.30923);
+        // Gerçek simde denenen nokta (06L başı): 40.89266, 29.29319.
+        assert!((r06.lat - 40.89266).abs() < 2e-4 && (r06.lon - 29.29319).abs() < 2e-4, "{r06:?}");
+        assert!((r06.alt_ft - 308.4).abs() < 0.5);
+
+        assert_eq!(choose_runway_end(&d, Some("06L")).unwrap().name, "06L");
+        // Modstead'in listesi "06R" diyor, simde 06L var: aynı numara seçilir.
+        assert_eq!(choose_runway_end(&d, Some("6R")).unwrap().name, "06L");
+        assert_eq!(choose_runway_end(&d, None).unwrap().name, "24R");
+        assert_eq!(choose_runway_end(&d, Some("17")).unwrap().name, "24R");
+    }
+
+    #[test]
+    fn runway_start_state_per_sim() {
+        let (a, b) = (db().get("LTFJ").unwrap(), db().get("LTBQ").unwrap());
+        let s = FlightSetup {
+            title: "t",
+            description: "d",
+            aircraft_title: "Diamond DA40NG",
+            livery: "",
+            tail_number: "",
+            from: a,
+            to: b,
+            parking: None,
+            runway_start: true,
+            hot_start: false,
+            lat: 40.89266,
+            lon: 29.29319,
+            alt_ft: 308.4,
+            heading: 64.1,
+            runway: None,
+            pln_name: None,
+            cruise_alt_ft: 2000,
+            when: chrono::DateTime::from_timestamp(1_800_000_000, 0).unwrap(),
+        };
+        // 2020 simin kendi pist durumunu kullanır. 2024'te o durum yalnızca ana menüden yüklenirken yazılır;
+        // açık bir uçuşun üstüne yüklenirken sinemada takılı kaldığı için taksi durumu yazılır.
+        assert!(write_flt(&s).contains("FirstFlightState=FLIGHT_RUNWAY"));
+        assert!(write_flt_2024(&s).contains("FirstFlightState=PREFLIGHT_TAXI"));
+        let menu = FlightSetup { hot_start: true, ..s };
+        assert!(write_flt_2024(&menu).contains("FirstFlightState=FLIGHT_RUNWAY"));
     }
 
     #[test]
