@@ -16,7 +16,8 @@ You will get an answer as soon as possible. Please give us reasonable time to fi
 ## Scope
 
 In scope: anything that lets a mod archive, a download link, an `nxm://` link or a remote server write outside the
-expected folder, run code, bypass the review dialog, bypass hash verification or read stored API keys.
+expected folder, run code, bypass the review dialog, bypass hash verification, read stored API keys or make Modstead
+install an update that is not signed with its release key.
 
 Out of scope: malicious behaviour inside a mod that the user reviewed and approved; Modstead reduces this risk but
 cannot guarantee that a mod is harmless.

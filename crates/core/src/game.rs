@@ -139,6 +139,13 @@ pub trait Game: Send + Sync + 'static {
 
     /// Görev listeden kaldırıldı ya da iptal edildi: karantina klasörünü temizle.
     fn discard_job(&self, _job: &JobHandle) {}
+
+    /// Modstead şu an yeniden başlatılırsa bu oyunda yarım kalacak bir iş var mı (Modstead'e bağlı açık oyun,
+    /// izlenen oturum…)? Kabuk, uygulamayı kapatan işleri (ör. Modstead güncellemesini kurmak) bu doğruyken
+    /// yapmaz. Ucuz olmalı. Varsayılan: hayır (oyun yalnızca kapalıyken modlanıyorsa açık olması engel değildir).
+    fn busy(&self) -> BoxFuture<'_, bool> {
+        Box::pin(async { false })
+    }
 }
 
 /// Kayıtlı oyunlar (sıra = kenar çubuğundaki varsayılan sıra).

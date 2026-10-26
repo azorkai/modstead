@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Sürüm denetimi: package.json, package-lock.json, Cargo.toml (çalışma alanı ve üyeleri), Cargo.lock ve
 // src-tauri/tauri.conf.json aynı sürümü taşımalı; etiket verildiyse (`v0.1.0`) o da bu sürüme eşit olmalı.
+// Güncelleyici yapılandırması da (imzalı güncelleme dosyaları, açık anahtar, bu deponun uç noktası) denetlenir.
 // Sürüm iş akışı (.github/workflows/release.yml) derlemeden önce bunu çalıştırır; etiketlemeden önce elle de
 // çalıştırılabilir (bkz. docs/RELEASING.md):
 //
@@ -90,6 +91,29 @@ const version = found[0].version;
 // SemVer: NSIS ve Tauri bunu bekler; kısa çizgili sürümler (`0.2.0-beta.1`) ön sürüm olarak yayımlanır.
 if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/.test(version)) {
   fail([`Version "${version}" is not a valid semantic version (for example 0.2.0 or 0.2.0-beta.1).`]);
+}
+
+// Güncelleyici: kurulu kopyalar bu yapılandırmayla güncellenir. Bozuksa derleme yarım saat sürdükten sonra değil,
+// burada durur (bkz. docs/RELEASING.md → Updates).
+const updater = tauri.plugins?.updater;
+const repository = pkg.repository?.url?.replace(/^git\+/, "").replace(/\.git$/, "");
+const endpoint = `${repository}/releases/latest/download/latest.json`;
+const pubkey = (() => {
+  try {
+    return Buffer.from(updater?.pubkey ?? "", "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+})();
+const updaterProblems = [
+  tauri.bundle?.createUpdaterArtifacts !== true && "bundle.createUpdaterArtifacts must be true (the build signs the installer for the updater).",
+  !pubkey.startsWith("untrusted comment: minisign public key") && "plugins.updater.pubkey is missing or is not a minisign public key.",
+  JSON.stringify(updater?.endpoints) !== JSON.stringify([endpoint]) && `plugins.updater.endpoints must be ["${endpoint}"].`,
+  updater?.requireSignedVersion !== true && "plugins.updater.requireSignedVersion must be true.",
+  (updater?.dangerousInsecureTransportProtocol || updater?.allowDowngrades) && "plugins.updater must not allow insecure transport or downgrades.",
+].filter(Boolean);
+if (updaterProblems.length) {
+  fail(["The updater configuration in src-tauri/tauri.conf.json is not ready for a release.", ...updaterProblems.map((p) => `  ${p}`)]);
 }
 
 const tagArg = process.argv[2]?.replace(/^refs\/tags\//, "");

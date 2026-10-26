@@ -6,6 +6,7 @@
 
 mod art;
 mod commands;
+mod updater;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
@@ -104,6 +105,9 @@ pub fn run() {
         commands::jobs_clear,
         commands::open_url,
         commands::open_app_folder,
+        updater::update_status,
+        updater::update_check,
+        updater::update_install,
     ]);
     let games = game_handlers();
 
@@ -134,6 +138,8 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        // Uygulamanın kendi güncellemesi; arayüze izni yok, `updater` modülünün komutlarıyla çalışır.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .register_asynchronous_uri_scheme_protocol("art", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
             let path = request.uri().path().to_string();
@@ -164,11 +170,13 @@ pub fn run() {
             let policy = GAMES.iter().fold(HttpPolicy::core(), |p, (info, _)| p.with(&info.hosts));
             let http = Http::new(policy, &user_agent(env!("CARGO_PKG_VERSION")));
             let services = Arc::new(Services::new(env!("CARGO_PKG_VERSION"), paths, Arc::new(TauriSink(handle.clone())), http));
+            app.manage(updater::Updater::new(&handle, &services));
             app.manage(services.clone());
             let registry = GameRegistry::new(GAMES.iter().map(|(_, init)| init(&handle, services.clone())).collect());
             app.manage(registry);
             let (nxm, files) = launch_args(&std::env::args().collect::<Vec<_>>());
             app.manage(ShellState { pending_nxm: Mutex::new(nxm), pending_files: Mutex::new(files), nexus_user: RwLock::new(None), art: Mutex::new(HashMap::new()) });
+            updater::start(handle);
             Ok(())
         })
         .invoke_handler(move |invoke| {
@@ -198,7 +206,7 @@ mod tests {
         assert_eq!(ids.len(), sorted.len());
         // Kabuk komutlarının hiçbiri bir oyun önekiyle başlamamalı.
         for (prefix, _) in game_handlers() {
-            assert!(!["app_", "games_", "game_", "settings_", "nexus_", "secret", "nxm_", "pending_", "job", "open_"].contains(&prefix.as_str()));
+            assert!(!["app_", "games_", "game_", "settings_", "nexus_", "secret", "nxm_", "pending_", "job", "open_", "update_"].contains(&prefix.as_str()));
         }
     }
 

@@ -31,6 +31,9 @@ tauri-plugin-window-state = "=2.5.0"
 tauri-plugin-opener = "=2.7.0"
 tauri-plugin-dialog = "=2.8.1"
 tauri-plugin-log = "=2.10.1"
+# Uygulamanın kendi güncellemesi (imzalı; bkz. src-tauri/src/updater.rs, docs/RELEASING.md). Varsayılan özellikler
+# kapalı: Windows NSIS güncellemesi zip/tar istemez, sistem vekil sunucusu okunmaz (çekirdeğin Http'si gibi).
+tauri-plugin-updater = { version = "=2.13.3", default-features = false, features = ["rustls-tls"] }
 
 log = "0.4.34"
 serde = { version = "1.0.229", features = ["derive"] }

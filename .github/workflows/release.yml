@@ -1,5 +1,6 @@
-# Modstead sürüm hattı: Windows kurucusunu (NSIS) GitHub'ın Windows sunucusunda derler, SHA-256 özetlerini
-# çıkarır ve etiket için TASLAK bir GitHub sürümü açar. Yayımlamak elle yapılır (taslağı incele → Publish).
+# Modstead sürüm hattı: Windows kurucusunu (NSIS) GitHub'ın Windows sunucusunda derler ve güncelleyici için imzalar,
+# SHA-256 özetlerini ve kurulu kopyaların okuduğu güncelleme bildirimini (latest.json) çıkarır, etiket için TASLAK bir
+# GitHub sürümü açar. Yayımlamak elle yapılır (taslağı incele → Publish).
 # Sürüm derlemesi (`tauri build`) yalnızca burada yapılır, geliştirici makinesinde yapılmaz. Ayrıntı: docs/RELEASING.md
 #
 # Tetikleyiciler:
@@ -90,13 +91,27 @@ jobs:
       # sürüm profiliyle derleyip dist/'i ikiliye gömer (MSFS paketinin build.rs'i uçak fotoğraflarını, sim içi
       # paketleri de gömer) ve NSIS kurucusunu üretir. Çıktı: çalışma alanı kökünde target/release/bundle/nsis/.
       #
-      # Kod imzalama henüz yok. Sertifika olduğunda tauri.conf.json'da bundle.windows.signCommand (ya da
-      # certificateThumbprint) ayarlanır ve gizli değerler bu adıma env olarak verilir; Tauri hem uygulamayı hem
+      # Güncelleyici imzası: tauri.conf.json'da bundle.createUpdaterArtifacts açık olduğu için Tauri kurucuyu
+      # minisign ile imzalar ve yanına `.sig` yazar (imzaya sürüm de yazılır; uygulama requireSignedVersion ile
+      # denetler). Anahtar ve parolası depo sırlarındadır ve yalnızca bu adıma verilir; yedeği, döndürme ve kayıp
+      # durumu: docs/RELEASING.md → Updates.
+      #
+      # Kod imzalama (Authenticode) henüz yok. Sertifika olduğunda tauri.conf.json'da bundle.windows.signCommand (ya
+      # da certificateThumbprint) ayarlanır ve gizli değerler bu adıma env olarak verilir; Tauri hem uygulamayı hem
       # kurucuyu imzalar, iş akışının geri kalanı değişmez.
       - name: Build installer
-        run: npm run tauri -- build --ci --bundles nsis -- --locked
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ] || [ -z "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
+            echo "::error::The updater signing key is missing. Set the TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD repository secrets (docs/RELEASING.md)."
+            exit 1
+          fi
+          npm run tauri -- build --ci --bundles nsis -- --locked
 
-      # Sürüm dosyaları: sürümlü ad, web sitesinin bağlandığı sabit ad (aynı dosya) ve SHA256SUMS.txt.
+      # Sürüm dosyaları: sürümlü ad, web sitesinin bağlandığı sabit ad (aynı dosya), SHA256SUMS.txt ve sürümlü
+      # kurucunun güncelleyici imzası (.sig; sürüm işi onu latest.json'a yazar, kendisi yüklenmez).
       - name: Collect release files
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -108,11 +123,16 @@ jobs:
             ls -la target/release/bundle/nsis || true
             exit 1
           fi
+          if [ ! -s "${found[0]}.sig" ]; then
+            echo "::error::The updater signature ${found[0]}.sig is missing; check bundle.createUpdaterArtifacts in src-tauri/tauri.conf.json."
+            exit 1
+          fi
           versioned="Modstead_${VERSION}_x64-setup.exe"
           stable="Modstead-setup-x64.exe"
           mkdir release
           cp "${found[0]}" "release/$versioned"
           cp "${found[0]}" "release/$stable"
+          cp "${found[0]}.sig" "release/$versioned.sig"
           cd release
           # sha256sum biçimi (`<özet>  <ad>`, LF); Git Bash'in `*` ikili kip işareti kullanılmaz.
           for f in "$versioned" "$stable"; do
@@ -165,6 +185,7 @@ jobs:
           test "$(wc -l < SHA256SUMS.txt)" -eq 2
           test -f "Modstead_${VERSION}_x64-setup.exe"
           test -f Modstead-setup-x64.exe
+          test -s "Modstead_${VERSION}_x64-setup.exe.sig"
 
       # Sürüm notlarında GitHub tek satır sonunu da satır sonu sayar; bu yüzden her paragraf tek satırdır.
       # gh, otomatik değişiklik listesini (--generate-notes) bu metnin altına ekler.
@@ -180,8 +201,13 @@ jobs:
           | `Modstead-setup-x64.exe` | The installer. The website links to this name in the latest release. |
           | `Modstead_@VERSION@_x64-setup.exe` | The same file with the version in its name. |
           | `SHA256SUMS.txt` | SHA-256 checksums of both files. |
+          | `latest.json` | Update information that installed copies of Modstead read. You do not need to download it. |
 
-          Modstead needs Microsoft Edge WebView2, which Windows 11 already includes; if it is missing, the installer downloads it. Modstead does not update itself yet: to update, run the installer from a newer release. Your settings and game data stay in `%APPDATA%\app.modstead`.
+          Modstead needs Microsoft Edge WebView2, which Windows 11 already includes; if it is missing, the installer downloads it. Your settings and game data stay in `%APPDATA%\app.modstead`.
+
+          ### Updates
+
+          Modstead checks for new releases in the background, downloads them, verifies their signature and installs them only when you choose **Restart** (Settings → Updates); it never restarts while a game it is connected to is open. Modstead 0.1.0 does not update itself: if you have it, run this installer once.
 
           ### Windows SmartScreen
 
@@ -201,15 +227,48 @@ jobs:
 
           ### Türkçe
 
-          `Modstead-setup-x64.exe`, Windows 10 ve 11 (x64) kurucusudur; Modstead'i geçerli kullanıcıya kurar ve yönetici izni istemez. Kurucu henüz kod imzalı olmadığı için tarayıcı ve Windows SmartScreen uyarı gösterebilir: dosyayı bu sayfadan indirdiyseniz **Ek bilgi → Yine de çalıştır**. Dosyayı doğrulamak için PowerShell'de `(Get-FileHash .\Modstead-setup-x64.exe -Algorithm SHA256).Hash` çıktısını `SHA256SUMS.txt` içindeki satırla karşılaştırın.
+          `Modstead-setup-x64.exe`, Windows 10 ve 11 (x64) kurucusudur; Modstead'i geçerli kullanıcıya kurar ve yönetici izni istemez. Modstead yeni sürümleri arka planda indirir, imzasını doğrular ve yalnızca siz **Yeniden başlat**'ı seçince kurar (Ayarlar → Güncellemeler); 0.1.0 kendini güncellemez, onu kullanıyorsanız bu kurucuyu bir kez çalıştırın. Kurucu henüz kod imzalı olmadığı için tarayıcı ve Windows SmartScreen uyarı gösterebilir: dosyayı bu sayfadan indirdiyseniz **Ek bilgi → Yine de çalıştır**. Dosyayı doğrulamak için PowerShell'de `(Get-FileHash .\Modstead-setup-x64.exe -Algorithm SHA256).Hash` çıktısını `SHA256SUMS.txt` içindeki satırla karşılaştırın.
           EOF
           cat notes.md
+
+      # latest.json: kurulu kopyaların `releases/latest/download/latest.json` adresinden okuduğu güncelleme bildirimi
+      # (docs/RELEASING.md → Updates). Bu etiketin sürümlü kurucusunu ve imzasını gösterir; notlar etiketin açıklaması
+      # (`git tag -a … -m`), yoksa sürüm sayfasına bir bağlantı. Taslak ve ön sürüm "latest" sayılmadığından bildirim
+      # kullanıcılara yalnızca tam sürüm yayımlanınca ulaşır.
+      - name: Write the updater manifest
+        run: |
+          sig="release/Modstead_${VERSION}_x64-setup.exe.sig"
+          url="https://github.com/${GH_REPO}/releases/download/${TAG}/Modstead_${VERSION}_x64-setup.exe"
+          notes=""
+          ref="$(gh api "repos/${GH_REPO}/git/ref/tags/${TAG}" --jq '.object.type + " " + .object.sha' 2>/dev/null || true)"
+          if [ "${ref%% *}" = "tag" ]; then
+            notes="$(gh api "repos/${GH_REPO}/git/tags/${ref#* }" --jq .message | sed -e '/^-----BEGIN [A-Z ]*SIGNATURE-----/,$d')"
+          fi
+          if [ -z "${notes//[[:space:]]/}" ]; then
+            notes="Modstead ${VERSION}: https://github.com/${GH_REPO}/releases/tag/${TAG}"
+          fi
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$notes" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg url "$url" \
+            --rawfile sig "$sig" \
+            '($sig | gsub("\\s+$"; "")) as $signature
+             | { version: $version,
+                 notes: ($notes | gsub("\\s+$"; "")),
+                 pub_date: $date,
+                 platforms: {
+                   "windows-x86_64-nsis": { signature: $signature, url: $url },
+                   "windows-x86_64": { signature: $signature, url: $url } } }' \
+            > release/latest.json
+          jq -e '.version == env.VERSION and (.platforms["windows-x86_64"].signature | length > 100) and (.notes | length > 0)' release/latest.json > /dev/null
+          cat release/latest.json
 
       # Taslak varsa yalnızca dosyaları yenilenir (elle düzenlenmiş notlara dokunulmaz); yayımlanmış bir sürümün
       # dosyaları asla değiştirilmez.
       - name: Create or update the draft release
         run: |
-          assets=("release/Modstead_${VERSION}_x64-setup.exe" release/Modstead-setup-x64.exe release/SHA256SUMS.txt)
+          assets=("release/Modstead_${VERSION}_x64-setup.exe" release/Modstead-setup-x64.exe release/SHA256SUMS.txt release/latest.json)
           state="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null || true)"
           if [ "$state" = "false" ]; then
             echo "::error::Release $TAG is already published; its files are not replaced. Release a new version instead."

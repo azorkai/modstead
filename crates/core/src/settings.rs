@@ -29,6 +29,8 @@ pub struct Settings {
     /// Yönetilen oyunlar (kenar çubuğu sırası). Boşsa hepsi.
     pub games: Vec<String>,
     pub last_game: Option<String>,
+    /// Modstead'in yeni sürümünü arka planda denetle ve indir (kurulum yalnızca kullanıcı onaylayınca).
+    pub auto_update: bool,
 }
 
 impl Default for Settings {
@@ -47,6 +49,7 @@ impl Default for Settings {
             onboarded: false,
             games: Vec::new(),
             last_game: None,
+            auto_update: true,
         }
     }
 }
@@ -66,6 +69,7 @@ pub struct SettingsPatch {
     pub onboarded: Option<bool>,
     pub games: Option<Vec<String>>,
     pub last_game: Option<Option<String>>,
+    pub auto_update: Option<bool>,
 }
 
 impl Settings {
@@ -103,6 +107,9 @@ impl Settings {
         if let Some(v) = p.last_game {
             self.last_game = v.filter(|g| g.len() <= 32);
         }
+        if let Some(v) = p.auto_update {
+            self.auto_update = v;
+        }
     }
 
     pub fn security_policy(&self) -> SecurityPolicy {
@@ -128,5 +135,7 @@ mod tests {
         let s: Settings = serde_json::from_str(r#"{"theme":"dark"}"#).unwrap();
         assert_eq!(s.theme, "dark");
         assert!(s.require_scan && s.block_dangerous);
+        // Güncelleme denetimi alanı sonradan eklendi: eski dosyalarda açık gelir.
+        assert!(s.auto_update);
     }
 }
