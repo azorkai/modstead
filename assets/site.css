@@ -270,12 +270,47 @@ pre .c { color: var(--muted); }
 .install ol { padding-left: 1.3em; color: var(--fg-2); margin: 0 0 24px; }
 .install ol li { margin-bottom: 8px; }
 
-.support {
-  display: flex; align-items: center; gap: 14px; margin: 48px 0 0; padding-top: 24px;
-  border-top: 1px solid var(--line); color: var(--fg-2);
+/* ---------- coffee (Buy Me a Coffee) ---------- */
+.nav .coffee {
+  gap: 7px; margin-left: 6px; padding: 0 14px; color: #ffdd00; font-weight: 600;
+  background: rgba(255, 221, 0, 0.1); border: 1px solid rgba(255, 221, 0, 0.32); border-radius: 999px;
 }
-.support svg { flex: none; color: var(--accent); }
-.support a { font-weight: 600; }
+.nav .coffee:hover { color: #0d0c22; background: #ffdd00; border-color: #ffdd00; }
+.nav .coffee svg { flex: none; }
+@media (max-width: 480px) { .nav .coffee span { display: none; } .nav .coffee { padding: 0 12px; } }
+.coffee-line {
+  display: inline-flex; align-items: center; gap: 10px; margin-top: 4px; min-height: 44px;
+  color: var(--fg-2); text-decoration: none; font-size: 0.95rem;
+}
+.coffee-line svg { color: #ffdd00; flex: none; }
+.coffee-line b { color: #ffdd00; font-weight: 600; }
+.coffee-line:hover b { text-decoration: underline; }
+.coffee-sec { padding: clamp(48px, 7vw, 88px) 0; }
+.coffee-card {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: center;
+  padding: clamp(24px, 4vw, 44px); border: 1px solid var(--line-2); border-radius: 18px;
+  background: radial-gradient(120% 140% at 0% 100%, rgba(255, 122, 26, 0.1), transparent 55%), var(--surface);
+}
+@media (min-width: 860px) { .coffee-card { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; } }
+.coffee-art { display: flex; justify-content: center; }
+.coffee-svg { width: min(320px, 100%); height: auto; overflow: visible; }
+.coffee-svg .steam { fill: none; stroke: #c6c2b9; stroke-width: 4.5; stroke-linecap: round; opacity: 0; transform-box: fill-box; animation: steam 3.6s ease-in-out infinite; }
+.coffee-svg .s2 { animation-delay: 1.2s; }
+.coffee-svg .s3 { animation-delay: 2.4s; }
+@keyframes steam { 0% { opacity: 0; transform: translateY(12px); } 35% { opacity: 0.8; } 100% { opacity: 0; transform: translateY(-18px); } }
+@media (prefers-reduced-motion: reduce) {
+  .coffee-svg .steam { animation: none; opacity: 0.6; }
+  .coffee-svg .orbit-plane { display: none; }
+}
+.coffee-copy h2 { font-size: clamp(1.85rem, 3.6vw, 2.7rem); line-height: 1.1; letter-spacing: -0.022em; font-weight: 700; margin-bottom: 16px; }
+.coffee-copy > p:not(.kicker) { color: var(--fg-2); font-size: 1.08rem; max-width: 34em; }
+.coffee-copy .kicker { margin-bottom: 14px; }
+.coffee-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin: 28px 0 20px; }
+.btn-coffee { background: #ffdd00; color: #0d0c22; border-radius: 999px; padding: 0 26px; box-shadow: 0 10px 30px -12px rgba(255, 221, 0, 0.55); }
+.btn-coffee:hover { background: #ffe74d; color: #0d0c22; transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) { .btn-coffee:hover { transform: none; } }
+.coffee-url { font: 500 0.88rem/1 var(--f-mono); color: var(--muted); }
+.coffee-also { font-size: 0.94rem; color: var(--muted); margin: 0; }
 
 /* ---------- FAQ ---------- */
 .faq { border-top: 1px solid var(--line-2); max-width: 880px; }
