@@ -68,7 +68,7 @@
       "applicationCategory": "GameApplication",
       "applicationSubCategory": "Flight simulator career mode",
       "operatingSystem": "Windows 10, Windows 11",
-      "softwareVersion": "0.1.0",
+      "softwareVersion": "0.2.0",
       "downloadUrl": "https://github.com/azorkai/modstead/releases/latest/download/Modstead-setup-x64.exe",
       "softwareRequirements": "Windows 10 or 11 (x64), Microsoft Edge WebView2, Microsoft Flight Simulator 2024 or 2020",
       "license": "https://www.gnu.org/licenses/gpl-3.0.html",
@@ -169,7 +169,7 @@
         </a>
         <a class="btn btn-ghost" href="https://github.com/azorkai/modstead">Source on GitHub</a>
       </div>
-      <p class="status"><span class="dot" aria-hidden="true"></span><b>Early development (v0.1.0).</b> Windows 10/11 x64 installer. <a href="#download">Checksums and notes</a></p>
+      <p class="status"><span class="dot" aria-hidden="true"></span><b>Early development (v0.2.0).</b> Windows 10/11 x64 installer. <a href="#download">Checksums and notes</a></p>
       <a class="coffee-line" href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener"><span class="cup"><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5"/></svg></span><span>Free forever. Enjoying it? <b>Buy the pilot a coffee</b></span></a>
     </div>
 
@@ -227,7 +227,10 @@
       <li><span class="num">06</span><h3>Logbook, hangar and finance</h3><p>Every flight with its flown track, landing data, deductions and pay. Buy and sell aircraft, maintenance and wear, and a loan with no time-based interest.</p></li>
       <li><span class="num">07</span><h3>In-sim toolbar panel</h3><p>Route, phase, remaining distance, ETA, score and pay in the MSFS 2020 and 2024 toolbar, also in full screen and VR.</p><span class="mini-panel" aria-hidden="true"><span><small>Modstead connected <b>Cargo</b></small>LTBA — LTBU<span class="trk"></span></span></span></li>
       <li><span class="num">08</span><h3>Career page in the main menu</h3><p>A <em>Modstead Career</em> tile next to the sim's own tiles in MSFS 2024: take a job, pick an aircraft (with real photos) and start the flight without leaving the sim.</p></li>
-      <li class="inky"><span class="num">09</span><h3>Free and local</h3><p>No subscription, no account and no online server. Career data is plain JSON on your PC, and SimBrief is one click away.</p></li>
+      <li><span class="num">09</span><h3>Career paths</h3><p>Choose airline, cargo, bush, air ambulance, charter or aerial work, or stay a freelance pilot. Start from scratch or with that path's licences and hours, climb three ranks with bonus pay, and change path later without losing anything.</p><span class="chips" aria-hidden="true"><span class="on">Airline</span><span>Cargo</span><span>Bush</span><span>Ambulance</span><span>Charter</span><span>Aerial</span></span></li>
+      <li><span class="num">10</span><h3>Add-on aircraft</h3><p>Mod aircraft from your library and Community folders (Fenix, PMDG, iniBuilds…) are listed with their liveries, even while the sim is closed. The class comes from the ICAO type code, and aircraft that load payload and fuel in their own EFB are detected.</p></li>
+      <li><span class="num">11</span><h3>Flight deck on a tablet</h3><p>A live map, as an offline chart or satellite imagery, with the flight's numbers in a separate window or on a tablet or phone on your home network. Off by default, protected with a key and a QR code.</p></li>
+      <li class="inky"><span class="num">12</span><h3>Free and local</h3><p>No subscription, no account and no online server. Career data is plain JSON on your PC, and SimBrief is one click away.</p></li>
     </ul>
     <div class="note grain">
       <h3>It runs inside the Modstead app</h3>
@@ -253,7 +256,7 @@
     <ul class="realism">
       <li><span class="num">Approach</span><h3>Stabilised approach and touchdown</h3><p>A stabilised-approach gate at 1,000&nbsp;ft (instrument conditions) or 500&nbsp;ft (visual) checks sink rate, bank, gear and speed. Landing from an unstable approach costs 5 points; a go-around costs nothing and earns a bonus. The touchdown is measured against the threshold, the touchdown zone and the centreline, with tail strike and maximum takeoff and landing weight limits.</p></li>
       <li><span class="num">Dispatch</span><h3>Dispatch release</h3><p>Fuel per the EASA policy (taxi, trip, contingency, alternate and final reserve), with an alternate airport chosen under IFR. Zero-fuel, takeoff and landing weights against the limits, and a runway check that grows with density altitude and a wet runway.</p></li>
-      <li><span class="num">Weather</span><h3>Real METAR weather</h3><p>Observations from aviationweather.gov for the job board and the active job. A job to an IFR or LIFR destination needs a current instrument rating, and rated pilots earn a bad-weather bonus (IFR 15%, LIFR 25%). Offline, the weather is simply unknown.</p></li>
+      <li><span class="num">Weather</span><h3>Real METAR weather</h3><p>Observations from aviationweather.gov for the job board and the active job. A job to an IFR or LIFR destination needs a current instrument rating, and rated pilots earn a bad-weather bonus (IFR 15%, LIFR 25%). Offline, the weather is simply unknown. Jobs can also come with a weather and time scenario (night, dawn, snow, rain, a storm or clear skies), and the flight starts with it.</p></li>
       <li><span class="num">Cabin</span><h3>Passenger comfort and sensitive cargo</h3><p>Comfort sets the tip, not the score: 90+ earns 8% of the pay. Fragile, live and medical cargo is damaged by high G and hard landings, and the claim comes out of the pay. Perishable cargo has a tight deadline; dangerous goods need a commercial licence.</p></li>
       <li><span class="num">Records</span><h3>Pilot records</h3><p>Passenger, night and instrument currency, a medical certificate whose validity depends on your licence and age, and flight duty limits. Resting is a button with a hotel bill away from base, not real-time waiting. The difficulty decides which rules apply.</p></li>
       <li><span class="num">Hangar</span><h3>Maintenance programmes and insurance</h3><p>Inspections by hours or months for each aircraft class, from 100-hour inspections to A- and C-checks and engine overhauls; an aircraft past its inspection cannot fly. Hull insurance is optional: a premium per flight hour and a 5% deductible.</p></li>
@@ -382,7 +385,7 @@
           sizes="(min-width: 1240px) 1160px, calc(100vw - 32px)"
           width="1500" height="535" loading="lazy" decoding="async"
           alt="Toolbar panel in three states: a cargo flight in cruise with 16 nm remaining, a medical flight after landing at 142 fpm, and a passenger flight ready for departure with the pre-flight gate at 5 of 5"></a>
-        <figcaption><b>Three states:</b> cargo flight in cruise, medical flight after landing, passenger flight ready for departure. An optional panel for the MSFS 2020 and 2024 toolbar; while the app is open it takes its code from the app's local server, so an update reaches the panel without restarting the sim. An earlier version was tried in MSFS 2024 and fixed; the current one (0.3.0) has not been flown with yet.</figcaption>
+        <figcaption><b>Three states:</b> cargo flight in cruise, medical flight after landing, passenger flight ready for departure. An optional panel for the MSFS 2020 and 2024 toolbar; while the app is open it takes its code from the app's local server, so an update reaches the panel without restarting the sim. An earlier version was tried in MSFS 2024 and fixed; the current one (0.4.0) has not been flown with yet.</figcaption>
       </figure>
     </div>
 
@@ -597,7 +600,7 @@
           <a class="btn btn-ghost" href="https://github.com/azorkai/modstead/releases">All releases</a>
           <a class="btn btn-ghost" href="https://github.com/azorkai/modstead#building-from-source">Build from source</a>
         </div>
-        <p class="small dl-meta">Version 0.1.0 · Windows 10/11 x64 installer · requires Microsoft Edge WebView2</p>
+        <p class="small dl-meta">Version 0.2.0 · Windows 10/11 x64 installer · requires Microsoft Edge WebView2</p>
         <div class="warn">
           <span class="dot" aria-hidden="true"></span>
           <p><b>Early development release.</b> Expect rough edges; the rules, the SimConnect protocol and the job flow are covered by automated tests, but not everything has been flown with yet.</p>
