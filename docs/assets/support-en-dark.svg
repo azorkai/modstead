@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="200" viewBox="0 0 880 200" role="img" aria-labelledby="t d">
+<title id="t">Buy the pilot a coffee</title>
+<desc id="d">Modstead is free and open source. Every coffee keeps the career mode flying. buymeacoffee.com/azorkai</desc>
+<style>
+.s{fill:none;stroke:#c6c2b9;stroke-width:3.2;stroke-linecap:round;opacity:0;transform-box:fill-box;animation:rise 3.6s ease-in-out infinite}
+.s2{animation-delay:1.2s}.s3{animation-delay:2.4s}
+@keyframes rise{0%{opacity:0;transform:translateY(10px)}35%{opacity:.8}100%{opacity:0;transform:translateY(-16px)}}
+.p{transform-box:fill-box;transform-origin:center;animation:bob 4s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-14deg)}50%{transform:translateY(-4px) rotate(-10deg)}}
+@media (prefers-reduced-motion:reduce){.s{animation:none;opacity:.6}.p{animation:none;transform:rotate(-12deg)}}
+</style>
+<defs><radialGradient id="g" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ff7a1a" stop-opacity="0.22"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></radialGradient></defs>
+<rect x="1" y="1" width="878" height="198" rx="22" fill="#16181c" stroke="#2a2d34" stroke-width="2"/>
+<circle cx="100" cy="112" r="86" fill="url(#g)"/>
+<path class="s" d="M82 70c-9-8 9-15 0-25s9-15 0-23"/>
+<path class="s s2" d="M100 66c-9-8 9-15 0-25s9-15 0-23"/>
+<path class="s s3" d="M118 70c-9-8 9-15 0-25s9-15 0-23"/>
+<ellipse cx="100" cy="166" rx="62" ry="10" fill="#262930"/>
+<path d="M148 102h9a15 15 0 0 1 0 30h-12" fill="none" stroke="#e4d6bf" stroke-width="8" stroke-linecap="round"/>
+<path d="M54 90h92v26a46 46 0 0 1-46 46a46 46 0 0 1-46-46z" fill="#f3e9d8"/>
+<path d="M54 104h92v12h-92z" fill="#ff7a1a"/>
+<ellipse cx="100" cy="90" rx="46" ry="9" fill="#6b3f1f"/>
+<path d="M100 96c-6-4-9-6-9-8.6a3.4 3.4 0 0 1 6.2-1.8L100 88l2.8-2.4A3.4 3.4 0 0 1 109 87.4c0 2.6-3 4.6-9 8.6z" fill="#f3e9d8" opacity=".9"/>
+<path d="M690 70c40-46 92-24 120-40" fill="none" stroke="#ff7a1a" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="1 9" opacity=".7"/>
+<g transform="translate(818 26)"><path class="p" d="M14 0l3 9 11 5v4l-11-2-1 8 4 3v3l-6-2-6 2v-3l4-3-1-8-11 2v-4l11-5z" fill="#ff7a1a"/></g>
+<text x="196" y="54" font-family="ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="13" font-weight="700" letter-spacing="2.2" fill="#ff9a52">SUPPORT MODSTEAD</text>
+<text x="196" y="92" font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#f3f0e9">Buy the pilot a coffee</text>
+<text x="196" y="122" font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" fill="#c6c2b9">Modstead is free and open source. Every coffee keeps the career mode flying.</text>
+<rect x="196" y="140" width="196" height="40" rx="20" fill="#ffdd00"/>
+<path d="M216 152h14v5a6 6 0 0 1-6 6h-2a6 6 0 0 1-6-6z" fill="#0d0c22"/><path d="M230 154h1.6a2.6 2.6 0 0 1 0 5.2H230" fill="none" stroke="#0d0c22" stroke-width="1.8"/>
+<text x="240" y="166" font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#0d0c22">Buy me a coffee</text>
+<text x="410" y="165" font-family="ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="14" fill="#8f8b83">buymeacoffee.com/azorkai</text>
+</svg>

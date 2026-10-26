@@ -2,6 +2,15 @@
 
 [English](README.md) · **Türkçe**
 
+<p align="center">
+  <a href="https://buymeacoffee.com/azorkai">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/support-tr-dark.svg">
+      <img src="docs/assets/support-tr-light.svg" width="760" alt="Pilota bir kahve ısmarla: Modstead ücretsiz ve açık kaynak; buymeacoffee.com/azorkai üzerinden destek olabilirsin">
+    </picture>
+  </a>
+</p>
+
 **Modstead**, **Microsoft Flight Simulator 2020 & 2024**, **Mount & Blade II: Bannerlord**, **Stardew Valley (SMAPI)**
 ve **Cities: Skylines II** modlarını tek masaüstü uygulamasında yöneten, ücretsiz ve açık kaynaklı bir Windows mod
 yöneticisidir. Her indirme ve arşiv bir güvenlik hattından geçer (izinli kaynaklar, özet doğrulaması, güvenli açma,
@@ -19,7 +28,7 @@ içi araç çubuğu paneli ve MSFS 2024 ana menüsünde kariyer sayfası.
 
 **[Modstead'i Windows için indir](https://github.com/azorkai/modstead/releases/latest/download/Modstead-setup-x64.exe)**
 (Windows 10/11, x64) · [Tüm sürümler](https://github.com/azorkai/modstead/releases) ·
-[Web sitesi](https://azorkai.github.io/modstead/)
+[Web sitesi](https://azorkai.github.io/modstead/) · [☕ Bir kahve ısmarla](https://buymeacoffee.com/azorkai)
 
 Kurucu, Modstead'i geçerli kullanıcıya kurar ve yönetici izni istemez. Henüz kod imzalı olmadığı için Windows
 SmartScreen uyarı gösterebilir; **Ek bilgi**'ye, ardından **Yine de çalıştır**'a tıklayın. Her sürümde kurucunun
@@ -203,6 +212,8 @@ Oyun kimlikleri: `msfs`, `bannerlord`, `stardew`, `cities2`. Ayarlar ve oyun ver
 
 Modstead ücretsiz ve açık kaynaklıdır. İşinize yarıyorsa geliştirilmesine
 [Buy Me a Coffee](https://buymeacoffee.com/azorkai) üzerinden destek olabilirsiniz.
+
+<a href="https://buymeacoffee.com/azorkai"><img src="https://img.shields.io/badge/Bir%20kahve%20%C4%B1smarla-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000" alt="Bir kahve ısmarla"></a>
 
 ## Lisans
 

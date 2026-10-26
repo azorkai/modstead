@@ -2,6 +2,15 @@
 
 **English** · [Türkçe](README.tr.md)
 
+<p align="center">
+  <a href="https://buymeacoffee.com/azorkai">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/assets/support-en-dark.svg">
+      <img src="docs/assets/support-en-light.svg" width="760" alt="Buy the pilot a coffee: Modstead is free and open source; support it on buymeacoffee.com/azorkai">
+    </picture>
+  </a>
+</p>
+
 **Modstead** is a free, open-source mod manager for Windows that manages mods for
 **Microsoft Flight Simulator 2020 & 2024**, **Mount & Blade II: Bannerlord**, **Stardew Valley (SMAPI)** and
 **Cities: Skylines II** in one desktop app. Every download and archive goes through a security pipeline (allowlisted
@@ -20,7 +29,7 @@ Built with [Tauri 2](https://tauri.app) (Rust) and React 19. Licensed under GPL-
 
 **[Download Modstead for Windows](https://github.com/azorkai/modstead/releases/latest/download/Modstead-setup-x64.exe)**
 (Windows 10/11, x64) · [All releases](https://github.com/azorkai/modstead/releases) ·
-[Website](https://azorkai.github.io/modstead/)
+[Website](https://azorkai.github.io/modstead/) · [☕ Buy me a coffee](https://buymeacoffee.com/azorkai)
 
 The installer installs Modstead for the current user and needs no administrator rights. It is not code-signed yet, so
 Windows SmartScreen may show "Windows protected your PC"; choose **More info → Run anyway**. Each release lists the
@@ -269,6 +278,8 @@ cache, logs and quarantine in `%LOCALAPPDATA%\app.modstead`.
 
 Modstead is free and open source. If it helps you, you can support its development on
 [Buy Me a Coffee](https://buymeacoffee.com/azorkai).
+
+<a href="https://buymeacoffee.com/azorkai"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=000000" alt="Buy me a coffee"></a>
 
 ## License
 
