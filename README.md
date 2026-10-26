@@ -250,6 +250,11 @@ docs/screenshots/   README screenshots (preview mode with sample data)
 Game IDs: `msfs`, `bannerlord`, `stardew`, `cities2`. Settings and game data live in `%APPDATA%\app.modstead`;
 cache, logs and quarantine in `%LOCALAPPDATA%\app.modstead`.
 
+## Support
+
+Modstead is free and open source. If it helps you, you can support its development on
+[Buy Me a Coffee](https://buymeacoffee.com/azorkai).
+
 ## License
 
 [GPL-3.0](LICENSE). Modstead is an independent project and is not affiliated with or endorsed by Microsoft, Asobo

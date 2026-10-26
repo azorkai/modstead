@@ -184,6 +184,11 @@ docs/screenshots/   README ekran görüntüleri (önizleme kipi, örnek veri)
 Oyun kimlikleri: `msfs`, `bannerlord`, `stardew`, `cities2`. Ayarlar ve oyun verileri `%APPDATA%\app.modstead`;
 önbellek, günlük ve karantina `%LOCALAPPDATA%\app.modstead` altında.
 
+## Destek
+
+Modstead ücretsiz ve açık kaynaklıdır. İşinize yarıyorsa geliştirilmesine
+[Buy Me a Coffee](https://buymeacoffee.com/azorkai) üzerinden destek olabilirsiniz.
+
 ## Lisans
 
 [GPL-3.0](LICENSE). Modstead bağımsız bir projedir; Microsoft, Asobo Studio, TaleWorlds Entertainment, ConcernedApe,
