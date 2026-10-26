@@ -40,7 +40,10 @@ export function clock(seconds: number): string {
 }
 
 export function hours(h: number): string {
-  return num(h, h < 10 ? 1 : 0);
+  const digits = h < 10 ? 1 : 0;
+  // Yuvarlanınca sıfıra inen küçük negatifler "-0" yazılmasın.
+  const v = Math.abs(h) < 0.5 * 10 ** -digits ? 0 : h;
+  return num(v, digits);
 }
 
 export function className(cls: AircraftClass | null | undefined, classes: ClassInfo[]): string {

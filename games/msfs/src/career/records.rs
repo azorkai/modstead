@@ -131,6 +131,13 @@ impl Records {
         r
     }
 
+    /// Deneyimli helikopter pilotu: son günlerde 3 helikopter inişi (helikopterle yolcu yeterliliği tam).
+    pub fn seed_helicopter(&mut self, now: i64) {
+        for i in 0..3 {
+            self.landings.push(LandingRec { ts: now - i * DAY, night: false, heli: true });
+        }
+    }
+
     fn prune(&mut self, now: i64) {
         let year = now - 365 * DAY;
         self.landings.retain(|l| l.ts > year);

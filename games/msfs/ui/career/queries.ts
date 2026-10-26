@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { isTauri, listen } from "@/lib/ipc";
 import { queryClient } from "@/lib/queries";
 import { careerApi } from "./api";
-import type { Live } from "./types";
+import type { Difficulty, Live } from "./types";
 
 export const ck = {
   all: ["msfs", "career"] as const,
@@ -17,6 +17,10 @@ export const ck = {
   ledger: ["msfs", "career", "ledger"] as const,
   live: ["msfs", "career", "live"] as const,
   weather: ["msfs", "career", "weather"] as const,
+  track: ["msfs", "career", "track"] as const,
+  deck: ["msfs", "career", "deck"] as const,
+  tiles: ["msfs", "career", "tiles"] as const,
+  paths: (difficulty: string) => ["msfs", "career", "paths", difficulty] as const,
   flight: (id: string) => ["msfs", "career", "flight", id] as const,
 };
 
@@ -69,6 +73,21 @@ export function useWeather(enabled = true) {
 export function useLive() {
   // Olay ≈1 sn'de bir gelir; yoklama yalnızca yedek (sim kapalıyken olay seyrekleşir).
   return useQuery({ queryKey: ck.live, queryFn: careerApi.live, refetchInterval: isTauri ? 5000 : 2000, staleTime: 1000 });
+}
+
+/** Aktif uçuşun izi (uçuş ekranı ≈10 sn'de bir tazeler; aradaki konumları kendisi ekler). */
+export function useTrack(enabled: boolean, interval = 10_000) {
+  return useQuery({ queryKey: ck.track, queryFn: careerApi.track, enabled, refetchInterval: interval, staleTime: interval / 2 });
+}
+
+/** Uçuş ekranının adresi, yerel ağ durumu ve QR. Pencere açık mı bilgisi için ara ara yoklanır. */
+export function useDeckInfo() {
+  return useQuery({ queryKey: ck.deck, queryFn: careerApi.deckInfo, staleTime: 5_000, refetchInterval: 15_000 });
+}
+
+/** Kariyer yollarının kataloğu (durağan; zorluk değişince yeniden). Eski uygulamada komut yoksa hata döner. */
+export function usePaths(difficulty: Difficulty | null) {
+  return useQuery({ queryKey: ck.paths(difficulty ?? "pilot"), queryFn: () => careerApi.paths(difficulty ?? undefined), staleTime: Infinity, retry: false });
 }
 
 export function invalidateCareer() {

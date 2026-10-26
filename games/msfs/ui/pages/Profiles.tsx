@@ -143,13 +143,13 @@ function ProfileCard({ profile: p }: { profile: Profile }) {
   return (
     <article className="card flex flex-col gap-3 px-5 py-4">
       <div className="flex items-start gap-3">
-        <span className="accent-soft flex size-10 shrink-0 items-center justify-center rounded-xl">
+        <span className="accent-soft flex size-10 shrink-0 items-center justify-center rounded-full">
           <Layers className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[14.5px] font-semibold text-fg">{p.name}</h3>
+          <h3 className="title truncate text-[16px] text-fg">{p.name}</h3>
           {p.description && <p className="mt-0.5 line-clamp-2 text-[12.5px] text-fg-2">{p.description}</p>}
-          <p className="mt-0.5 text-[11px] text-muted">{t.profiles.updated(new Date(p.updatedAt).toLocaleDateString(lang === "tr" ? "tr-TR" : "en-GB"))}</p>
+          <p className="eyebrow mt-1.5 text-muted">{t.profiles.updated(new Date(p.updatedAt).toLocaleDateString(lang === "tr" ? "tr-TR" : "en-GB"))}</p>
         </div>
       </div>
       <div className="flex flex-wrap gap-1.5">

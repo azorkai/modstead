@@ -36,6 +36,10 @@ installer's SHA-256 checksum in `SHA256SUMS.txt`; compare it with the output of
 ([other ways](docs/RELEASING.md#verify-a-download)). To build Modstead yourself, see
 [Building from source](#building-from-source).
 
+Modstead keeps itself up to date: it checks for new releases in the background, verifies the signature of each download
+and installs it only when you click **Restart**, never while the sim is open or a career flight is being tracked. You
+can turn the check off in Settings → Updates. Version 0.1.0 has no updater; install a newer release over it once.
+
 ## What Modstead does for MSFS
 
 | Sim | What Modstead does |
@@ -59,6 +63,16 @@ and penalty is documented.
 - **Job board** at your current airport: cargo, passengers, charter, aircraft ferry, bush flights, air ambulance and
   airline flights, filtered by your licences and reputation, with a route map. Fly for an operator, or on your own
   account after the CPL.
+- **Career paths:** choose airline, cargo, bush, air ambulance, charter or aerial work at the start, or stay a freelance
+  pilot. Start from scratch or as an experienced pilot with the licences and hours of that path, climb three ranks with
+  bonus pay, and change path later without losing anything.
+- **Add-on aircraft:** mod aircraft from your library and Community folders (Fenix, PMDG, iniBuilds…) are listed with
+  their liveries even while the sim is closed. The class comes from the ICAO type code, and aircraft that handle payload
+  and fuel in their own EFB are detected; you can override both per aircraft.
+- **Weather and time scenarios:** jobs can be at night, at dawn, in snow, rain or a storm, or in clear skies; the job
+  board shows which, and the flight starts in the sim with that weather and time.
+- **Flight deck:** a live map (offline chart or satellite imagery) with the flight's numbers in a separate window, or on
+  a tablet or phone on your home network (off by default, protected with a key and a QR code).
 - **Automatic flight setup:** Modstead starts the sim if needed, picks a suitable parking spot from the sim's own
   airport data (or puts you on the runway with the engines running), writes the flight and route plan (`.FLT`/`.PLN`,
   the route goes into the sim's GPS), moves the aircraft and loads the payload. Tested in the real MSFS 2024.

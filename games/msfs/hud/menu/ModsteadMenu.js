@@ -166,6 +166,27 @@
 					drop: function () { return "Atlayış: yerden 10.000 ft üstünde, 95 kt altında, 20 sn"; },
 					line: function (n) { return "Fotoğraf noktası " + n + " (± 300 ft)"; },
 					search: function () { return "Son bilinen konumda 3 dakika ara"; }
+				},
+				// Hava ve zaman senaryosu (career::conditions).
+				cond: {
+					title: "Koşullar",
+					time: { now: "Gerçek saat", day: "Gündüz", dawn: "Şafak", dusk: "Alacakaranlık", night: "Gece" },
+					weather: {
+						live: "Canlı hava", clear: "Açık", few: "Az bulutlu", scattered: "Dağınık bulutlu", broken: "Parçalı bulutlu",
+						overcast: "Kapalı", rain: "Yağmur", snow: "Kar", storm: "Fırtına"
+					},
+					departs: function (utc, local, sun) { return "Kalkış " + utc + " UTC (yerel ~" + local + "), güneş " + sun + "°"; },
+					wx: function (wind, vis, ceil, temp) { return "Rüzgâr " + wind + " · görüş " + vis + " · " + ceil + " · " + temp + " °C"; },
+					visKm: function (km) { return km >= 16 ? "10 km+" : km + " km"; },
+					ceiling: function (ft) { return ft === null || ft === undefined ? "tavan yok" : "tavan " + ft + " ft"; },
+					sky: function (s, file) { return (s ? "Bulutlar " + s : "Bulut yok") + " · ön ayar " + file; },
+					snow: function (cm) { return "Yerde " + cm + " cm kar, kış mevsimi"; },
+					bonus: function (p, x) { return "Senaryo eki: ücret +%" + p + ", XP +%" + x; },
+					ir: "Aletli uçuş yetkisi ve yeterliliği gerekir",
+					night: "Gece uçuşu: seyrüsefer ışıkları, ışıklı varış pisti",
+					nightPax: "Gece yolcu yeterliliği: son 90 günde 3 gece inişi",
+					fallback: "Bu enlemde bu tarihte istenen ışık yok; en yakın saat seçildi.",
+					scenario: "Senaryo havası: simin hava ön ayarı uçuş dosyasına yazılır."
 				}
 			},
 			modeHint: {
@@ -426,6 +447,26 @@
 					drop: function () { return "Jump run: above 10,000 ft AGL, below 95 kt, 20 s"; },
 					line: function (n) { return "Photo point " + n + " (± 300 ft)"; },
 					search: function () { return "Search the last known position for 3 minutes"; }
+				},
+				cond: {
+					title: "Conditions",
+					time: { now: "Real time", day: "Day", dawn: "Dawn", dusk: "Dusk", night: "Night" },
+					weather: {
+						live: "Live weather", clear: "Clear", few: "Few clouds", scattered: "Scattered", broken: "Broken",
+						overcast: "Overcast", rain: "Rain", snow: "Snow", storm: "Storm"
+					},
+					departs: function (utc, local, sun) { return "Departure " + utc + " UTC (local ~" + local + "), sun " + sun + "°"; },
+					wx: function (wind, vis, ceil, temp) { return "Wind " + wind + " · visibility " + vis + " · " + ceil + " · " + temp + " °C"; },
+					visKm: function (km) { return km >= 16 ? "10 km+" : km + " km"; },
+					ceiling: function (ft) { return ft === null || ft === undefined ? "no ceiling" : "ceiling " + ft + " ft"; },
+					sky: function (s, file) { return (s ? "Clouds " + s : "No clouds") + " · preset " + file; },
+					snow: function (cm) { return cm + " cm of snow on the ground, winter season"; },
+					bonus: function (p, x) { return "Scenario bonus: pay +" + p + "%, XP +" + x + "%"; },
+					ir: "Needs a current instrument rating",
+					night: "Night flight: navigation lights, lighted arrival runway",
+					nightPax: "Night passenger currency: 3 night landings in the last 90 days",
+					fallback: "The requested light does not occur at this latitude on this date; the closest time was chosen.",
+					scenario: "Scenario weather: the sim's weather preset is written into the flight file."
 				}
 			},
 			modeHint: {
@@ -594,11 +635,72 @@
 		return tag(c, c === "VFR" ? "msm-tag-ok" : c === "MVFR" ? "msm-tag-blue" : "msm-tag-red");
 	}
 
+	// Hava ve zaman senaryosu (career::conditions). Koşulu olmayan (eski) iş canlıdır.
+	function condOf(job) {
+		return job.conditions || { time: "now", weather: "live", utc: 0, utcOffsetMin: 0, sunDeg: 0, wx: null, payBonus: 0, xpBonus: 0, needsIr: false, nightArrival: false, fallback: false };
+	}
+
+	// "21:40" (unix saniyeden, UTC).
+	function hhmm(unix) {
+		var d = new Date(unix * 1000);
+		var h = d.getUTCHours();
+		var m = d.getUTCMinutes();
+		return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+	}
+
+	function isScenarioTime(c) {
+		return c.time !== "now" && c.utc > 0;
+	}
+
+	// Saat (yaklaşık yerel kalkış saatiyle) ve hava etiketleri: gece mavi, şafak/akşam turuncu, fırtına kırmızı.
+	function condTags(job) {
+		var r = T().real.cond;
+		var c = condOf(job);
+		var tcls = c.time === "night" ? "msm-tag-blue" : c.time === "dawn" || c.time === "dusk" ? "msm-tag-warn" : "";
+		var wcls = c.weather === "storm" ? "msm-tag-red" : c.weather === "snow" || c.weather === "rain" ? "msm-tag-blue" : "";
+		var time = (r.time[c.time] || c.time) + (isScenarioTime(c) ? " " + hhmm(c.utc + (c.utcOffsetMin || 0) * 60) : "");
+		return tag(time, tcls) + tag(r.weather[c.weather] || c.weather, wcls);
+	}
+
+	// Ücret eklerinin toplamı (%): canlı havadaki kötü hava primi ile senaryo eki çarpılarak uygulanır.
+	function totalBonus(job) {
+		var a = job.weatherBonus || 0;
+		var b = condOf(job).payBonus || 0;
+		return Math.round(((1 + a / 100) * (1 + b / 100) - 1) * 100);
+	}
+
+	// Koşullar notu (ilan ayrıntısı ve aktif iş): saat, ön ayarın değerleri, gerekenler, ek.
+	function condNote(job) {
+		var r = T().real.cond;
+		var c = condOf(job);
+		if (c.time === "now" && c.weather === "live") return "";
+		var items = [];
+		if (isScenarioTime(c)) items.push(r.departs(hhmm(c.utc), hhmm(c.utc + (c.utcOffsetMin || 0) * 60), num(Math.round(c.sunDeg || 0))));
+		var w = c.wx;
+		if (w) {
+			var dir = Math.round(w.windDir || 0);
+			var wind = (dir < 100 ? (dir < 10 ? "00" : "0") : "") + dir + "° " + Math.round(w.windKt) + " kt";
+			var km = Math.round(w.visibilitySm * 1.609 * 10) / 10;
+			items.push(r.wx(wind, r.visKm(km >= 3 ? Math.round(km) : num(km, 1)), r.ceiling(w.ceilingFt), num(Math.round(w.tempC))));
+			items.push(r.sky(w.sky, w.file));
+			if (w.snowCoverM > 0) items.push(r.snow(Math.round(w.snowCoverM * 100)));
+		}
+		if (c.needsIr) items.push(r.ir);
+		if (c.time === "night" || c.nightArrival) items.push(r.night);
+		if (c.nightArrival && job.pax > 0 && !has(["training", "checkride", "skydive", "survey", "sar"], job.kind)) items.push(r.nightPax);
+		if (c.payBonus) items.push(r.bonus(c.payBonus, c.xpBonus));
+		if (c.fallback) items.push(r.fallback);
+		var list = "";
+		for (var i = 0; i < items.length; i++) list += "<li>" + esc(items[i]) + "</li>";
+		return '<div class="msm-note' + (c.weather === "storm" ? " is-bad" : "") + '"><b>' + esc(r.title) + "</b> " + condTags(job) + '<ul class="msm-note-list">' + list + "</ul></div>";
+	}
+
 	// Özel yük, hava ve aletli yetki etiketleri (ilan satırı ve ayrıntısı).
 	function jobTags(job) {
 		var r = T().real;
-		return (job.care ? tag(r.care[job.care] || job.care, "msm-tag-blue") : "") + wxTag(job.weather) +
-			(job.irRequired ? tag(r.irRequired, "msm-tag-red") : "") + (job.weatherBonus ? tag("+%" + job.weatherBonus, "msm-tag-ok") : "");
+		var bonus = totalBonus(job);
+		return condTags(job) + (job.care ? tag(r.care[job.care] || job.care, "msm-tag-blue") : "") + wxTag(job.weather) +
+			(job.irRequired ? tag(r.irRequired, "msm-tag-red") : "") + (bonus ? tag("+%" + bonus, "msm-tag-ok") : "");
 	}
 
 	// Hava işinin hedefleri ve özel yükün açıklaması (ilan ayrıntısı ve aktif iş).
@@ -608,6 +710,7 @@
 		if (job.care && r.careHint[job.care]) out += '<div class="msm-note">' + esc((r.care[job.care] || "") + ": " + r.careHint[job.care]) + "</div>";
 		if (job.irRequired) out += '<div class="msm-note is-bad">' + esc(r.irBody) + "</div>";
 		else if (job.weatherBonus) out += '<div class="msm-note is-ok">' + esc(r.bonus(job.weatherBonus)) + "</div>";
+		out += condNote(job);
 		var obj = job.objectives || [];
 		if (obj.length) {
 			var items = "";
@@ -651,6 +754,8 @@
 		confirm: null,
 		toastUntil: 0,
 		toastNote: "",
+		// Modstead'in sim içi notu (ör. takılan aktif duraklatma); varken bildirim bunu gösterir.
+		assistNote: "",
 		homeVisible: false,
 		hiddenSince: 0,
 		hover: null,
@@ -2195,7 +2300,7 @@
 			return;
 		}
 		var launch = S.live && S.live.launch;
-		var note = launch && launch.note ? launch.note : S.toastNote || t.toastSent;
+		var note = S.assistNote ? S.assistNote : launch && launch.note ? launch.note : S.toastNote || t.toastSent;
 		var step = launch && launch.step ? t.launch[launch.step] || "" : "";
 		var html = '<div class="msm-toast-bar"></div><div class="msm-toast-text"><div class="msm-toast-t">' + esc(t.toastTitle) + (step ? '<span class="msm-toast-step">' + esc(step) + "</span>" : "") + "</div>" +
 			'<div class="msm-toast-n">' + esc(note) + "</div></div>";
@@ -2638,6 +2743,104 @@
 		S.drag = null;
 	}
 
+	// --- Aktif duraklatma -----------------------------------------------------------------------------------------
+	// MSFS 2024 bazı başlatmalardan sonra uçağı aktif duraklatmada bırakıyor (açılış sineması oynamayınca simin kendi
+	// bırakması gelmiyor; bkz. games/msfs/src/career/pause_guard.rs). SimConnect bunu kapatamıyor. Simin araç çubuğu
+	// bu görünümde (mainUi) TOOLBAR_SET_ACTIVE_PAUSE çağrısıyla kapatır; bu aç/kapa değil "kapat"tır, tekrarı zararsızdır.
+	// Modstead isteği /api/sim-assist ile verir (uçuşta da yoklanır); her istek bir kez işlenir, sonucu günlüğe gider.
+	// Aynı uçtaki not (ör. "Pause tuşuna basın") bildirimde gösterilir.
+
+	var ASSIST = { at: 0, busy: false, done: 0, until: 0 };
+
+	function assistPoll() {
+		var now = Date.now();
+		if (ASSIST.busy || now - ASSIST.at < 2000) return;
+		ASSIST.busy = true;
+		ASSIST.at = now;
+		request("GET", "/api/sim-assist", null, 1500, function (err, data) {
+			ASSIST.busy = false;
+			if (err || !data) return;
+			var note = typeof data.notice === "string" ? data.notice : "";
+			S.assistNote = note;
+			if (note) {
+				// Bildirim not sürdükçe açık kalır; başka bir bildirim (uçuş başlatma) daha uzunsa o sürer.
+				var until = Date.now() + 4500;
+				if (S.toastUntil <= until) {
+					S.toastUntil = until;
+					ASSIST.until = until;
+				}
+				renderToast();
+			} else if (ASSIST.until && S.toastUntil === ASSIST.until) {
+				// Not kalktı ve bildirimi yalnızca o açık tutuyordu: hemen kapanır.
+				S.toastUntil = Date.now();
+				ASSIST.until = 0;
+				renderToast();
+			}
+			var id = Number(data.unpause) || 0;
+			if (id && id !== ASSIST.done) {
+				ASSIST.done = id;
+				releaseActivePause(function (how) {
+					request("POST", "/api/sim-assist", { id: String(id), result: how }, 3000, function () {});
+				});
+			}
+		});
+	}
+
+	// Simin paylaşılan modülü (görünüm dinleyicileri): lib.js'in kullandığı adresle aynı olmalı ki aynı örnek gelsin.
+	function simSharedUrl() {
+		var u = simModuleUrl();
+		var at = u.toLowerCase().lastIndexOf("lib.js");
+		return (at >= 0 ? u.substring(0, at) : "coui://html_UI/Global/") + "shared/utils.js";
+	}
+
+	// Sonuç günlük içindir: "toolbar" (simin dinleyicisiyle), "...engine-ok/-rejected/-sent" (doğrudan çağrı), hata.
+	function releaseActivePause(done) {
+		var reported = false;
+		var report = function (how) {
+			if (reported) return;
+			reported = true;
+			try { done(how); } catch (e) {}
+		};
+		var direct = function (prefix) {
+			try {
+				if (!window.engine || typeof window.engine.call !== "function") return report(prefix + "no-engine");
+				var p = window.engine.call("TOOLBAR_SET_ACTIVE_PAUSE", false);
+				if (p && typeof p.then === "function") {
+					p.then(function () { report(prefix + "engine-ok"); }, function () { report(prefix + "engine-rejected"); });
+					later(1500, function () { report(prefix + "engine-sent"); });
+				} else {
+					report(prefix + "engine-sent");
+				}
+			} catch (e) {
+				report(prefix + "engine-error");
+			}
+		};
+		try {
+			// import() ES5'te yok; ayrı bir fonksiyonda kurulur ki desteklenmezse doğrudan çağrıya düşülsün.
+			var load = new Function("u", "return import(u)");
+			load(simSharedUrl()).then(function (m) {
+				var l = null;
+				try {
+					l = m && typeof m.getViewListenerMgr === "function" ? m.getViewListenerMgr().getListenerByName("JS_LISTENER_TOOLBAR_PANELS") : null;
+				} catch (e) {
+					l = null;
+				}
+				if (l && typeof l.setActivePause === "function") {
+					try {
+						l.setActivePause(false);
+						report("toolbar");
+					} catch (e) {
+						direct("toolbar-error,");
+					}
+				} else {
+					direct(l ? "listener," : "no-listener,");
+				}
+			}, function () { direct("no-module,"); });
+		} catch (e) {
+			direct("no-import,");
+		}
+	}
+
 	// --- Yaşam döngüsü --------------------------------------------------------------------------------------------
 
 	function poll() {
@@ -2648,6 +2851,7 @@
 		if (S.open && S.tab === "board" && now - S.req.board >= 60000) fetchBoard();
 		if (S.open && S.tab === "pick" && (!S.aircraft || !S.aircraft.length) && now - S.req.aircraft >= 6000) fetchAircraft();
 		if (!S.open && now >= S.toastUntil && S.html.toast) renderToast();
+		assistPoll();
 		// Bağlantı durumu zamanla değişir (yanıt gelmese de "bağlı değil"e düşmeli).
 		renderTile();
 		if (S.open) renderAll();

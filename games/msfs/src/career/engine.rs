@@ -21,6 +21,7 @@ use super::airports::{db, distance_nm};
 use super::flt::{self, AirportDetail, Parking, Runway};
 use super::link::{Command, Handler, LinkState, Outbox, Target};
 use super::model::{KnownAircraft, Stage};
+use super::pause_guard::{self, Act, PauseGuard, SimEvent};
 use super::simconnect::{DataType, OBJECT_USER, PROTO_SUNRISE, Period, Reader, Recv, Request, SIMOBJECT_AIRCRAFT, SIMOBJECT_HELICOPTER, flow};
 use super::tracker::{Airfield, Telemetry, Tracker};
 use super::{AircraftNow, Career, Check, FlightLive, Installed, LaunchView, LinkView, SimAirports, check_aircraft_for_job};
@@ -47,9 +48,22 @@ const EV_SIMSTART: u32 = 1;
 const EV_SIMSTOP: u32 = 2;
 const EV_PAUSE: u32 = 3;
 const EV_CRASHED: u32 = 4;
+/// İstemci olayları: aktif duraklatmayı kapatma yolları (bkz. `pause_guard`). Simin "aktif duraklatma" tuşu
+/// (`KEY_ACTIVE_PAUSE_TOGGLE`) aç/kapadır; 1.9.21 SimConnect bu adı tanımıyor (istisna 7), tanırsa kullanılır.
+const EV_ACTIVE_PAUSE_TOGGLE: u32 = 5;
+const EV_PAUSE_ON: u32 = 6;
+const EV_PAUSE_OFF: u32 = 7;
+/// Simin önceliği en yüksek olay grubu ve "grup kimliği önceliktir" bayrağı (`SimConnect_TransmitClientEvent`).
+const GROUP_PRIORITY_HIGHEST: u32 = 1;
+const EVENT_FLAG_GROUPID_IS_PRIORITY: u32 = 0x10;
 /// `CAMERA STATE`: kokpit ve 2024'te kullanıcının uçağın dışında başladığı durum (uçuş açılınca görülür).
 const CAMERA_COCKPIT: u32 = 2;
 const CAMERA_OUTSIDE: u32 = 31;
+/// Simin oyun içi sineması ("Uçuşa hazır"dan sonraki açılış).
+const CAMERA_CINEMATIC: u32 = 16;
+/// "Uçuşa hazır"dan sonra kameraya dokunmadan beklenecek süre ve sinemanın takıldı sayılacağı süre.
+const RTC_SETTLE: Duration = Duration::from_secs(4);
+const RTC_STUCK: Duration = Duration::from_secs(30);
 
 /// Telemetri alanları (sıra = gelen verinin sırası).
 const TEL: &[(&str, &str)] = &[
@@ -127,7 +141,12 @@ const ENV: &[(&str, &str)] = &[
     ("PRESSURIZATION CABIN ALTITUDE", "feet"),
     ("AUTOPILOT MASTER", "bool"),
     ("TRANSPONDER STATE:1", "number"),
+    ("IS IN ACTIVE PAUSE", "bool"),
+    ("SIMULATION TIME", "seconds"),
 ];
+/// `ENV` içindeki sıraları: aktif duraklatma bekçisi bunların okunup okunamadığına bakar.
+const ENV_ACTIVE_PAUSE: usize = 21;
+const ENV_SIM_TIME: usize = 22;
 
 /// Havalimanı ayrıntısı tanımı (alanların sırası `on_facility` ile aynı olmalı).
 const FAC: &[&str] = &[
@@ -186,6 +205,10 @@ pub struct Launch {
     /// Simin akış olayları: uçuş başladı (FLIGHT_START), açılış sineması sürüyor (RTC_START…RTC_END).
     pub sim_started: bool,
     pub rtc: bool,
+    /// Son FLIGHT_START ya da RTC_START olayının zamanı.
+    pub rtc_at: Option<Instant>,
+    /// Takılan sinema yüzünden uçuş bir kez kendiliğinden yeniden yüklendi.
+    pub reloaded: bool,
     /// Kokpite alma denemeleri ve kokpitte geçen süre.
     pub cockpit_tries: u8,
     pub cockpit_at: Option<Instant>,
@@ -207,6 +230,8 @@ impl Launch {
             from_menu: false,
             sim_started: false,
             rtc: false,
+            rtc_at: None,
+            reloaded: false,
             cockpit_tries: 0,
             cockpit_at: None,
             control_at: None,
@@ -260,6 +285,13 @@ pub struct Engine {
     /// Sim uçuş yükleyip uçağı yerleştirirken (FLT_LOAD, TELEPORT, SimStart) gelen anlık hızlar takibi
     /// başlatmasın: bu ana kadar takip güncellenmez.
     settle_until: Option<Instant>,
+    /// Başlatmadan sonra takılan aktif duraklatmanın bekçisi; olay eşlemelerinin gönderim numaraları (istisna
+    /// gelirse sim o olayı tanımıyor demektir).
+    pause: PauseGuard,
+    event_maps: HashMap<u32, SimEvent>,
+    /// Son `Pause_EX1` değeri (ESC menüsü, tam duraklatma) ve son okunan aktif duraklatma (günlük için).
+    pause_ex1: u32,
+    active_pause: Option<bool>,
 }
 
 impl Engine {
@@ -293,6 +325,10 @@ impl Engine {
             in_menu: false,
             was_in_flight: false,
             settle_until: None,
+            pause: PauseGuard::default(),
+            event_maps: HashMap::new(),
+            pause_ex1: 0,
+            active_pause: None,
         }
     }
 
@@ -467,7 +503,7 @@ impl Engine {
     }
 
     /// FLT ve PLN dosyalarını yazar; FLT yolunu döner.
-    fn write_files(&self, hot_start: bool) -> AppResult<String> {
+    fn write_files(&self) -> AppResult<String> {
         let (job, pick, callsign) = {
             let d = self.career.lock_data();
             let a = d.active.as_ref().ok_or_else(|| AppError::msg("aktif iş yok"))?;
@@ -491,7 +527,6 @@ impl Engine {
             to,
             parking: spot.parking.as_ref(),
             runway_start: spot.runway_end.is_some(),
-            hot_start,
             lat: spot.lat,
             lon: spot.lon,
             alt_ft: spot.alt_ft,
@@ -499,7 +534,10 @@ impl Engine {
             runway: spot.runway.clone(),
             pln_name: Some(&pln_name),
             cruise_alt_ft: job.plan.cruise_alt_ft,
-            when: chrono::Utc::now(),
+            // Senaryo işinde saat, hava ön ayarı ve mevsim işin koşullarından (`conditions`); canlıda şimdi ve canlı hava.
+            when: job.conditions.flt_time(chrono::Utc::now()),
+            weather_preset: job.conditions.wx.as_ref().map(|w| w.file.as_str()),
+            season: Some(job.conditions.season.as_str()).filter(|s| !s.is_empty()),
         };
         let sim_2024 = self.career.live.lock().unwrap().link.sim.as_deref() != Some(crate::sims::SIM_2020);
         let flt_text = if sim_2024 { flt::write_flt_2024(&setup) } else { flt::write_flt(&setup) };
@@ -524,12 +562,13 @@ impl Engine {
         let Some(mut l) = self.career.live.lock().unwrap().launch_state.clone() else { return };
         let in_flight = self.in_flight();
         let live = self.career.live();
-        let from = self.career.lock_data().active.as_ref().map(|a| (a.job.from.clone(), a.aircraft.as_ref().map(|p| p.title.clone()).unwrap_or_default(), a.start.runway));
-        let Some((from, pick_title, runway_start)) = from else {
+        let from = self.career.lock_data().active.as_ref().map(|a| (a.job.from.clone(), a.aircraft.as_ref().map(|p| p.title.clone()).unwrap_or_default(), a.start.runway, a.job.conditions.clone()));
+        let Some((from, pick_title, runway_start, conditions)) = from else {
             self.career.live.lock().unwrap().launch_state = None;
             return;
         };
         let elapsed = l.since.elapsed();
+        // Uçuşun aktif duraklatmada açılması `pause_guard` ile ayrıca izlenir (ortam verisi gelince).
         match l.step {
             Step::WaitingSim => {
                 // Modstead simi yeni açtıysa SimConnect ana menüden önce dinlemeye başlar: biraz bekle.
@@ -545,10 +584,15 @@ impl Engine {
                 if self.detail(&from).is_some() || elapsed > Duration::from_secs(8) {
                     let same_aircraft = live.aircraft.as_ref().is_some_and(|a| a.title == pick_title);
                     let engines = live.telemetry.as_ref().is_some_and(|t| t.engines_on);
-                    if in_flight && same_aircraft && (!runway_start || engines) {
+                    // Takılan sinemada uçağı taşımak kamerayı kurtarmıyor (gerçek simde denendi); uçuş yeniden yüklenir.
+                    let cinematic = live.camera == Some(CAMERA_CINEMATIC);
+                    // Senaryo işinde (saat, hava ön ayarı) uçuş dosyası her zaman yüklenir: taşımak saati ve havayı
+                    // değiştirmez.
+                    if in_flight && same_aircraft && (!runway_start || engines) && !cinematic && conditions.is_live() {
                         // Aynı uçakla zaten uçuştaysa uçuş yeniden yüklenmez, uçak taşınır. Pist başı istenip motorlar
                         // kapalıysa taşımak yetmez (dışarıdan motor çalıştırılamıyor): uçuş taksi durumuyla yüklenir.
                         self.reposition(out);
+                        self.pause.arm(Instant::now());
                         l.teleported = true;
                         l.go(
                             Step::Positioning,
@@ -559,9 +603,8 @@ impl Engine {
                             },
                         );
                     } else {
-                        // Menüde de, başka bir uçuştayken de uçuş doğrudan yüklenir. 2024'te açık uçuşun üstüne
-                        // `FLIGHT_RUNWAY` yüklemek açılış sinemasında takılıyor; o yolda taksi durumu yazılır
-                        // (bkz. `flt::FlightSetup::hot_start`).
+                        // Menüde de, başka bir uçuştayken de uçuş doğrudan yüklenir. 2024'te pist başı taksi
+                        // durumuyla yazılır (bkz. `flt::FlightSetup::runway_start`).
                         self.load_flight(out, &mut l);
                     }
                 }
@@ -572,13 +615,16 @@ impl Engine {
                 if in_flight && (l.flight_started || near < 3.0) && elapsed > Duration::from_secs(3) {
                     l.go(Step::Positioning, tr!("Uçuş açıldı; konum ve yük ayarlanıyor…", "Flight is open; setting position and payload…"));
                 } else if elapsed > Duration::from_secs(150) {
-                    l.go(
-                        Step::Manual,
-                        tr!(
-                            format!("Sim uçuşu kendiliğinden açmadı. Serbest uçuşu {from} havalimanında seçtiğiniz uçakla başlatın; Modstead uçağı park yerine taşır ve takibi başlatır."),
-                            format!("The sim did not open the flight by itself. Start a free flight at {from} with the chosen aircraft; Modstead will move it to the parking spot and start tracking.")
-                        ),
+                    let note: String = tr!(
+                        format!("Sim uçuşu kendiliğinden açmadı. Serbest uçuşu {from} havalimanında seçtiğiniz uçakla başlatın; Modstead uçağı park yerine taşır ve takibi başlatır."),
+                        format!("The sim did not open the flight by itself. Start a free flight at {from} with the chosen aircraft; Modstead will move it to the parking spot and start tracking.")
                     );
+                    // Elle açılan uçuşa senaryo yazılamaz: kullanıcı simde seçer.
+                    let note = match super::conditions::manual_hint(&conditions) {
+                        Some(h) => format!("{note} {h}"),
+                        None => note,
+                    };
+                    l.go(Step::Manual, note);
                 }
             }
             Step::Positioning => {
@@ -624,7 +670,21 @@ impl Engine {
                     // yazılamaz; açık uçuşun üstüne yüklenince RTC_END hiç gelmediği için sinema bayrağına değil
                     // kameraya bakılır. ("Görüşü sıfırla" isteği kamerayı dışarı attığı için kullanılmaz.)
                     let after_ready = l.sim_started || (!l.from_menu && elapsed > Duration::from_secs(5));
-                    if cam == Some(CAMERA_OUTSIDE) && after_ready && l.cockpit_tries < 3 && l.cockpit_at.is_none_or(|t| t.elapsed() > Duration::from_secs(3)) {
+                    // FLIGHT_START ile sinema aynı anda başlar, kamera yarım saniye daha 31'de kalır: o arada kokpit
+                    // istenmez, olaydan sonra beklenir.
+                    let settled = l.rtc_at.is_none_or(|t| t.elapsed() > RTC_SETTLE);
+                    // Sinema RTC_STUCK içinde bitmediyse takılmıştır. Takılan sinemada kamera isteği de ESC de yok
+                    // sayılıyor; uçuşu yeniden yüklemek (taksi durumuyla) kurtarıyor (gerçek simde denendi). Bu bir kez
+                    // kendiliğinden yapılır. Olay kaçırıldıysa (Modstead sinema sürerken açıldı) başlatmanın başı sayılır.
+                    let stuck = cam == Some(CAMERA_CINEMATIC) && l.rtc_at.unwrap_or(l.started).elapsed() > RTC_STUCK;
+                    if stuck && !l.reloaded {
+                        self.note("başlatma", "açılış sineması takıldı; uçuş yeniden yükleniyor");
+                        let mut fresh = Launch::new(false);
+                        fresh.reloaded = true;
+                        self.load_flight(out, &mut fresh);
+                        return self.store_launch(fresh);
+                    }
+                    if cam == Some(CAMERA_OUTSIDE) && after_ready && settled && l.cockpit_tries < 3 && l.cockpit_at.is_none_or(|t| t.elapsed() > Duration::from_secs(3)) {
                         self.set_camera(out, CAMERA_COCKPIT);
                         l.cockpit_tries += 1;
                         l.cockpit_at = Some(Instant::now());
@@ -633,7 +693,12 @@ impl Engine {
                     if !in_control(cam) {
                         // Aynı metin her karede yazılır; günlüğe ve arayüze yalnızca değişince gider.
                         l.control_at = None;
-                        l.note = match (&end, l.rtc && cam != Some(CAMERA_OUTSIDE)) {
+                        l.note = match (&end, (l.rtc || stuck) && cam != Some(CAMERA_OUTSIDE)) {
+                            (_, true) if stuck => tr!(
+                                "Simin açılış sineması yeniden yüklemeden sonra da takıldı. Uçuşu Modstead'den yeniden başlatın; sim yine yanıt vermezse simi kapatıp açın.",
+                                "The sim's intro cinematic is stuck even after a reload. Start the flight again from Modstead; if the sim still does not respond, restart the sim."
+                            )
+                            .to_string(),
                             (_, true) => tr!("Simin açılış sineması oynuyor…", "The sim's intro cinematic is playing…").to_string(),
                             (Some(e), false) => tr!(
                                 format!("Uçak {e} pist başında. Simde \"Uçuşa hazır\"a basın; Modstead sizi kokpite alır."),
@@ -671,14 +736,129 @@ impl Engine {
         out.send(Request::SetDataOnSimObject { define: DEF_CAM, object: OBJECT_USER, data: (state as f64).to_le_bytes().to_vec() });
     }
 
-    /// Uçuş dosyalarını yazıp simden yüklemesini ister. Sim ana menüdeyse pist başı simin "kalkışa hazır"
-    /// durumuyla (motorlar çalışır) yazılır; açık bir uçuşun üstüne yüklenirken o durum kullanılamaz.
+    /// Ortam verisi geldi (saniyede bir): aktif duraklatmanın günlüğü, arayüzdeki "duraklatıldı" ve başlatmadan
+    /// sonraki bekçi (bkz. `pause_guard`).
+    fn watch_pause(&mut self, out: &mut Outbox, env: &super::env::Env) {
+        let readable = !self.env_missing.contains(&ENV_ACTIVE_PAUSE);
+        let active = readable.then_some(env.active_pause);
+        let live = self.career.live();
+        let in_flight = self.in_flight();
+        if readable && active != self.active_pause && (self.active_pause.is_some() || env.active_pause) {
+            let cam = live.camera.map(camera_name).unwrap_or_else(|| "?".into());
+            self.note("sim", format!("aktif duraklatma {} (kamera {cam}{})", if env.active_pause { "açık" } else { "kapalı" }, if in_flight { "" } else { ", uçuş verisi yok" }));
+        }
+        self.active_pause = active;
+        self.career.live.lock().unwrap().paused = self.pause_ex1 != 0 || active == Some(true);
+        let t = live.telemetry.as_ref();
+        let sample = pause_guard::Sample {
+            in_flight,
+            in_control: in_control(live.camera),
+            menu_paused: self.pause_ex1 != 0,
+            active_pause: active,
+            sim_time: (!self.env_missing.contains(&ENV_SIM_TIME)).then_some(env.sim_time_s),
+            on_ground: t.is_some_and(|t| t.on_ground),
+            gs_kt: t.map(|t| t.gs_kt).unwrap_or(0.0),
+            // `G FORCE` okunamıyorsa (0 gelir) donma sayılmasın.
+            g: t.filter(|_| !self.tel_missing.contains(&11)).map(|t| t.g).unwrap_or(1.0),
+        };
+        let acts = self.pause.observe(&sample, Instant::now());
+        self.pause_acts(out, acts);
+    }
+
+    /// Bekçinin istediklerini yapar; günlüğe, nota ve sim içi isteğe yazar.
+    fn pause_acts(&mut self, out: &mut Outbox, acts: Vec<Act>) {
+        if acts.is_empty() {
+            return;
+        }
+        let mut resolved = false;
+        for a in acts {
+            match a {
+                Act::Detected(how) => {
+                    let live = self.career.live();
+                    let t = live.telemetry.clone().unwrap_or_default();
+                    let why = match how {
+                        pause_guard::Detection::Var => "IS IN ACTIVE PAUSE açık",
+                        pause_guard::Detection::Frozen => "değişken okunamıyor; uçak donmuş görünüyor",
+                    };
+                    self.note(
+                        "duraklatma",
+                        format!(
+                            "uçuş aktif duraklatmada açıldı ({why}): kamera {}, {:.1} kt, G {:.2}, motor {}, park freni {}; Modstead kapatmayı deniyor",
+                            live.camera.map(camera_name).unwrap_or_else(|| "?".into()),
+                            t.gs_kt,
+                            t.g,
+                            if t.engines_on { "çalışıyor" } else { "kapalı" },
+                            if t.parking_brake { "çekili" } else { "bırakılmış" }
+                        ),
+                    );
+                }
+                Act::Send { event, attempt } => {
+                    let id = match event {
+                        SimEvent::Toggle => EV_ACTIVE_PAUSE_TOGGLE,
+                        SimEvent::PauseOn => EV_PAUSE_ON,
+                        SimEvent::PauseOff => EV_PAUSE_OFF,
+                    };
+                    out.send(Request::TransmitClientEvent { object: OBJECT_USER, event: id, data: 0, group: GROUP_PRIORITY_HIGHEST, flags: EVENT_FLAG_GROUPID_IS_PRIORITY });
+                    if attempt > 0 {
+                        self.note("duraklatma", format!("deneme {attempt}: SimConnect {}", event.name()));
+                    } else {
+                        self.note("duraklatma", "SimConnect PAUSE_OFF (PAUSE_ON'dan bir saniye sonra)");
+                    }
+                }
+                Act::InSim { request, attempt } => {
+                    self.note("duraklatma", format!("deneme {attempt}: sim içi kod araç çubuğu yoluyla kapatsın (istek {request}, /api/sim-assist)"));
+                }
+                Act::GaveUp => {
+                    self.note("duraklatma", "kendiliğinden kapanmadı; kullanıcıdan Pause tuşu istendi");
+                    self.career.services.notify(
+                        Tone::Warn,
+                        tr!("Sim aktif duraklatmada kaldı", "The sim is stuck in active pause"),
+                        Some(tr!("Klavyede Pause tuşuna basın (ya da ESC → Devam); uçak sonra hareket eder.", "Press the Pause key (or ESC → Resume); the aircraft will then move.").to_string()),
+                    );
+                }
+                Act::Resolved { attempts, secs } => {
+                    self.note("duraklatma", format!("aktif duraklatma kapandı ({attempts} denemeden sonra, {secs:.1} sn)"));
+                    resolved = true;
+                }
+                Act::Disarmed(why) => self.note("duraklatma", format!("bekçi kapandı: {why}")),
+            }
+        }
+        let notice = self.pause.notice().map(pause_notice_text);
+        self.career.live.lock().unwrap().assist = super::SimAssist { unpause: self.pause.request(), notice: notice.clone() };
+        let text = notice.or_else(|| resolved.then(|| tr!("Aktif duraklatma kapatıldı; uçak artık hareket edebilir.", "Active pause released; the aircraft can move now.").to_string()));
+        if let Some(text) = text {
+            self.set_launch_note(text);
+        }
+    }
+
+    /// Başlatma notunu değiştirir (adım sürse de, bitmiş olsa da); arayüz, panel ve ana menü bunu gösterir.
+    fn set_launch_note(&self, note: String) {
+        if let Some(l) = self.career.live.lock().unwrap().launch_state.as_mut() {
+            l.note = note.clone();
+        }
+        let changed = {
+            let mut d = self.career.lock_data();
+            match d.active.as_mut() {
+                Some(a) if a.launch_note.as_deref() != Some(note.as_str()) => {
+                    a.launch_note = Some(note);
+                    true
+                }
+                _ => false,
+            }
+        };
+        if changed {
+            self.career.changed();
+        }
+    }
+
+    /// Uçuş dosyalarını yazıp simden yüklemesini ister. 2024'te pist başı taksi durumuyla yazılır (motorlar
+    /// çalışır, sinemasız; bkz. `flt::FlightSetup::runway_start`).
     fn load_flight(&mut self, out: &mut Outbox, l: &mut Launch) {
         // Kamera belirleyicidir: sim duraklatılınca (ESC) veri akışı durur ama uçuş açıktır. Kamera hiç
         // gelmediyse (eski sim) veri akışına bakılır.
         let camera = self.career.live.lock().unwrap().camera;
         l.from_menu = if camera.is_some() { camera_in_menu(camera) } else { !self.in_flight() };
-        match self.write_files(l.from_menu) {
+        match self.write_files() {
             Ok(path) => {
                 let spot = self.departure_spot();
                 let what = spot
@@ -687,6 +867,7 @@ impl Engine {
                 let aircraft = self.career.lock_data().active.as_ref().and_then(|a| a.aircraft.as_ref().map(|p| p.title.clone())).unwrap_or_default();
                 self.note("başlatma", format!("FlightLoad gönderiliyor ({}): {path} · {aircraft} · {what}", if l.from_menu { "sim menüde" } else { "sim uçuşta" }));
                 self.flight_load_sent = out.send(Request::FlightLoad { path });
+                self.pause.arm(Instant::now());
                 l.go(
                     Step::Loading,
                     tr!(
@@ -699,7 +880,11 @@ impl Engine {
         }
     }
 
-    fn store_launch(&self, l: Launch) {
+    fn store_launch(&self, mut l: Launch) {
+        // Uçuş aktif duraklatmada takılıysa kullanıcı bunu görür (adımın kendi notu yerine).
+        if let Some(n) = self.pause.notice() {
+            l.note = pause_notice_text(n);
+        }
         let note = l.note.clone();
         let step = l.step;
         let prev = self.career.live.lock().unwrap().launch_state.as_ref().map(|p| (p.step, p.note.clone()));
@@ -793,6 +978,8 @@ impl Engine {
             cabin_alt_ft: v[18],
             autopilot: b(v[19]),
             transponder: v[20].clamp(0.0, 9.0) as u8,
+            active_pause: b(v[ENV_ACTIVE_PAUSE]),
+            sim_time_s: v[ENV_SIM_TIME],
             pressurized: false,
             lights_seen: b(v[0]) || b(v[1]) || b(v[2]) || b(v[3]) || b(v[4]),
         }
@@ -1134,6 +1321,22 @@ fn camera_in_menu(camera: Option<u32>) -> bool {
     matches!(camera, Some(11..=15 | 21 | 32 | 35))
 }
 
+/// Aktif duraklatma bekçisinin kullanıcıya notu.
+fn pause_notice_text(n: pause_guard::Notice) -> String {
+    match n {
+        pause_guard::Notice::Working => tr!(
+            "Sim uçuşu aktif duraklatmada açtı (uçak kıpırdamıyor); Modstead kapatıyor…",
+            "The sim opened the flight in active pause (the aircraft won't move); Modstead is releasing it…"
+        )
+        .to_string(),
+        pause_guard::Notice::Manual => tr!(
+            "Sim aktif duraklatmada kaldı: klavyede Pause tuşuna basın (ya da ESC → Devam); uçak sonra hareket eder.",
+            "The sim is stuck in active pause: press the Pause key (or ESC → Resume); the aircraft will then move."
+        )
+        .to_string(),
+    }
+}
+
 /// `CAMERA STATE` değerinin günlükteki adı. 2024'ün belgelenmemiş değerleri (29–36) sayıyla kalır.
 fn camera_name(v: u32) -> String {
     let n = match v {
@@ -1193,6 +1396,8 @@ impl Handler for Engine {
         self.note("bağlantı", format!("SimConnect oturumu açıldı: {} {} protokol {} sürüm {}.{}.{}.{}", target.sim, target.addr, target.protocol, version.0, version.1, version.2, version.3));
         self.in_menu = false;
         self.was_in_flight = false;
+        self.pause_ex1 = 0;
+        self.active_pause = None;
         self.protocol = target.protocol;
         self.connected = true;
         self.connected_at = Some(Instant::now());
@@ -1235,6 +1440,15 @@ impl Handler for Engine {
         for (id, name) in [(EV_SIMSTART, "SimStart"), (EV_SIMSTOP, "SimStop"), (EV_PAUSE, "Pause_EX1"), (EV_CRASHED, "Crashed")] {
             out.send(Request::SubscribeToSystemEvent { event: id, name: name.into() });
         }
+        // Aktif duraklatmayı kapatma olayları; sim tanımazsa istisna gelir ve o yol kullanılmaz.
+        self.event_maps.clear();
+        self.pause.toggle_ok = true;
+        self.pause.pause_ok = true;
+        for (id, ev) in [(EV_ACTIVE_PAUSE_TOGGLE, SimEvent::Toggle), (EV_PAUSE_ON, SimEvent::PauseOn), (EV_PAUSE_OFF, SimEvent::PauseOff)] {
+            if let Some(send) = out.send(Request::MapClientEventToSimEvent { event: id, name: ev.name().into() }) {
+                self.event_maps.insert(send, ev);
+            }
+        }
         out.send(Request::SubscribeToFlowEvent);
         self.on_command(out, Command::RefreshAircraft);
         let fresh = {
@@ -1261,7 +1475,16 @@ impl Handler for Engine {
                     self.ac_missing.insert(*i);
                 } else if let Some(i) = self.env_sent.get(&send_id) {
                     log::info!("SimConnect bu simde '{}' değişkenini tanımıyor; atlanıyor", ENV[*i].0);
+                    if *i == ENV_ACTIVE_PAUSE {
+                        self.note("duraklatma", "sim 'IS IN ACTIVE PAUSE' değişkenini tanımıyor; takılan aktif duraklatma donma belirtilerinden (sim saati, G) anlaşılacak");
+                    }
                     self.env_missing.insert(*i);
+                } else if let Some(ev) = self.event_maps.get(&send_id).copied() {
+                    match ev {
+                        SimEvent::Toggle => self.pause.toggle_ok = false,
+                        SimEvent::PauseOn | SimEvent::PauseOff => self.pause.pause_ok = false,
+                    }
+                    self.note("duraklatma", format!("sim '{}' olayını tanımıyor; aktif duraklatma bu yolla kapatılmayacak", ev.name()));
                 } else if self.hud.defs.contains(&send_id) {
                     if self.hud.ok {
                         log::info!("SimConnect L: değişkenlerini kabul etmedi; sim içi panel bu oturumda beslenmeyecek");
@@ -1293,10 +1516,13 @@ impl Handler for Engine {
             Recv::SimObjectData { request: REQ_ENV, data, .. } => {
                 let env = self.parse_env(&data);
                 self.career.live.lock().unwrap().env = Some(env.clone());
-                let mut d = self.career.lock_data();
-                if let Some(tr) = d.active.as_mut().and_then(|a| a.tracker.as_mut()) {
-                    tr.set_env(env);
+                {
+                    let mut d = self.career.lock_data();
+                    if let Some(tr) = d.active.as_mut().and_then(|a| a.tracker.as_mut()) {
+                        tr.set_env(env.clone());
+                    }
                 }
+                self.watch_pause(out, &env);
             }
             Recv::SimObjectData { request: REQ_CAM, data, .. } => {
                 let v = Reader::new(&data).f64();
@@ -1314,7 +1540,9 @@ impl Handler for Engine {
                 }
                 EV_PAUSE => {
                     self.note("sim", format!("duraklatma durumu {data}"));
-                    self.career.live.lock().unwrap().paused = data != 0
+                    self.pause_ex1 = data;
+                    // `Pause_EX1` aktif duraklatmayı bildirmiyor; arayüz ikisinden birinde "duraklatıldı" gösterir.
+                    self.career.live.lock().unwrap().paused = data != 0 || self.active_pause == Some(true)
                 }
                 EV_CRASHED => {
                     self.note("sim", "Crashed (kaza)");
@@ -1345,8 +1573,14 @@ impl Handler for Engine {
                 }
                 if let Some(l) = self.career.live.lock().unwrap().launch_state.as_mut() {
                     match event {
-                        flow::FLIGHT_START => l.sim_started = true,
-                        flow::RTC_START => l.rtc = true,
+                        flow::FLIGHT_START => {
+                            l.sim_started = true;
+                            l.rtc_at = Some(Instant::now());
+                        }
+                        flow::RTC_START => {
+                            l.rtc = true;
+                            l.rtc_at = Some(Instant::now());
+                        }
                         flow::RTC_END => l.rtc = false,
                         _ => {}
                     }
@@ -1385,8 +1619,13 @@ impl Handler for Engine {
                 if entry + 1 >= out_of {
                     let idents: Vec<String> = std::mem::take(&mut self.airports).into_iter().collect();
                     log::info!("kariyer: simde {} havalimanı var", idents.len());
-                    // Çok az havalimanı dönmesi bir hatadır (yalnızca yakın çevre): süzgeç olarak kullanılmaz.
-                    if idents.len() > 5000 {
+                    // Çok az havalimanı dönmesi bir hatadır (yalnızca yakın çevre): süzgeç olarak kullanılmaz. Büyük
+                    // meydanlar listede yoksa paket yanlış çözülmüştür (2024'te ICAO alanı 9 bayt); bozuk liste görev
+                    // panosunu boşaltacağından o da kullanılmaz.
+                    let hubs = ["KJFK", "EGLL", "LFPG", "EDDF", "RJTT"].iter().filter(|h| idents.iter().any(|i| i == *h)).count();
+                    if hubs < 4 {
+                        log::warn!("kariyer: sim havalimanı listesi tanınmadı ({} kayıt, {hubs}/5 büyük meydan); süzgeç kullanılmıyor", idents.len());
+                    } else if idents.len() > 5000 {
                         let _ = fsx::write_json(&self.career.cache_path("sim-airports.json"), &SimAirports { idents: idents.clone(), fetched_at: fsx::now_ts() });
                         self.career.caches.lock().unwrap().sim_airports = Some(idents.into_iter().collect());
                     }
@@ -1417,14 +1656,16 @@ impl Handler for Engine {
 
     fn tick(&mut self, out: &mut Outbox) {
         self.advance_launch(out);
+        let acts = self.pause.tick(Instant::now());
+        self.pause_acts(out, acts);
         self.feed_destination(out);
         self.feed_hud(out);
         if self.last_emit.elapsed() >= Duration::from_secs(2) {
             self.emit_live();
         }
-        // Bağlantı sürerken uçuş başlamışsa başlatma notu kalkar.
+        // Bağlantı sürerken uçuş başlamışsa başlatma notu kalkar (aktif duraklatma notu sürerken değil).
         let started = self.career.lock_data().active.as_ref().and_then(|a| a.tracker.as_ref()).is_some_and(|t| t.started());
-        if started {
+        if started && self.pause.notice().is_none() {
             let mut live = self.career.live.lock().unwrap();
             if live.launch_state.as_ref().is_some_and(|l| matches!(l.step, Step::Done | Step::Manual)) {
                 live.launch_state = None;
@@ -1499,6 +1740,83 @@ mod tests {
         }
         assert!(!camera_in_menu(None));
         assert!(in_control(Some(2)) && in_control(None) && !in_control(Some(31)) && !in_control(Some(16)));
+    }
+
+    /// Gerçek simdeki durum (26.10.2026): pist başı başlatmasından sonra kokpitte, motor çalışıyor, park freni
+    /// bırakılmış, uçak kıpırdamıyor ve `IS IN ACTIVE PAUSE` = 1; sim `ACTIVE_PAUSE_TOGGLE` eşlemesini reddediyor.
+    #[test]
+    fn stuck_active_pause_after_launch_is_released_and_reported() {
+        let career = Career::open(modstead_core::Services::for_tests(), Arc::new(Vec::new));
+        career
+            .create(CreateRequest { name: "Oyuncu".into(), callsign: String::new(), home: "LTBA".into(), difficulty: Difficulty::Normal, start: "student".into(), birth_year: None })
+            .unwrap();
+        let job = career.board().unwrap().remove(0);
+        career.accept(&job.id).unwrap();
+        let mut e = Engine::new(career.clone());
+        let mut out = Outbox::new(PROTO_SUNRISE);
+        e.on_open(&mut out, &Target { sim: "msfs2024".into(), addr: "127.0.0.1:500".parse().unwrap(), protocol: PROTO_SUNRISE }, (12, 0, 0, 0));
+        let sent = out.take();
+        let map = |want: &str| sent.iter().find(|(_, r)| matches!(r, Request::MapClientEventToSimEvent { name, .. } if name == want)).map(|(id, _)| *id).unwrap();
+        // Ortam tanımında değişkenler var; sim aç/kapa olayını tanımıyor (istisna 7, alan 2: ad).
+        let env_names: Vec<String> = sent.iter().filter_map(|(_, r)| match r { Request::AddToDataDefinition { define: DEF_ENV, name, .. } => Some(name.clone()), _ => None }).collect();
+        assert_eq!(env_names[ENV_ACTIVE_PAUSE], "IS IN ACTIVE PAUSE");
+        assert_eq!(env_names[ENV_SIM_TIME], "SIMULATION TIME");
+        map("PAUSE_ON");
+        map("PAUSE_OFF");
+        e.on_recv(&mut out, Recv::Exception { send_id: map("ACTIVE_PAUSE_TOGGLE"), exception: 7, index: 2 });
+        assert!(!e.pause.toggle_ok && e.pause.pause_ok);
+
+        let env = |pause: bool| -> Vec<u8> {
+            let mut v = vec![0.0f64; ENV.len()];
+            v[ENV_ACTIVE_PAUSE] = pause as u8 as f64;
+            v.iter().flat_map(|x| x.to_le_bytes()).collect()
+        };
+        let sample = |e: &mut Engine, out: &mut Outbox, pause: bool| {
+            {
+                let mut l = career.live.lock().unwrap();
+                l.last_data = Some(Instant::now());
+                l.camera = Some(CAMERA_COCKPIT);
+                l.telemetry = Some(Telemetry { on_ground: true, gs_kt: 0.0, g: 0.0, engines_on: true, ..Default::default() });
+            }
+            e.on_recv(out, Recv::SimObjectData { request: REQ_ENV, object: 0, define: DEF_ENV, data: env(pause) });
+        };
+        let pause_events = |out: &mut Outbox| -> Vec<u32> {
+            out.take().into_iter().filter_map(|(_, r)| match r { Request::TransmitClientEvent { event, .. } => Some(event), _ => None }).collect()
+        };
+
+        // Başlatma yokken (pilotun kendi aktif duraklatması) hiçbir şey gönderilmez; arayüz "duraklatıldı" der.
+        sample(&mut e, &mut out, true);
+        sample(&mut e, &mut out, true);
+        assert!(pause_events(&mut out).is_empty());
+        assert!(career.live().paused);
+        sample(&mut e, &mut out, false);
+        assert!(!career.live().paused);
+
+        // Başlatmadan sonra iki örnek takılı: ilk deneme SimConnect PAUSE_OFF (aç/kapa değil), not kullanıcıya gider.
+        e.pause.arm(Instant::now());
+        sample(&mut e, &mut out, true);
+        assert!(pause_events(&mut out).is_empty());
+        sample(&mut e, &mut out, true);
+        assert_eq!(pause_events(&mut out), vec![EV_PAUSE_OFF]);
+        let note = career.lock_data().active.as_ref().unwrap().launch_note.clone().unwrap_or_default();
+        assert_eq!(note, pause_notice_text(pause_guard::Notice::Working));
+        assert_eq!(career.live().assist.notice.as_deref(), Some(note.as_str()));
+        // Aradan önce yeni deneme yok.
+        sample(&mut e, &mut out, true);
+        assert!(pause_events(&mut out).is_empty());
+
+        // Kapandı: istek ve not kalkar, günlükte ne olduğu yazar; pilot sonra açarsa dokunulmaz.
+        sample(&mut e, &mut out, false);
+        assert_eq!(career.live().assist, crate::career::SimAssist::default());
+        assert!(career.lock_data().active.as_ref().unwrap().launch_note.as_deref().is_some_and(|n| n != note));
+        let log = career.journal_tail(30).join("\n");
+        for needle in ["sim 'ACTIVE_PAUSE_TOGGLE' olayını tanımıyor", "uçuş aktif duraklatmada açıldı (IS IN ACTIVE PAUSE açık)", "deneme 1: SimConnect PAUSE_OFF", "aktif duraklatma kapandı (1 denemeden sonra"] {
+            assert!(log.contains(needle), "{needle}\n{log}");
+        }
+        for _ in 0..4 {
+            sample(&mut e, &mut out, true);
+        }
+        assert!(pause_events(&mut out).is_empty());
     }
 
     fn recv_packet(id: u32, fields: &[u8]) -> Vec<u8> {

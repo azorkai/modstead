@@ -40,6 +40,9 @@ and every rule, fee and penalty is documented on this page.
   scheduled airline flights and training flights. Listings depend on your licences, the aircraft classes you can fly
   and your reputation, and refresh every 4 hours. Each job shows distance, block time, payload, aircraft class, pay and
   XP on a world map.
+- **Weather and time scenarios:** some jobs fly at night, at dawn or dusk, in rain, snow or a storm, with the sim's own
+  weather presets and the time written into the flight; others use live weather and real time. Every listing shows its
+  conditions, and the board can be filtered by time and weather. Night and bad weather pay more.
 - **Two ways to earn:** fly *for an operator* (the aircraft, fuel and fees are theirs, you earn an hourly wage) or,
   after the CPL, fly *on your own account* (you pay rent, fuel and landing fees and keep the profit).
 - **Automatic flight setup:** Modstead starts the sim if needed, picks a parking spot that suits the job and the
@@ -66,7 +69,11 @@ and every rule, fee and penalty is documented on this page.
   [`ui/career/aircraft/CREDITS.md`](ui/career/aircraft/CREDITS.md)).
 - **Career journal:** a detailed log of the sim connection, every flight start step and the tracking, shown on the
   dashboard, so "what happened?" always has an answer.
-- **Three difficulties** (Easy, Normal, Realistic) and three starts: student pilot, commercial pilot or airline pilot.
+- **Career paths:** airline, cargo, bush, air ambulance and rescue, charter and business jets, aerial work, or a
+  freelance mix. The path shapes the job board, gives a three-step rank ladder (first officer → captain → senior captain…)
+  and a small bonus on path jobs, and can be changed later. Start from scratch at the flight school or with the path's
+  licences, hours and little money.
+- **Three difficulties** (Easy, Normal, Realistic) and two starts per path: from scratch or experienced.
 - **Free and local:** no subscription, no account and no server. Career data is plain JSON on your PC.
 
 ## Screenshots
@@ -100,10 +107,11 @@ When you press **Start flight** (`engine.rs`):
    type, name, number, radius and offset from the reference point). A spot that suits the job and the aircraft size is
    chosen: light aircraft go to the GA apron, airliners to a gate, cargo jets to the cargo apron. The result is cached
    for 30 days.
-3. A `.FLT` (aircraft title, livery, parking spot or runway threshold, position, time, live weather, plan) and a `.PLN`
-   (direct route) are written.
-4. If you are already in a flight with the right aircraft, the aircraft is moved straight to the parking spot or the
-   runway (`Initial Position`); otherwise `SimConnect_FlightLoad` is sent. This works both from the sim's main menu and
+3. A `.FLT` (aircraft title, livery, parking spot or runway threshold, position, time, weather, plan) and a `.PLN`
+   (direct route) are written. Time and weather come from the job's conditions: real time and live weather for a live
+   job, the scenario's time and the sim's weather preset for a scenario job (see "Weather and time scenarios").
+4. If you are already in a flight with the right aircraft and the job is live, the aircraft is moved straight to the
+   parking spot or the runway (`Initial Position`); otherwise `SimConnect_FlightLoad` is sent. This works both from the sim's main menu and
    from inside another flight.
 5. When the flight is open, the position is checked; if the aircraft is more than 150 m from the target it is moved
    there. The payload is written to the payload stations (station 1 counts as the pilot; the load is spread over the
@@ -138,6 +146,18 @@ update, so momentary speeds seen during loading (8 kt) do not count as the start
   runway start is loaded as `PREFLIGHT_TAXI`: pilot in the seat, engines running, no cinematic. If the camera then stays
   at 31, Modstead switches it to the cockpit (2). ("Reset view", `CAMERA REQUEST ACTION` 1, is not used because it moves
   the camera outside.)
+- **Flight left in active pause (26.10.2026).** The sim holds a loaded flight in active pause at camera 31 until the intro
+  cinematic ends; `RTC_END` releases both (parking: RTC_START → 2.6 s → RTC_END, fine). When no cinematic plays
+  (`PREFLIGHT_TAXI` runway start, loading on top of an open flight) or it hangs, the release never comes: even after
+  Modstead switches to the cockpit, the aircraft does not move with the engines running and the parking brake released
+  (`IS IN ACTIVE PAUSE` = 1, `G FORCE` ≈ 0, `SIMULATION TIME` 0). The Pause key or ESC → Resume fixes it. `Pause_EX1` never
+  reports active pause; SimConnect does not know the name `ACTIVE_PAUSE_TOGGLE` (exception 7). None of the sim's own FLTs
+  (`MainMenu.FLT`, templates, `CustomFlight.FLT`, the flight state library) has a key that prevents it. `pause_guard`
+  catches it in the two minutes after a launch with `IS IN ACTIVE PAUSE` (or, if that cannot be read, sim time and G) and
+  tries, in order, SimConnect `PAUSE_OFF`, the in-sim code (the sim's own toolbar call `TOOLBAR_SET_ACTIVE_PAUSE`, false,
+  in the main UI view; `/api/sim-assist`) and `PAUSE_ON` → `PAUSE_OFF`; otherwise it tells the user to press Pause. Once
+  the sim is seen running the guard turns off, so a pilot's own later active pause is never touched. All of it appears in
+  the journal as `[duraklatma]` lines.
 - **Parking.** When starting at a parking spot, 2024 deliberately starts you next to the aircraft (external control);
   Shift+C boards it. Switching the camera to the cockpit does not seat the pilot, it only moves to the eyes of the pilot
   standing outside, so Modstead leaves it alone.
@@ -258,8 +278,9 @@ sim closed; the card offers "Update when the sim closes".
 
 ### Local server
 
-`career::hud_server` (added with the maintainer's approval): it listens only on `127.0.0.1`, on the first free port of
-`47213`–`47215`. The endpoints and rules are in [`hud/menu/API.md`](hud/menu/API.md) (Turkish). In short:
+`career::hud_server` (added with the maintainer's approval): it listens on `127.0.0.1`, on the first free port of
+`47213`–`47215`. When tablet access is on, it also listens on the local network address at the same port (rules under
+"Flight deck"). The endpoints and rules are in [`hud/menu/API.md`](hud/menu/API.md) (Turkish). In short:
 
 - It gives the sim's pages their code, styles and career data: status, live data, job board, aircraft and their photos.
 - It takes career actions from inside the sim: accepting a job, choosing an aircraft, starting and cancelling.
@@ -269,6 +290,62 @@ sim closed; the card offers "Update when the sim closes".
 
 Aircraft photos are embedded at build time (`build.rs`); the family matching lives in
 `ui/career/aircraft/families.json`, shared with the app's interface.
+
+### Panel 0.4.0
+
+- Live map (north up, works offline). The aircraft icon is drawn from SimVars about 30 times a second. It shows the
+  planned route, the flown track, departure and destination (with runways when close), nearby airports, a range ring and
+  a wind arrow. There are zoom buttons and an "AUTO" mode that keeps the aircraft and the destination in view.
+- Flight data strip (ground speed, altitude, vertical speed, heading) and head/crosswind against your track.
+- Fuel on board, in the plan and estimated at the destination. The estimate turns amber below final reserve and red
+  below zero.
+- Destination weather: category, wind, the wind components for the best runway end, and runway length available
+  against required.
+- Your latest deductions.
+- "OPEN IN WINDOW" opens the flight deck in a separate Modstead window. "OPEN ON TABLET" shows the link and a QR code.
+- The layout follows the panel size. A small panel shows Summary / Map / Details tabs; a large one shows the map and
+  the details side by side.
+- The sim's own pop-out button works too.
+- Detailed data comes from the local server (`/api/call/…`). Without it, the panel keeps working on the `L:` variables.
+- The map is in Web Mercator with the local server's tiles underneath (`/api/tiles/relief|sat/…`): offline shaded relief by default, satellite with the "MAP / SAT" button. The course is magenta, the flown track orange, airports use chart symbols. Without the tile server the map keeps its vector look.
+
+## Flight deck (separate window, browser, tablet)
+
+A full-page flight companion for a second screen. Open it from Career → "Flight deck" or from the in-sim panel. The
+same page runs in a separate Modstead window, in a browser on the PC, and on a tablet or phone on the same Wi-Fi. It
+only reads; it never changes anything in the sim.
+
+| Section | Content |
+|---|---|
+| Map | Follows the aircraft; north-up or track-up. Shows the route, flown track, alternate, nearby airports and range rings. Touch drag and pinch zoom. Works offline (Natural Earth). |
+| Flight data | Ground speed, IAS, altitude, height above ground, vertical speed, heading, wind and its components, OAT, QNH. |
+| Progress | Phase timeline, distance flown and remaining, ETA (UTC and local), time left to the deadline, top of descent (3°). |
+| Fuel | On board, used, burn per hour, endurance, estimated at destination, reserve status, compared with the dispatch release. |
+| Destination | Decoded METAR, runway wind components, runway length available and required, density altitude, alternate. |
+| Score and job | Live score, deductions, landing report; job type, client, load, pay, deadline, aerial-work objectives. |
+
+- **Separate window:** "Open in window" opens Modstead's `msfs-deck` window. The page comes from the local server
+  (`http://127.0.0.1:<port>/deck`). The window is in no capability file, so it cannot call app commands; it reads its
+  data over HTTP.
+- **Tablet:** turn on "Tablet or phone" and Modstead also listens on the PC's local network address. Only private
+  ranges are used: 10/8, 172.16/12 and 192.168/16. The card shows the link and a QR code.
+- **Access key:** the link carries a 128-bit key, stored only in Windows Credential Manager (`Modstead/MSFS/DeckKey`).
+  "Renew link" makes a new key, and old links stop working.
+- **Default:** tablet access is off. The on/off choice is kept in `career/deck.json`.
+- **Rules on the local network:**
+  - `Host` must be exactly `<network address>:<port>`.
+  - Every `/api/*` request needs the key.
+  - Only `GET` requests and read-only commands are allowed: state, live data, map airports, weather, flown track and
+    deck info.
+  - `/hud` and `/menu` are not served.
+  - At most 32 connections.
+- **Protecting the key:** the page removes the key from the address bar on load, and responses carry
+  `Referrer-Policy: no-referrer`. In release builds the page comes with its own CSP (same origin only).
+- **Firewall:** Windows Firewall asks the first time; choose "Private networks". If you deny it, Modstead cannot tell:
+  the tablet simply won't connect.
+- **Keeping the screen on:** Wake Lock only works over HTTPS or on the same PC; on a tablet the page says so.
+- **Code:** the page is `deck.html` (Vite's second entry; code in `ui/deck/`). In development the local server passes
+  these paths through to Vite.
 
 ## Career page in the MSFS 2024 main menu
 
@@ -426,6 +503,152 @@ late delivery, damage, fuel and rent.
 - Loan (with a CPL): limit `20,000 × level² × (0.5 + reputation/100) + half the fleet value`; an arrangement fee of 10%
   (Easy 5, Realistic 15) is added to the loan; no time-based interest; 25% of every profitable flight goes to the loan.
 
+### Add-on aircraft
+
+Community and third-party aircraft (Fenix, PMDG, iniBuilds, FlyByWire, Just Flight, Black Square, freeware mods) work
+in the career like the sim's own aircraft (`career/addons.rs`). The sim's list (`EnumerateSimObjectsAndLiveries`) only
+arrives in 2024 with the sim running, and an aircraft's values are only known once you board it. So Modstead reads the
+files of the packages in its library and in the sims' Community folders, **read-only**:
+
+| Format | What is read |
+|---|---|
+| 2020 (including the legacy format in 2024) | `SimObjects/Airplanes\|Rotorcraft/<folder>/aircraft.cfg`: each `[FLTSIM.n]` is a separate title in the sim (AI variants with `isUserSelectable = 0` are skipped), `[GENERAL]` ICAO fields; `flight_model.cfg` and `engines.cfg` next to it (very old aircraft keep everything in `aircraft.cfg`). Livery packages take their base's values through `[VARIATION] base_container`. Thumbnail `texture.<livery>/thumbnail.jpg`. |
+| 2024 modular | The title is in `presets/<developer>/<preset>/config/aircraft.cfg`. Values are merged in the order preset > attachments (`attached_objects.cfg` → `attachment_root`, inheritance via `attachment.cfg` → `[Inherit] base`) > `common/config`. Liveries are `liveries/<developer>/<livery>/livery.cfg` (`[GENERAL] name`); `[SELECTION] required_tags` must match the `[Tags]` of the preset's attachments ("Disabled" matches no preset). Liveries that other packages add to the same aircraft folder count too. Thumbnail: the livery's `thumbnail/thumbnail.png`. |
+
+- **Parser:** section and key names are case-insensitive; `;`, `//` and `#` comments and end-of-line comments outside
+  quotes are dropped; quotes are stripped; a section written twice is merged and the last value of a key wins. UTF-8,
+  UTF-16 and Latin-1 are read; cfg files over 4 MB are skipped.
+- **Safety:** nothing is executed and nothing is written. Links inside a package (junctions, symlinks) are not
+  followed; attachment paths are locked to the package folder with `fsx::resolve_under` and re-checked by canonical
+  path. A thumbnail is only a jpg/png from the index inside its own package (8 MB at most); the UI gets raw bytes and
+  turns them into a `blob:` URL (the CSP is unchanged).
+- **Which aircraft:** only packages enabled in at least one sim (linked, physically in Community, or another tool's
+  link). The list merges the sim's list, flown aircraft and mod packages; the same title (case-insensitive) is one
+  entry, the sim's spelling is kept and liveries are merged. Titles from a package show a "Mod" badge, the package name
+  and the sims it is enabled in (2020/2024). If the connected sim does not have the package, the card says so
+  ("Not enabled in 2024").
+- **Class** (`addons::class_for`): manual > ICAO type code > the sim's values (you boarded it) > the package files
+  (engine type and count, max weight; the helicopter folder) > the name. The type code comes before weight: by weight the
+  737-700 and A318 look like regional jets and the Global 7500 like a regional jet too. Confidence: type code,
+  helicopter folder and sim values are "certain", package values "likely", the name "a guess". A manual class
+  (`msfs_career_set_class`) is kept; the UI says "automatic · from the ICAO type code" or "manual".
+- **Type ratings:** there is no separate table; the type code gives the class and the class's licences give the rating
+  (`aircraft::ICAO_TYPES`): A318–A321, A19N/A20N/A21N, B731–B739, B37M/B38M/B39M/B3XM, B752/B753, MD-80 → narrowbody
+  (TR-N); B788/B789/B78X, A332–A339, A359/A35K, A388, B744/B748, B772–B77W, MD11 → widebody (TR-W); CRJ, ERJ/E-Jet,
+  A220, BAe 146 → regional jet; ATR, Dash 8, Saab 340 → regional turboprop; business jets, turboprops, pistons and
+  helicopters as well.
+- **Dispatch release:** before the aircraft is loaded in the sim, the package's values (MTOW, MLW when
+  `max_landing_weight` exists, empty weight, fuel capacity from legacy `[FUEL]` tanks or `[FUEL_SYSTEM]` `Capacity:`,
+  cruise speed, engines); once you board it, the sim's values win.
+- **Own EFB:** developers whose aircraft manage payload and fuel in their own tablet (Fenix, PMDG, iniBuilds,
+  FlyByWire, Headwind, Leonardo, FSLabs, Aerosoft CRJ, Just Flight, Black Square, TFDi, FlightSim Studio, Hot Start,
+  Salty, HorizonSim, A2A) are recognised from the title, package folder, package name or creator. Modstead does not
+  write the payload to such an aircraft; the active job shows an "Enter in the EFB" note with passengers, cargo and block
+  fuel. It can be set per aircraft in the Hangar list (`msfs_career_set_loading`, `games/msfs/career/aircraft-prefs.json`;
+  kept when the career is reset). The link thread reads the same answer through `aircraft::manages_own_loading`.
+- **Images:** first the package's own thumbnail (of the chosen livery), then the family's bundled photo, then the class
+  illustration. The real type name comes from the ICAO code ("A320" → Airbus A320), otherwise from the family; the buy
+  dialog and the cards show it.
+- **When it is read:** a few seconds after the app starts, in the background; then whenever the aircraft list is asked
+  for and the library scan has changed. Each package's result is cached until its `manifest.json`, `layout.json` or
+  `SimObjects` changes. "Refresh list" rescans the disk (for packages added to Community by hand).
+- **UI:** the Choose aircraft dialog has All / Sim / Mod, class and search (title, type, ICAO, package, creator); a mod
+  package's variants share one card. In Hangar → "Aircraft in the sim", each aircraft's class and loading method are
+  automatic or set by hand.
+- **Testing:** `cargo test -p game-msfs career::addons` (cfg parsing, 2020 and 2024 modular samples, livery packages,
+  helicopters, not following links, merging); `cargo test -p game-msfs real_addon_aircraft -- --ignored --nocapture`
+  scans the real library read-only.
+
+### Career paths (`paths.rs`)
+
+At sign-up you first pick a path (airline, cargo, bush, air ambulance and rescue, charter and business jets, aerial work,
+or freelance pilot), then a start: **From scratch** (student pilot at the flight school) or **Experienced start** (the
+path's licence package). A path never closes any work; it shapes the board, your rank, your bonuses and your goals.
+Older saves open as freelance pilots (no field means `general`).
+
+| Path | Path jobs | Path aircraft | Licence route | Suggested bases |
+|---|---|---|---|---|
+| Airline | scheduled flight, passengers | regional turboprops and jets, narrow- and widebodies | PPL → CPL → ME → IR → ATPL → JET → TR-N → TR-W | LTFM, EGLL, EDDF, LFPG, KJFK, OMDB |
+| Cargo | cargo | single and twin turboprops, regional turboprops, narrow- and widebodies | PPL → CPL → ME → IR → ATPL → JET → TR-N → TR-W | EDDP, EBLG, KMEM, KSDF, PANC, VHHH |
+| Bush | bush flight | light pistons, single turboprops | PPL → CPL → IR → ME | PATK, PAMR, CYXY, NZQN, AYMH, HKNW |
+| Air ambulance & rescue | air ambulance, search and rescue | helicopters, single and twin turboprops | PPL → CPL → H → IR → ME | LOWI, LSZH, ENTC, YBAS, LTAC, PAFA |
+| Charter & business jets | charter | piston twins, twin turboprops, business jets | PPL → CPL → ME → IR → JET | KTEB, LFMN, LSGG, EGLF, LTBA, KVNY |
+| Aerial work | tour, skydiving, aerial survey | light pistons, single turboprops | PPL → CPL → ME → IR | KGCN, PHOG, NZQN, BIRK, LTFE, LSZS |
+| Freelance pilot | all, equally | — | — | LTBA, LTFJ, EGKB, KPAO, LFPN, EDNY |
+
+Suggested bases are one click at sign-up; the search box still accepts any airport. There is no float-plane class:
+only helicopters operate from seaplane bases, so the bush bases are land airports.
+
+**Experienced start** (Normal difficulty; hours × the difficulty's hours factor, money × 1.5 / 1 / 0.7):
+
+| Path | Licences | Hours | Class split | Money | First rank |
+|---|---|---|---|---|---|
+| Airline | PPL, CPL, ME, IR, JET, ATPL, TR-N | 130 | light 30%, piston twin 15%, twin turboprop 10%, business jet 15%, narrowbody 30% | $10,000 | First officer |
+| Cargo | PPL, CPL, ME, IR | 30 | light 55%, piston twin 20%, single turboprop 25% | $6,000 | Feeder pilot |
+| Bush | PPL | 14 | light 100% | $3,500 | Bush pilot |
+| Air ambulance & rescue | PPL, CPL, H, IR | 32 | light 50%, helicopter 35%, single turboprop 15% | $6,000 | Air ambulance pilot |
+| Charter & business jets | PPL, CPL, ME, IR | 32 | light 50%, piston twin 30%, twin turboprop 20% | $6,000 | Charter pilot |
+| Aerial work | PPL, CPL | 22 | light 80%, single turboprop 20% | $5,000 | Aerial work pilot |
+| Freelance pilot | PPL, CPL, ME, IR | 22 | light 75%, piston twin 25% | $6,000 | — |
+
+Starting from scratch is the same on every path: SPL, 0 hours, $3,000. The experienced history is consistent:
+- Total hours exceed every held licence's requirement (at least 1.3 × the highest); the level is that of the highest
+  licence.
+- Class hours follow the split above; multi-engine hours come from the twin classes; night and instrument hours use the
+  path's share (airline 12% / 18%, cargo 15% / 12%…); cross-country is 55% of the total.
+- Landings per hour by class: 1.2 (light), 1.5 (helicopter), 0.8 (piston twin, single turboprop), 0.7 (twin and regional
+  turboprops), 0.5 (jets); at least 3 night landings; with an instrument rating at least 6 instrument approaches.
+- Records never block at once: 3 day and 3 night landings and 6 instrument approaches in the last days, 3 helicopter
+  landings with the helicopter rating, and the medical class the licences need (CPL/ATPL class 1, PPL class 2).
+- Little money (at most $10,000): the checkrides and licence fees are skipped, savings are not. Hours on the path start
+  at zero; the pilot starts on the path's first rank.
+
+The old start values still work: "commercial" is the freelance experienced package, "airline" the airline one.
+
+**Rank ladders.** The hours requirement is *hours on the path*: the credited hours of the path's job kinds (hours per job
+kind are kept in `stats.kindHours` and rebuilt from the logbook for older careers; flights flown before choosing the
+path count too). Hours scale with difficulty (Easy × 0.5, Realistic × 2). Ranks open in order, and a rank once reached is
+kept (`pathRanks`): it is not taken away if reputation drops later.
+
+| Path | Rank 1 | Rank 2 | Rank 3 |
+|---|---|---|---|
+| Airline | First officer: ATPL | Captain: ATPL + JET, 60 h, reputation 60 | Senior captain: ATPL + TR-W, 150 h, reputation 70 |
+| Cargo | Feeder pilot: CPL | Cargo first officer: ATPL, 30 h, reputation 50 | Cargo captain: ATPL + TR-N, 100 h, reputation 65 |
+| Bush | Bush pilot: PPL | Senior bush pilot: CPL, 25 h, reputation 55 | Chief bush pilot: CPL, 80 h, reputation 70 |
+| Air ambulance & rescue | Air ambulance pilot: CPL | Senior ambulance pilot: CPL + IR, 25 h, reputation 55 | Rescue captain: CPL + IR + H, 70 h, reputation 70 |
+| Charter & business jets | Charter pilot: CPL | Charter captain: CPL + ME + IR, 30 h, reputation 55 | Business jet captain: CPL + IR + JET, 80 h, reputation 70 |
+| Aerial work | Aerial work pilot: CPL | Senior aerial work pilot: CPL, 25 h, reputation 55 | Master pilot: CPL + ME, 70 h, reputation 70 |
+
+Title: the rank when the pilot is on a rung (also shown on the Pilot tab of the sim's main-menu page), otherwise the
+highest licence. When a flight, checkride or appeal opens a new rank, the flight record carries it as `promotion`.
+
+**Board and bonuses:**
+- The path's job kinds are raised to about 60% of the board: `path weights × max(1, 0.6 / 0.4 × other weights / path
+  weights)`, left alone if they are already above that. On path jobs, the path's aircraft classes are 2.5 × as likely.
+  If the path's kinds are not open yet with the pilot's licences (an airline pilot without an ATPL, an ambulance pilot
+  with a PPL), the board is unchanged and no job is "off path": that work is hour building. Training and checkrides are
+  always neutral.
+- Jobs outside the path carry an "Off path" tag and can still be taken; they earn no bonus and their hours do not count
+  toward the rank.
+- **Pay bonus** (path jobs only), by rank: none 0%, rank 1 4%, rank 2 7%, rank 3 10%. Added to the operator wage; on
+  your own account it goes on the estimated profit (`revenue += estimated profit × bonus`), costs unchanged.
+- **XP bonus**: +10% on path jobs, applied at the end of the flight together with the procedure and scenario bonuses
+  (appeals use the same formula).
+- The freelance pilot has no bonus and no "off path"; the board offers every kind with today's weights.
+- The operator that posts a job matches its kind (an airline posts scheduled flights, an ambulance service the medical
+  jobs; all names are fictional).
+
+**Changing path** (Licences → "Change path", with no job in hand) is free. Licences, hours, money, reputation and fleet
+stay. The rank is worked out from the new path's own hours, so you usually start on its first rung; the rank reached on
+the old path is kept and resumes when you go back. Reputation is not reset: it belongs to the pilot and affects pay on
+every job.
+
+**Interface:** sign-up has three steps (path cards, start cards, pilot details with a summary of the choice). On the
+dashboard the pilot strip shows the path badge and rank, the "Next flight" picks favour path jobs (earning rate × 1.6), a
+card shows the path's next rank and what it takes, and the next licence comes from the path's licence route. The job
+board has the path tag, a "Path" filter and the bonus explained in the job detail; Licences shows the path's photo, hours
+on the path, the three ranks with their requirements and the licence route.
+
 ## Realism
 
 The clearest lesson from the research: users hate hidden, zero-tolerance penalties, grind, real-time lockouts and
@@ -517,7 +740,94 @@ follows the FAA definition (VFR; MVFR: ceiling ≤ 3,000 ft or visibility ≤ 5 
 - A job whose destination is IFR/LIFR needs a current instrument rating; rated pilots earn a bad-weather bonus (IFR
   15%, LIFR 25%).
 - In the dispatch release, temperature and QNH feed the density altitude and precipitation means a wet runway.
-- The career's `.FLT` turns on the sim's live weather, which also comes from real observations, so both are close.
+- For a live job the career's `.FLT` turns on the sim's live weather, which also comes from real observations, so both
+  are close. Jobs with scenario weather do not use the METAR (below).
+
+### Weather and time scenarios (`conditions.rs`)
+
+Every job is either **live** (real time, the sim's live weather, the real METAR; old saved jobs without the field read
+as live) or carries a **scenario**: a departure time (day, dawn, dusk, night) and/or one of the sim's built-in weather
+presets. The conditions show on the job board (chips and a time/weather filter), in the job details, on the active job,
+in the dispatch release, in the logbook and on the career page in the sim's main menu.
+
+**Time.** On the job's date (the day of the listing window) Modstead searches, in 5-minute steps, for a UTC time at
+which the sun elevation at the departure airport matches the target; day jobs prefer local 08–17, night jobs 19–02.
+
+| Time | Sun at departure | Relaxed target | If neither exists |
+|---|---|---|---|
+| Day | > 25° | > 8° (low winter sun) | brightest moment (polar night) |
+| Dawn | −4°…+6°, rising | — | closest moment |
+| Dusk | +6°…−4°, setting | — | closest moment |
+| Night | < −12° | < −6° (white nights) | darkest moment (midnight sun) |
+
+In the last column's case the UI says so. Local time comes from the longitude (15° = 1 hour; no daylight saving or
+political time zones), so it is shown as "local ~"; the flight file gets UTC (`UseZuluTime=True`).
+
+**Weather presets.** Values derived from MSFS 2024's `fs-base-spb/WeatherPresets/*.WPR` files (`PRESETS`; the files are
+not distributed, the `presets_match_the_sim_files` test reads the user's copy read-only and checks the table). Cloud
+bases are above ground level; the wind is 270° in all of them.
+
+| Preset | File | Clouds | Ceiling | Visibility | Wind | Precipitation, temperature | Category | Pay bonus |
+|---|---|---|---|---|---|---|---|---|
+| Clear | ClearSky | — | none | 10 mi+ | 2 kt | —, 15 °C | VFR | 0 |
+| Few clouds | FewClouds | FEW016 FEW164 | none | 10 mi+ | 4 kt | — | VFR | 0 |
+| Scattered | ScatteredClouds | SCT015 BKN130 BKN300 | 13,000 ft | 10 mi+ | 5 kt | — | VFR | 0 |
+| Broken | BrokenClouds | FEW015 BKN030 | 3,000 ft | 8 mi | 12 kt | — | MVFR | 0 |
+| Overcast | Overcast | FEW015 OVC040 BKN100 | 4,000 ft | 5 mi | 8 kt | — | MVFR | 0 |
+| Rain | Rain | SCT015 BKN030 SCT100 | 3,000 ft | 3 mi | 10 kt | rain | MVFR | 5% |
+| Snow | Snow | OVC018 SCT047 | 1,800 ft | 1 mi | 5 kt | snow, −5 °C, 50 cm on the ground | IFR | 25% |
+| Storm | Storm | OVC015 OVC030CB BKN200 | 1,500 ft | 1.5 mi | 30 kt | rain, thunderstorm | IFR | 35% |
+
+Derivation: cover from the layer density (d) and scattering (s): d ≥ 0.9 and s ≤ 0.1 → OVC; d ≥ 0.5 and s ≤ 0.5 → BKN;
+d ≥ 0.5 and s ≤ 0.9 → SCT; otherwise FEW; layers with density below 0.05 or no thickness are ignored. Visibility is the
+lower of haze (`AerosolDensity` ≤ 1.5 → 10 mi, ≤ 2 → 8, ≤ 2.5 → 5, ≤ 3 → 4, above 3) and precipitation (rain ≤ 10 mm/h
+→ 3 mi, heavier → 1.5 mi, snow → 1 mi). The category follows the FAA definition.
+
+**Generation** (`conditions::generate`; seeded with the listing id, so the same window gives the same result and the
+rest of the board is unchanged). Weather first, then time (weights):
+- **Students and training flights:** live 45, clear 25, few 20, scattered 10; time only real time or day.
+- **PPL:** live 45, clear 18, few 16, scattered 12, broken 7; outside bush flights overcast 5 and rain 5. Under an MVFR
+  preset a VFR flight (light piston, helicopter) gets its cruise altitude capped 500 ft below the ceiling.
+- **Snow and storm (IFR):** only with a current instrument rating (rating + 6 approaches in 6 months; currency is not
+  required on Easy), never for helicopters or bush flights. Snow weight `8 × season × latitude × elevation` (max 20;
+  halved for light pistons, which have no ice protection): season 1 in winter, 0.6 in Nov/Mar, 0.25 in Oct/Apr, 0.05 in
+  summer (shifted six months in the southern hemisphere); latitude ≥ 55° 2.5, ≥ 45° 1.5, ≥ 35° 1, ≥ 25° 0.3, tropics 0
+  (0.4 above 8,000 ft); elevation ≥ 8,000 ft 2.5, ≥ 5,000 ft 2, ≥ 2,500 ft 1.3. Storm 3, turbine classes only.
+- **Aerial work:** skydiving and survey live, clear or few clouds; tours up to scattered; search and rescue up to broken
+  and rain (no instrument conditions).
+- **Time:** with live weather, real time 75; a preset always comes with a scenario time (day 70). With a PPL dawn 7, dusk
+  9, night 12, only when both runways are lighted (helicopters excepted). Bush flights only dawn; tours dusk 10, night 8;
+  search and rescue dusk 8, night only by helicopter; skydiving and survey day only.
+- **Snow** goes on a winter date (if the date is not in winter: 15 January in the north, 15 July in the south) with
+  `Season=Winter`; the snow on the ground comes from the preset's snow cover.
+
+**Pay and XP bonus** (`conditions::bonus`):
+- weather = flight category (IFR 15, LIFR 25: the same as the live bad-weather bonus) + rain 5 + snow 10 +
+  thunderstorm 10 + wind of 20 kt or more 5;
+- time = 10 if the sun is below −6° at departure (night; a "night" job in white nights stays light and gets none),
+  dawn and dusk 5;
+- `pay bonus = min(weather + time, 40%)`, added to the listing's pay (to the revenue on your own account);
+- `XP bonus = pay bonus / 2` (rounded up, max 20%), multiplied with the procedure bonuses at the end of the flight.
+- Examples: day rain 5%; day snow 25%; night snow 35% (XP 18%); night storm 40% (XP 20%). For a night job with live
+  weather the night bonus and the METAR bad-weather bonus are multiplied.
+- The bonus does not check that the flight was flown in those conditions (like the live bad-weather bonus). The score
+  still drops only through the existing safety rules; scenarios add no new deductions.
+
+**In flight:**
+- **Flight file (2024):** `[Weather]` uses the format of Asobo's own career files
+  (`fs-career-asobo/…/Certification/Turboprop.FLT`): `UseWeatherFile=True`, `UseLiveWeather=False`,
+  `WeatherPresetFile=.\WeatherPresets\Snow.WPR`, `WeatherCanBeLive=False`. `[DateTimeSeason]` gets the scenario's UTC
+  time and, for snow, `Season=Winter`. Live jobs are unchanged.
+- **MSFS 2020:** the time and season are written, the weather stays live (the preset keys are not verified in 2020); the
+  UI says so.
+- A scenario job always loads the flight file: moving the aircraft inside an open flight would not change the time or
+  the weather. In manual mode the launch note names the preset and the UTC time to pick in the sim.
+- **Dispatch release:** a job with scenario weather uses the preset instead of the METAR ("Scenario weather"): category
+  (IFR fuel rules, alternate), wet runway, density altitude (preset temperature, 1013 hPa). Whether the arrival is at
+  night comes from the scenario time: the VFR night reserve (45 min), the unlit-runway block and night passenger
+  currency apply with the same rules; night, dawn and dusk jobs are only generated between lighted runways.
+- Night and instrument time, night landings and instrument approaches are measured from the sim's clock and
+  environment, so they count in scenarios automatically.
 
 ### Pilot records (`records.rs`)
 
@@ -643,8 +953,10 @@ games/msfs/src/career/
   tracker.rs      flight phases, landing capture, rules, cheat detection, score
   economy.rs      plan, pay, market price, costs, damage, loans
   progression.rs  licences, level/XP, reputation, pilot rating, title
+  paths.rs        career paths: path definitions, experienced-start packages, rank ladders, board weighting, bonuses
   jobs.rs         job board (seeded, 4-hour windows), checkrides, travel
-  aircraft.rs     aircraft classes: from values read from the sim, or from the aircraft name
+  aircraft.rs     aircraft classes: from the ICAO type code, values read from the sim, or the name; own-EFB detection
+  addons.rs       add-on aircraft: cfg files of library and Community packages (read-only), merged with the sim's list
   airports.rs     embedded airport database (airports.tsv) and geodesy
   hud.rs          in-sim panel: L: variables, package install
   hud_server.rs   local server on 127.0.0.1 for the in-sim pages: code, career data, career actions
@@ -654,6 +966,7 @@ games/msfs/src/career/
   env.rs          environment: sun elevation (night), wind components, VMC/IMC, flight category, density altitude
   dispatch.rs     dispatch release: fuel plan, weights, alternate, runway length
   weather.rs      real weather: METAR (aviationweather.gov), parsing, cache
+  conditions.rs   weather and time scenarios: departure time (sun elevation), the sim's weather presets, generation, bonus
   records.rs      pilot records: currency, medical certificate, flight duty
   maintenance.rs  fleet maintenance programme and insurance
   missions.rs     aerial work: tour, skydiving, survey, search and rescue objectives
@@ -661,7 +974,8 @@ games/msfs/src/career/
   flt.rs          parking spot choice, .FLT/.PLN writing (2020 and 2024 formats), SimBrief link
   model.rs        persistent data; mod.rs: Career (operations, end-of-flight settlement); commands.rs: msfs_career_* commands
 games/msfs/ui/career/   Career page (Dashboard, Job board, Logbook, Licences, Hangar & finance); aircraft/ photos and families
-games/msfs/tools/       airports.py (OurAirports → airports.tsv), map.py (Natural Earth → ui/career/map/)
+games/msfs/tools/       airports.py (OurAirports → airports.tsv), map.py (Natural Earth → ui/career/map/),
+                        relief_tiles.py (Natural Earth II raster → data/relief.tiles)
 games/msfs/hud/         toolbar panel package (package/) and its definition source (source/); main menu package
                         (menu-package/) and the main menu page (menu/, served by hud_server.rs)
 ```
@@ -698,6 +1012,17 @@ an error; Modstead skips that field and keeps decoding.
   - Each layer is loaded as a separate chunk the first time it is needed.
   - Airports in view come from the embedded database (`msfs_career_map_airports`).
   - Drag to pan. The mouse wheel zooms after a click or while Ctrl is held, so page scrolling never gets stuck on the map.
+- **Map layers (raster tiles):** the local server serves `GET /api/tiles/<layer>/<z>/<x>/<y>` (Web Mercator, 256 px
+  JPEG; details in `hud/menu/API.md`, code in `src/career/tiles.rs`).
+  - `relief` (default, works offline): [Natural Earth II](https://www.naturalearthdata.com/downloads/50m-raster-data/50m-natural-earth-2/)
+    with shaded relief and water, 1:50m (`NE2_50M_SR_W`, public domain). `tools/relief_tiles.py` reprojects it to Web
+    Mercator and writes the z0–5 pyramid into one file (`data/relief.tiles`, 1,365 tiles, 7.2 MB, embedded in the binary).
+  - `sat` (optional, needs internet): EOX [Sentinel-2 cloudless](https://cloudless.eox.at/) 2016 layer, z0–13, from
+    `tiles.maps.eox.at`. Licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (2018 and later vintages
+    are non-commercial CC BY-NC-SA 4.0, so 2016 was chosen on purpose). The attribution must be visible whenever the
+    imagery is shown: "EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus
+    Sentinel data 2016)". Tiles are cached on disk (512 MB cap) with at most 4 downloads at a time; offline, the
+    server answers 503 and the map falls back to `relief`.
 - **Aircraft photos:** [Wikimedia Commons](https://commons.wikimedia.org/), under each photo's own licence (CC BY,
   CC BY-SA or public domain); author, licence and source for every photo are in
   [`ui/career/aircraft/CREDITS.md`](ui/career/aircraft/CREDITS.md). They are not covered by the project's GPL-3.0.
@@ -732,9 +1057,15 @@ node scripts/dev.mjs msfs --preview   # http://127.0.0.1:1421/?view=game:msfs:ca
 - **Failures** are not triggered in the sim: whether 2024's `TOGGLE_*_FAILURE` events work on new-generation aircraft,
   and whether `ExecuteAction("FailureAction")` works from an external client, is unverified. MSFS 2024's wear variables
   (`WEAR AND TEAR *`) can be read; tying them to the maintenance economy is the next step.
+- **Weather and time scenarios** are verified with unit tests and in the preview; the preset table was checked against
+  the sim's `.WPR` files. Still to try in the real sim: whether `WeatherPresetFile=.\WeatherPresets\…` also resolves from
+  a `.FLT` outside the sim's virtual file system (in Modstead's cache), whether the `[DateTimeSeason]` time applies when
+  loading from the main menu and on top of an open flight, white ground with the snow preset and the effect of
+  `Season=Winter`, and a scenario time together with live weather (night + live weather). MSFS 2020 gets no preset.
 - **Next:** rich text in the in-sim panel through 2024 CommBus, resuming an interrupted flight by moving to its last
   position, reputation per customer and region, A/B/C checks and failure risk, multi-leg jobs and airline contracts,
-  hired pilots and a company, fuel and payload from the SimBrief OFP, and weather-driven jobs (that require an IR).
+  hired pilots and a company, fuel and payload from the SimBrief OFP, and scenario weather that changes en route (a
+  different preset at the destination).
 
 ## FAQ
 
@@ -766,7 +1097,8 @@ It covers similar ground (jobs, an economy, licences and a logbook) with a diffe
 documented, and there is no subscription or server. It has no shared online world or multiplayer economy.
 
 ### Does it need an internet connection?
-No. Jobs are generated locally and career data stays on your PC. Opening SimBrief is optional.
+No. Jobs are generated locally and career data stays on your PC. Opening SimBrief is optional. The map's default
+terrain view is built in; only the optional satellite view downloads imagery.
 
 ### Does it install anything into the sim?
 Not for the career itself. The toolbar panel (MSFS 2020 and 2024) and the main menu tile (MSFS 2024) are optional and
@@ -779,9 +1111,12 @@ flight, and the toolbar panel follows the flight. Modstead still has to be runni
 licences, loans and the full logbook are in the Modstead app.
 
 ### Which aircraft can I fly?
-Any aircraft installed in the sim. Modstead classifies it from the sim's values (or its name) into a class such as light
-piston, single turboprop or narrowbody jet; you can change the class by hand. For aircraft with their own EFB (PMDG,
-Fenix, iniBuilds, FBW) Modstead does not write the payload and shows the planned values instead.
+Any aircraft installed in the sim, including add-on aircraft from mods: Modstead reads the packages in its library
+and Community folders, so they appear (with a "Mod" badge) even in 2020 or with the sim closed. It classifies each one
+from its ICAO type code, the sim's values, the package files or its name into a class such as light piston, single
+turboprop or narrowbody jet; you can change the class by hand. For aircraft with their own EFB (Fenix, PMDG,
+iniBuilds, FlyByWire, Just Flight, Black Square…) Modstead does not write the payload and shows the planned values to
+enter in the EFB instead. See [Add-on aircraft](#add-on-aircraft).
 
 ---
 

@@ -1,0 +1,80 @@
+/* Rota haritasının renkleri. Havacılık haritası geleneği: kuleli meydanlar mavi, kulesizler eflatun, rota eflatun,
+   yerleşimler sarı. Bunlar oyuna özel veri renkleridir (bkz. docs/TASARIM.md); arayüzün geri kalanı belirteçlerden
+   gelir. Koyu tema varsayılan, açık tema `[data-theme="light"]`, uydu görüntüsü üstünde `data-style="sat"`. */
+
+.rm {
+  --rm-sea: #0c1720;
+  --rm-land: #1f252a;
+  --rm-coast: rgb(120 170 205 / 0.55);
+  --rm-river: #5596cc;
+  --rm-urban: rgb(236 206 150 / 0.12);
+  --rm-road: rgb(206 160 112 / 0.5);
+  --rm-road-minor: rgb(206 160 112 / 0.3);
+  --rm-border: rgb(200 172 245 / 0.62);
+  --rm-grid: rgb(190 215 235 / 0.07);
+  --rm-grid-text: rgb(190 215 235 / 0.45);
+  --rm-label: #e4e9ef;
+  --rm-label-2: #b3bcc8;
+  --rm-halo: rgb(8 12 16 / 0.82);
+  --rm-twr: #6ea8ff;
+  --rm-ntwr: #e47ccd;
+  --rm-rwy: #8fa3bf;
+  --rm-rwy-soft: #8c7e62;
+  --rm-rwy-mark: rgb(15 20 28 / 0.85);
+  --rm-route: #e45ff0;
+  --rm-casing: rgb(6 8 12 / 0.75);
+  --rm-chip: rgb(14 17 22 / 0.88);
+  --rm-chip-fg: #f2f4f7;
+  --rm-chip-line: rgb(255 255 255 / 0.14);
+  --rm-ring: rgb(230 236 244 / 0.4);
+  --rm-plane-edge: #ffffff;
+}
+
+[data-theme="light"] .rm {
+  --rm-sea: #a9cbe2;
+  --rm-land: #ece7d6;
+  --rm-coast: rgb(40 92 135 / 0.7);
+  --rm-river: #4b8ec4;
+  --rm-urban: rgb(247 206 74 / 0.5);
+  --rm-road: rgb(170 82 58 / 0.62);
+  --rm-road-minor: rgb(170 82 58 / 0.38);
+  --rm-border: rgb(118 82 160 / 0.6);
+  --rm-grid: rgb(30 55 80 / 0.1);
+  --rm-grid-text: rgb(30 55 80 / 0.55);
+  --rm-label: #1f2731;
+  --rm-label-2: #4a5462;
+  --rm-halo: rgb(255 255 255 / 0.86);
+  --rm-twr: #1d5fc2;
+  --rm-ntwr: #a3237f;
+  --rm-rwy: #33445e;
+  --rm-rwy-soft: #8a7752;
+  --rm-rwy-mark: rgb(255 255 255 / 0.9);
+  --rm-route: #c01cc6;
+  --rm-casing: rgb(255 255 255 / 0.9);
+  --rm-chip: rgb(255 255 255 / 0.94);
+  --rm-chip-fg: #1a1f27;
+  --rm-chip-line: rgb(15 20 35 / 0.14);
+  --rm-ring: rgb(20 30 45 / 0.38);
+  --rm-plane-edge: #ffffff;
+}
+
+/* Uydu görüntüsü her temada koyudur: çizimler açık renk ve güçlü haleli. */
+.rm[data-style="sat"],
+[data-theme="light"] .rm[data-style="sat"] {
+  --rm-sea: #0a1118;
+  --rm-land: #1a1e1b;
+  --rm-coast: rgb(255 255 255 / 0.28);
+  --rm-grid: rgb(255 255 255 / 0.07);
+  --rm-grid-text: rgb(255 255 255 / 0.6);
+  --rm-label: #ffffff;
+  --rm-label-2: rgb(255 255 255 / 0.82);
+  --rm-halo: rgb(0 0 0 / 0.72);
+  --rm-twr: #8fbcff;
+  --rm-ntwr: #f39ad9;
+  --rm-route: #ff6af7;
+  --rm-casing: rgb(0 0 0 / 0.6);
+  --rm-chip: rgb(10 12 16 / 0.78);
+  --rm-chip-fg: #ffffff;
+  --rm-chip-line: rgb(255 255 255 / 0.16);
+  --rm-ring: rgb(255 255 255 / 0.5);
+}

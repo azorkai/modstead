@@ -111,7 +111,7 @@ function DrawerBody({ mod, onClose }: { mod: ModEntry; onClose: () => void }) {
       {/* Kahraman görseli */}
       <div className="relative h-[210px] shrink-0">
         <Thumb mod={mod} className="absolute inset-0" bare />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(0deg, rgb(8 9 12 / 0.92) 0%, rgb(8 9 12 / 0.35) 55%, rgb(8 9 12 / 0.15) 100%)" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(0deg, rgb(7 9 20 / 0.94) 0%, rgb(7 9 20 / 0.35) 55%, rgb(7 9 20 / 0.15) 100%)" }} />
         <div className="absolute right-3 top-3 flex gap-1.5">
           <IconButton label={t.library.favorite} onClick={toggleFavorite} className="msfs-on-image text-white hover:bg-white/15 hover:text-white">
             <Star className={clsx("size-4", mod.meta.favorite && "fill-current text-warn")} />
@@ -122,11 +122,11 @@ function DrawerBody({ mod, onClose }: { mod: ModEntry; onClose: () => void }) {
         </div>
         <div className="absolute inset-x-5 bottom-4">
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="msfs-on-image inline-flex h-5 items-center rounded-md border border-white/15 px-1.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-white">{catLabel(info.category, lang)}</span>
+            <span className="on-image eyebrow inline-flex h-5 items-center rounded-full px-2">{catLabel(info.category, lang)}</span>
             <BuiltForTag year={info.builtFor} onDark />
-            {version(info.version) && <span className="msfs-on-image inline-flex h-5 items-center rounded-md border border-white/15 px-1.5 font-mono text-[10.5px] text-white/90">{version(info.version)}</span>}
+            {version(info.version) && <span className="on-image inline-flex h-5 items-center rounded-full px-2 font-mono text-[10.5px] text-white/90">{version(info.version)}</span>}
           </div>
-          <h2 className="text-display line-clamp-2 text-[22px] font-semibold leading-tight text-white" data-selectable>
+          <h2 className="title line-clamp-2 text-[24px] leading-tight text-white" data-selectable>
             {info.title}
           </h2>
           {info.creator && <p className="mt-0.5 truncate text-[12.5px] text-white/70">{info.creator}</p>}
@@ -262,7 +262,7 @@ function Block({ title, subtitle, aside, tone, children }: { title: string; subt
     <section className="flex flex-col gap-2.5">
       <header className="flex items-end gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-muted">
+          <h3 className="eyebrow flex items-center gap-2 text-muted">
             {title}
             {tone && tone !== "ok" && <span className={clsx("size-1.5 rounded-full", tone === "error" ? "bg-danger" : tone === "warn" ? "bg-warn" : "bg-muted")} />}
           </h3>

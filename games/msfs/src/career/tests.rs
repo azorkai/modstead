@@ -311,3 +311,153 @@ fn medical_and_currency_block_jobs() {
         c.accept(&cj.id).unwrap();
     }
 }
+
+// ---------- Kariyer yolları ----------
+
+fn create_in(c: &Career, path: paths::CareerPath, start: &str, home: &str) {
+    c.create_in(CreateRequest { name: "Oyuncu".into(), callsign: String::new(), home: home.into(), difficulty: Difficulty::Normal, start: start.into(), birth_year: None }, path).unwrap();
+}
+
+#[test]
+fn fast_start_in_every_path_can_take_its_own_work_at_once() {
+    use paths::CareerPath::*;
+    for path in [Airline, Cargo, Bush, Medical, Charter, Aerial] {
+        let c = career();
+        let home = paths::def(path).homes[0];
+        create_in(&c, path, "fast", home);
+        let v = c.view();
+        let p = v.pilot.as_ref().unwrap();
+        assert_eq!(p.pilot.path, path);
+        assert_eq!(p.pilot.start, "fast");
+        assert_eq!(p.path_status.rank, 1, "{path:?}: ilk basamakta başlar");
+        let rank = &paths::def(path).ranks[0];
+        assert_eq!(p.title, tr!(rank.name_tr, rank.name_en), "{path:?}: unvan rütbedir");
+        // Sahip olunan lisansların saat şartı uçuş geçmişiyle çelişmiyor.
+        for l in v.licenses.iter().filter(|l| l.eligibility.held) {
+            assert!(p.pilot.stats.hours + 1e-6 >= l.eligibility.hours_needed, "{path:?}: {}", l.eligibility.id);
+        }
+        // Pano yolun işleriyle dolu (birkaç tohuma bakılır); yolun işleri primli, yol dışı olanlar işaretli.
+        let kinds = paths::def(path).kinds;
+        let (mut on, mut off, mut total) = (0, 0, 0);
+        for k in 0..8 {
+            c.lock_data().pilot.as_mut().unwrap().created_at = format!("2026-10-{:02}T00:00:00Z", k + 1);
+            for j in c.board().unwrap() {
+                total += 1;
+                if kinds.contains(&j.kind.as_str()) {
+                    on += 1;
+                    assert!(!j.off_path && j.path_pay_bonus == paths::PAY_BONUS[1] && j.path_xp_bonus == paths::XP_BONUS, "{path:?} {j:?}");
+                } else if j.kind != "training" {
+                    off += 1;
+                    assert!(j.off_path && j.path_pay_bonus == 0, "{path:?} {}", j.kind);
+                }
+            }
+        }
+        assert!(total > 0 && on as f64 / total as f64 >= 0.4, "{path:?}: yolun işleri {on}/{total}");
+        assert!(off > 0, "{path:?}: çeşitlilik kalır");
+        // Yolun bir işi hemen kabul edilebiliyor (sicil engel değil).
+        let job = c.board().unwrap().into_iter().find(|j| kinds.contains(&j.kind.as_str()) && !j.ir_required).expect("yolun işi");
+        c.accept(&job.id).unwrap_or_else(|e| panic!("{path:?}: {e}"));
+    }
+}
+
+#[test]
+fn path_flight_counts_toward_rank_and_pays_xp_bonus() {
+    let c = career();
+    create_in(&c, paths::CareerPath::Cargo, "fast", "LTBA");
+    let job = ["LTBA", "LTFJ", "LTBU", "LTBJ", "LTFE", "LTAI", "LTBS", "LTBR", "LTBQ", "LTAC", "LTFM", "LTCG"]
+        .iter()
+        .find_map(|icao| {
+            c.lock_data().pilot.as_mut().unwrap().location = icao.to_string();
+            c.board().unwrap().into_iter().find(|j| j.kind == "cargo" && j.class == Some(Class::LightPiston) && j.mode == Mode::Employee)
+        })
+        .expect("hafif uçakla kargo işi");
+    assert_eq!((job.path_pay_bonus, job.path_xp_bonus), (4, 10));
+    c.accept(&job.id).unwrap();
+    c.pick_aircraft("Cessna Skyhawk G1000 Asobo", "", None).unwrap();
+    fly_active(&c, 2.0);
+    let e = c.finish().unwrap();
+    assert_eq!(e.result, "completed", "{:?}", e.summary);
+    let p = c.view().pilot.unwrap();
+    let h = p.pilot.stats.kind_hours.get("cargo").copied().unwrap_or(0.0);
+    assert!(h > 0.0 && (h - e.credited_hours).abs() < 0.01, "{h} {}", e.credited_hours);
+    assert!((p.path_status.hours - (h * 10.0).round() / 10.0).abs() < 0.051);
+    // XP primi uçuş sonunda uygulanır.
+    let base = progression::flight_xp(e.summary.score, e.summary.block_s / 3600.0, job.distance_nm.min(e.summary.flown_nm.max(job.distance_nm * 0.5)), Class::LightPiston, false) as f64
+        * (1.0 + e.summary.bonus_pct as f64 / 100.0)
+        * (1.0 + job.conditions.xp_bonus as f64 / 100.0);
+    assert_eq!(e.xp, (base * 1.1).round() as u32);
+}
+
+#[test]
+fn changing_path_keeps_licences_hours_and_money() {
+    let c = career();
+    create_in(&c, paths::CareerPath::Airline, "fast", "LTFM");
+    let before = c.view().pilot.unwrap();
+    assert_eq!(before.pilot.money, 10_000);
+    assert_eq!(before.title, tr!("İkinci pilot", "First officer"));
+    // Havayolu saati birikmiş, itibar yüksek: kaptanlık.
+    {
+        let mut d = c.lock_data();
+        let p = d.pilot.as_mut().unwrap();
+        p.stats.kind_hours.insert("airline".into(), 70.0);
+        p.reputation = 65.0;
+        paths::promote(p);
+    }
+    assert_eq!(c.view().pilot.unwrap().path_status.rank_id, Some("captain"));
+    c.set_path(paths::CareerPath::Cargo).unwrap();
+    let after = c.view().pilot.unwrap();
+    assert_eq!(after.pilot.path, paths::CareerPath::Cargo);
+    assert_eq!(after.pilot.licenses, before.pilot.licenses);
+    assert_eq!((after.pilot.money, after.pilot.stats.hours, after.pilot.xp, after.pilot.reputation), (before.pilot.money, before.pilot.stats.hours, before.pilot.xp, 65.0));
+    // Kargoda saat yok: ATPL'li pilot besleme pilotu (kargo ikinci pilotu 30 saat kargo ister).
+    assert_eq!(after.path_status.rank_id, Some("feeder_pilot"));
+    assert_eq!(after.path_status.hours, 0.0);
+    // Geri dönünce kaptanlık kalır (kalıcı rütbe).
+    c.set_path(paths::CareerPath::Airline).unwrap();
+    assert_eq!(c.view().pilot.unwrap().path_status.rank_id, Some("captain"));
+    // Elde iş varken yol değişmez.
+    let job = c.board().unwrap().into_iter().find(|j| !j.ir_required).unwrap();
+    c.accept(&job.id).unwrap();
+    assert!(c.set_path(paths::CareerPath::Bush).is_err());
+    // Genel yol: unvan en yüksek lisanstan (TR-N), prim yok, yol dışı iş yok.
+    c.cancel().unwrap();
+    c.set_path(paths::CareerPath::General).unwrap();
+    let g = c.view().pilot.unwrap();
+    assert_eq!(g.title, tr!("Kaptan", "Captain"));
+    assert_eq!((g.path_status.pay_bonus, g.path_status.xp_bonus), (0, 0));
+    assert!(c.board().unwrap().iter().all(|j| !j.off_path && j.path_pay_bonus == 0));
+}
+
+#[test]
+fn scratch_start_and_legacy_starts() {
+    let c = career();
+    create_in(&c, paths::CareerPath::Medical, "student", "LOWI");
+    let p = c.view().pilot.unwrap();
+    assert_eq!(p.pilot.licenses, vec!["spl".to_string()]);
+    assert_eq!((p.pilot.money, p.path_status.rank), (paths::SCRATCH_MONEY, 0));
+    assert_eq!(p.path_status.next_license, Some("ppl"));
+    assert_eq!(p.title, tr!("Öğrenci pilot", "Student pilot"));
+    // Öğrencinin panosu eğitim uçuşları; hiçbiri yol dışı değil.
+    assert!(c.board().unwrap().iter().all(|j| j.kind == "training" && !j.off_path));
+    // Eski "airline" başlangıcı havayolu yolunun deneyimli paketidir; "commercial" genel yolun.
+    create(&c, "airline");
+    let p = c.view().pilot.unwrap();
+    assert_eq!((p.pilot.path, p.path_status.rank_id), (paths::CareerPath::Airline, Some("first_officer")));
+    assert!(p.pilot.has("narrow"));
+    create(&c, "commercial");
+    let p = c.view().pilot.unwrap();
+    assert_eq!(p.pilot.path, paths::CareerPath::General);
+    assert!(p.pilot.has("cpl") && p.pilot.has("ir") && p.pilot.has("me"));
+}
+
+#[test]
+fn old_career_files_open_in_the_general_path() {
+    // Yol alanları olmayan eski bir kayıt.
+    let json = r#"{"version":1,"pilot":{"name":"Eski","home":"LTBA","location":"LTBA","licenses":["spl","ppl"],"reputation":55,"money":900,"stats":{"hours":4.2}}}"#;
+    let d: CareerData = serde_json::from_str(json).unwrap();
+    let p = d.pilot.unwrap();
+    assert_eq!(p.path, paths::CareerPath::General);
+    assert!(p.stats.kind_hours.is_empty() && p.path_ranks.is_empty());
+    let j: Job = serde_json::from_str(r#"{"id":"x","kind":"cargo"}"#).unwrap();
+    assert!(!j.off_path && j.path_xp_bonus == 0);
+}

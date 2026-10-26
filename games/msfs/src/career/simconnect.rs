@@ -239,7 +239,8 @@ impl Request {
             }
             Request::EnumerateSimObjectsAndLiveries { request, kind } => p(0x5b).u32(*request).u32(*kind),
             Request::SubscribeToFlowEvent => p(0x5c),
-            Request::RequestAllFacilities { request, kind } => p(0x5e).u32(*request).u32(*kind),
+            // C API'deki sıra: önce liste türü, sonra istek kimliği (ters giderse sim kimliği tür sanar: istisna 27).
+            Request::RequestAllFacilities { request, kind } => p(0x5e).u32(*kind).u32(*request),
         };
         packet.finish(send_id)
     }
@@ -547,6 +548,13 @@ mod tests {
         assert_eq!(r.len(), 16 + 32);
         assert_eq!(le(&r, 28), 3);
         assert_eq!(le(&r, 40), 5);
+
+        // Tesis listesi: tür kimlikten önce gelir (SimConnect_RequestAllFacilities(h, type, RequestID)).
+        let f = Request::RequestAllFacilities { request: 5, kind: FACILITY_AIRPORT }.encode(PROTO_SUNRISE, 3);
+        assert_eq!(f.len(), 16 + 8);
+        assert_eq!(le(&f, 8), 0xF000_005E);
+        assert_eq!(le(&f, 16), FACILITY_AIRPORT);
+        assert_eq!(le(&f, 20), 5);
     }
 
     #[test]

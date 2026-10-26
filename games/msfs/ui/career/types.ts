@@ -90,6 +90,27 @@ export interface MapAirport {
   runway: string;
 }
 
+/** Haritanın raster katmanı (`msfs_career_tiles_info`). */
+export interface TileLayerInfo {
+  /** "relief" (çevrimdışı gölgeli kabartma) | "sat" (çevrimiçi uydu görüntüsü) */
+  id: string;
+  minZoom: number;
+  maxZoom: number;
+  /** İnternet gerektirir (bağlantı yoksa karolar 503 döner). */
+  online: boolean;
+  /** Görüntü haritada görünürken köşede gösterilecek atıf. */
+  attribution: string;
+  license?: string;
+  licenseUrl?: string;
+}
+
+/** Karolar `{base}/api/tiles/<katman>/<z>/<x>/<y>` adresinden alınır (XYZ, Web Mercator, 256 px). */
+export interface TilesInfo {
+  /** Yerel sunucunun kökü; çalışmıyorsa `null` (harita yalnızca vektörle çizilir). */
+  base: string | null;
+  layers: TileLayerInfo[];
+}
+
 export interface AirportHit extends Airport {
   distanceNm: number | null;
   ticket: number | null;
@@ -117,6 +138,8 @@ export interface Stats {
   nightLandings: number;
   instrumentApproaches: number;
   stableApproaches: number;
+  /** İş türü → saat (kariyer yolunda uçulan saat bundan). */
+  kindHours?: Partial<Record<string, number>>;
 }
 
 /** Pilot sicili: yeterlilik, sağlık sertifikası, görev süresi (`records::Status`). */
@@ -159,6 +182,10 @@ export interface Pilot {
   createdAt: string;
   stats: Stats;
   birthYear: number;
+  /** Kariyer yolu (yeni sürüm; eski uygulamada yok → "general" sayılır). */
+  path?: CareerPath;
+  pathSince?: number;
+  pathRanks?: Partial<Record<CareerPath, number>>;
 }
 
 export interface PilotView extends Pilot {
@@ -172,6 +199,64 @@ export interface PilotView extends Pilot {
   status: RecordsStatus;
   medicalFee: number;
   restCost: number;
+  /** Kariyer yolunun durumu: rütbe, basamaklar, yoldaki saat, primler (`paths.rs`). */
+  pathStatus?: PathStatus;
+}
+
+/** Kariyer yolu (`games/msfs/src/career/paths.rs`). */
+export type CareerPath = "airline" | "cargo" | "bush" | "medical" | "charter" | "aerial" | "general";
+
+export interface RankStep {
+  id: string;
+  nameTr: string;
+  nameEn: string;
+  licenses: string[];
+  missingLicenses: string[];
+  hoursNeeded: number;
+  reputationNeeded: number;
+  payBonus: number;
+  reached: boolean;
+}
+
+export interface PathStatus {
+  path: CareerPath;
+  nameTr: string;
+  nameEn: string;
+  kinds: JobKind[];
+  route: string[];
+  /** Yolun işlerinde uçulan saat (Genel'de toplam saat). */
+  hours: number;
+  /** 0 = henüz ilk basamakta değil; 1..3. */
+  rank: number;
+  rankId: string | null;
+  ladder: RankStep[];
+  payBonus: number;
+  xpBonus: number;
+  nextLicense: string | null;
+}
+
+/** Yol kataloğu (`msfs_career_paths`): kayıt ekranı ve yol değiştirme penceresi. */
+export interface PathInfo {
+  id: CareerPath;
+  nameTr: string;
+  nameEn: string;
+  kinds: JobKind[];
+  classes: AircraftClass[];
+  route: string[];
+  ranks: { id: string; nameTr: string; nameEn: string; licenses: string[]; hours: number; reputation: number }[];
+  fast: {
+    licenses: string[];
+    hours: number;
+    level: number;
+    money: number;
+    nightHours: number;
+    instrumentHours: number;
+    multiEngineHours: number;
+    flyable: AircraftClass[];
+    rankId: string | null;
+  };
+  scratchMoney: number;
+  homes: Airport[];
 }
 
 export interface Plan {
@@ -233,6 +318,51 @@ export interface Job {
   weatherBonus: number;
   irRequired: boolean;
   objectives: Objective[];
+  /** Kariyer yoluna uyum: yol dışı mı; yoldaysa ücrete eklenmiş prim ve uçuş sonu XP primi (%). */
+  offPath?: boolean;
+  pathPayBonus?: number;
+  pathXpBonus?: number;
+  /** Hava ve zaman senaryosu (`conditions::JobConditions`); yoksa canlı hava ve gerçek saat. */
+  conditions?: JobConditions;
+}
+
+/** Kalkış saati: `now` gerçek saat (canlı). */
+export type TimeOfDay = "now" | "day" | "dawn" | "dusk" | "night";
+/** Hava: `live` simin canlı havası, diğerleri simin yerleşik ön ayarları. */
+export type WeatherPreset = "live" | "clear" | "few" | "scattered" | "broken" | "overcast" | "rain" | "snow" | "storm";
+
+/** Ön ayarın türetilmiş değerleri (`conditions::ScenarioWx`; METAR'ın karşılığı). */
+export interface ScenarioWx {
+  file: string;
+  /** Bulut katmanları METAR biçiminde ("FEW015 BKN030"); boşsa açık. */
+  sky: string;
+  ceilingFt: number | null;
+  visibilitySm: number;
+  windDir: number;
+  windKt: number;
+  tempC: number;
+  precip: "" | "rain" | "snow";
+  thunderstorm: boolean;
+  snowCoverM: number;
+  category: FlightCategory;
+}
+
+export interface JobConditions {
+  time: TimeOfDay;
+  weather: WeatherPreset;
+  /** Simdeki kalkış anı (unix sn, UTC); `now` ise 0. */
+  utc: number;
+  /** Yaklaşık yerel saat farkı (dk; boylamdan). */
+  utcOffsetMin: number;
+  sunDeg: number;
+  /** İstenen ışık yok (kutup gecesi/gündüzü): en yakın an seçildi. */
+  fallback: boolean;
+  nightArrival: boolean;
+  season: string;
+  wx: ScenarioWx | null;
+  payBonus: number;
+  xpBonus: number;
+  needsIr: boolean;
 }
 
 export interface AircraftPick {
@@ -478,6 +608,8 @@ export interface LogEntry {
   creditedHours: number;
   checkridePassed: boolean | null;
   appealed?: string[];
+  /** Bu uçuşla ulaşılan yeni rütbe (kimlik), varsa. */
+  promotion?: string | null;
 }
 
 /** [enlem, boylam, irtifa ft, yer hızı kt] */
@@ -534,15 +666,60 @@ export interface Env {
   seatbeltSign: boolean;
   cabinAltFt: number;
   transponder: number;
+  /** Sim aktif duraklatmada (uçak donar). Modstead kalkıştan sonraki ilk dakikalarda bunu kendisi kapatır. */
+  activePause?: boolean;
 }
 
 export interface AircraftOption {
   title: string;
   liveries: string[];
   class: AircraftClass | null;
-  classSource: "sim" | "user" | "name" | "unknown";
+  /** "user" elle · "icao" tip kodu · "sim" simin değerleri · "cfg" mod paketinin dosyaları · "name" addan tahmin */
+  classSource: "user" | "icao" | "sim" | "cfg" | "name" | "unknown";
   flyable: boolean;
   managesOwnLoading: boolean;
+  /** Kendi EFB'sinin kaynağı: "user" elle · "package" paketin geliştiricisi · "title" başlıktan · "" yok. */
+  loadingSource: "user" | "package" | "title" | "";
+  /** Elle seçim olmasaydı kendi EFB'si sayılır mıydı. */
+  autoLoading: boolean;
+  /** "sim": simin listesi ya da uçulan uçak · "mod": kütüphanedeki ya da Community'deki bir paket. */
+  origin: "sim" | "mod";
+  package: AircraftPackage | null;
+  /** Mod paketinin etkin olduğu simler. */
+  sims: ("msfs2020" | "msfs2024")[];
+  /** Paketin kendi küçük resmi var (`msfs_career_aircraft_thumb`). */
+  thumb: boolean;
+  icaoType: string;
+  /** Gerçek tip adı ("Airbus A320neo"); bilinmiyorsa boş. */
+  realType: string;
+  confidence: "high" | "medium" | "low" | null;
+  /** Elle verilmiş sınıf olmasa hangi sınıf olurdu. */
+  autoClass: AircraftClass | null;
+  autoSource: "icao" | "sim" | "cfg" | "name" | "unknown";
+  /** Uçuş kâğıdının değerleri: simden (uçağa binildi) ya da paketin dosyalarından. */
+  specs: AircraftSpecs | null;
+  specsSource: "sim" | "cfg" | "";
+}
+
+export interface AircraftPackage {
+  id: string;
+  title: string;
+  creator: string;
+  /** `SimObjects/Airplanes/<klasör>`: aynı uçağın sürümleri birlikte gösterilir. */
+  simobject: string;
+}
+
+export interface AircraftSpecs {
+  category: string;
+  engineType: number;
+  engines: number;
+  mtowLb: number;
+  emptyLb: number;
+  fuelCapacityGal: number;
+  cruiseKt: number;
+  payloadStations: number;
+  maxTakeoffLb: number;
+  maxLandingLb: number;
 }
 
 export interface Telemetry {
@@ -616,6 +793,27 @@ export interface CreateRequest {
   callsign: string;
   home: string;
   difficulty: Difficulty;
-  start: "student" | "commercial" | "airline";
+  /** "student": sıfırdan · "fast": deneyimli başla (yolun paketi). Eski: "commercial" | "airline". */
+  start: "student" | "fast" | "commercial" | "airline";
   birthYear?: number | null;
+  path?: CareerPath;
+}
+
+/** Uçuş ekranı: yerel sunucunun adresi, isteğe bağlı yerel ağ erişimi ve QR (`msfs_career_deck_info`). */
+export interface DeckInfo {
+  /** Yerel sunucunun portu; sunucu çalışmıyorsa `null`. */
+  port: number | null;
+  /** Bu makinede açılacak adres (`http://127.0.0.1:<port>/deck`). */
+  localUrl: string | null;
+  lan: {
+    enabled: boolean;
+    ip: string | null;
+    /** Tabletin açacağı adres (anahtar ve dil dahil). */
+    url: string | null;
+    error: string | null;
+  };
+  /** `lan.url`'nin QR kodu (sunucunun ürettiği SVG; beyaz zemin, sessiz bölge dahil). */
+  qrSvg: string | null;
+  /** Modstead'in uçuş ekranı penceresi açık mı. */
+  windowOpen: boolean;
 }

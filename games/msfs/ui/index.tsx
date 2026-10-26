@@ -7,6 +7,7 @@ import { api } from "./api";
 import { MsfsArt } from "./Art";
 import Career from "./career/Career";
 import { careerMocks } from "./career/mocks";
+import { HomeActions, HomePanel } from "./Home";
 import { mocks, reviewJob } from "./mocks";
 import Discover from "./pages/Discover";
 import Health from "./pages/Health";
@@ -29,7 +30,7 @@ const msfs: GameModule = {
   Icon: Plane,
   Art: MsfsArt,
   routes: [
-    { id: "overview", label: { tr: "Genel bakış", en: "Overview" }, icon: LayoutDashboard, Component: Overview },
+    { id: "overview", label: { tr: "Genel bakış", en: "Overview" }, icon: LayoutDashboard, Component: Overview, fullBleed: true },
     { id: "library", label: { tr: "Kütüphane", en: "Library" }, icon: LibraryIcon, Component: Library },
     { id: "career", label: { tr: "Kariyer", en: "Career" }, icon: PlaneTakeoff, Component: Career },
     { id: "discover", label: { tr: "Keşfet", en: "Discover" }, icon: Compass, Component: Discover },
@@ -38,6 +39,7 @@ const msfs: GameModule = {
     { id: "security", label: { tr: "Güvenlik", en: "Security" }, icon: ShieldCheck, Component: Security },
     { id: "settings", label: { tr: "Ayarlar", en: "Settings" }, icon: Settings2, Component: Settings },
   ],
+  home: { Actions: HomeActions, Panel: HomePanel },
   ReviewPlan,
   confirmJob: (job, { acceptRisk, options }) => api.confirmJob(job.id, acceptRisk, (options as ConfirmOptions | null) ?? null),
   mocks: previewReview ? { ...mocks, ...careerMocks, jobs_list: () => [reviewJob] } : { ...mocks, ...careerMocks },

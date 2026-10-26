@@ -87,7 +87,7 @@ export default function Health() {
 
           <section className="card mb-5 overflow-hidden">
             <header className="border-b border-line px-5 py-4">
-              <h3 className="text-[14px] font-semibold text-fg">{t.health.attention}</h3>
+              <h3 className="title text-[15px] text-fg">{t.health.attention}</h3>
               <p className="mt-0.5 text-[12.5px] text-fg-2">{t.health.attentionSub}</p>
             </header>
             {problems.length === 0 && pathSims.length === 0 ? (
@@ -337,7 +337,7 @@ function ConflictsSection({ conflicts, scan }: { conflicts: Conflict[] | undefin
   return (
     <section className="card overflow-hidden">
       <header className="border-b border-line px-5 py-4">
-        <h3 className="text-[14px] font-semibold text-fg">{t.health.conflictsTitle}</h3>
+        <h3 className="title text-[15px] text-fg">{t.health.conflictsTitle}</h3>
         <p className="mt-0.5 text-[12.5px] text-fg-2">{t.health.conflictsSub}</p>
       </header>
       {conflicts === undefined ? (

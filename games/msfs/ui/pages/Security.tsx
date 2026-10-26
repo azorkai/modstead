@@ -34,7 +34,7 @@ function Programs() {
   return (
     <section className="card overflow-hidden">
       <header className="border-b border-line px-5 py-4">
-        <h3 className="text-[14px] font-semibold text-fg">{t.startup.programs}</h3>
+        <h3 className="title text-[15px] text-fg">{t.startup.programs}</h3>
         <p className="mt-0.5 text-[12.5px] text-fg-2">{t.startup.programsSub}</p>
       </header>
       {isLoading || !entries ? (
@@ -51,7 +51,7 @@ function Programs() {
               .filter((e) => e.sim === sim)
               .map((e, i) => (
                 <li key={`${sim}-${i}`} className="flex items-center gap-3.5 px-5 py-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-line bg-surface-2">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-2">
                     <Cpu className={clsx("size-4", e.signedHint === "suspicious" ? "text-danger" : "text-fg-2")} />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -112,7 +112,7 @@ function Reports() {
     <section className="card overflow-hidden">
       <header className="flex items-end gap-3 border-b border-line px-5 py-4">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[14px] font-semibold text-fg">{t.startup.reports}</h3>
+          <h3 className="title text-[15px] text-fg">{t.startup.reports}</h3>
           <p className="mt-0.5 text-[12.5px] text-fg-2">{t.startup.reportsSub}</p>
         </div>
         {without.length > 0 && (

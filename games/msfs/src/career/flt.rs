@@ -231,13 +231,11 @@ pub struct FlightSetup<'a> {
     pub from: &'a Airport,
     pub to: &'a Airport,
     pub parking: Option<&'a Parking>,
-    /// Pist başında başla. 2020'de her zaman simin `FLIGHT_RUNWAY` durumu (motorlar çalışır).
+    /// Pist başında başla. 2020'de simin `FLIGHT_RUNWAY` durumu (motorlar çalışır). 2024'te o durum ana menüden de,
+    /// açık bir uçuşun üstüne de yüklenince "Uçuşa hazır"dan sonraki sinemada (CAMERA STATE 16) takılı kalıyor; ESC
+    /// de çalışmıyor. Bu yüzden 2024'te `PREFLIGHT_TAXI` yazılır: koltukta, motorlar çalışır, sinemasız (gerçek simde
+    /// denendi, 26.10.2026).
     pub runway_start: bool,
-    /// 2024, pist başı: sim ana menüdeyken simin kendi `FLIGHT_RUNWAY` durumu ("Uçuşa hazır" → kalkış sineması →
-    /// kokpit, motorlar çalışır). Açık bir uçuşun üstüne yüklenirken o durum "Uçuşa hazır"ı göstermeden sinemada
-    /// (CAMERA STATE 16) takılı kalıyor; o zaman `PREFLIGHT_TAXI` yazılır: koltukta, motorlar çalışır, sinemasız
-    /// (gerçek simde denendi).
-    pub hot_start: bool,
     /// Başlangıç konumu (park yeri, pist ucu ya da havalimanı noktası) ve yönü.
     pub lat: f64,
     pub lon: f64,
@@ -246,8 +244,33 @@ pub struct FlightSetup<'a> {
     pub runway: Option<(String, String)>,
     pub pln_name: Option<&'a str>,
     pub cruise_alt_ft: u32,
-    /// UTC zaman.
+    /// UTC zaman (canlı işte şimdi, senaryo işinde senaryonun saati).
     pub when: chrono::DateTime<chrono::Utc>,
+    /// Senaryo havası: simin yerleşik ön ayar dosyası ("Snow.WPR"); `None` ise canlı hava.
+    pub weather_preset: Option<&'a str>,
+    /// Mevsim ("Winter"); `None` ise tarihten.
+    pub season: Option<&'a str>,
+}
+
+/// Tarihten mevsim (kuzey yarımküre ayları; sim de tarihten hesaplar).
+fn season_of(when: &chrono::DateTime<chrono::Utc>) -> &'static str {
+    use chrono::Datelike;
+    match when.month0() {
+        11 | 0 | 1 => "Winter",
+        2..=4 => "Spring",
+        5..=7 => "Summer",
+        _ => "Fall",
+    }
+}
+
+/// 2024 `[Weather]` bölümünün hava satırları. Ön ayar Asobo'nun kendi kariyer dosyalarındaki biçimle yazılır
+/// (`fs-career-asobo/.../Certification/Turboprop.FLT`): dosya yolu simin sanal dosya sisteminin kökünden,
+/// `fs-base-spb/WeatherPresets/` klasöründeki yerleşik ön ayar.
+fn weather_lines_2024(preset: Option<&str>) -> String {
+    match preset {
+        Some(file) => format!("UseWeatherFile=True\nUseLiveWeather=False\nWeatherPresetFile=.\\WeatherPresets\\{file}\nWeatherCanBeLive=False"),
+        None => "UseWeatherFile=False\nUseLiveWeather=True\nWeatherCanBeLive=True".to_string(),
+    }
 }
 
 /// Simin uçağı hangi durumda hazırlayacağı: park yerinde soğuk, pistte motorlar çalışır.
@@ -318,13 +341,7 @@ pub fn write_flt(s: &FlightSetup) -> String {
             ("OnPlatformHeight", "-9999999999".into()),
         ],
     );
-    let month = s.when.month0();
-    let season = match month {
-        11 | 0 | 1 => "Winter",
-        2..=4 => "Spring",
-        5..=7 => "Summer",
-        _ => "Fall",
-    };
+    let season = s.season.unwrap_or_else(|| season_of(&s.when));
     sec(
         "DateTimeSeason",
         &[
@@ -337,6 +354,8 @@ pub fn write_flt(s: &FlightSetup) -> String {
             ("UseZuluTime", "True".into()),
         ],
     );
+    // 2020'de hava hep canlı: ön ayar anahtarlarının (`WeatherPresetFile`) 2020'de çalıştığı doğrulanmadı. Senaryonun
+    // saati ve mevsimi yukarıda uygulanır.
     sec("Weather", &[("UseWeatherFile", "False".into()), ("UseLiveWeather", "True".into()), ("WeatherCanBeLive", "True".into())]);
     if let Some(p) = s.pln_name {
         sec("GPS_Engine", &[("Filename", p.to_string())]);
@@ -353,12 +372,7 @@ pub fn write_flt(s: &FlightSetup) -> String {
 pub fn write_flt_2024(s: &FlightSetup) -> String {
     use chrono::Datelike;
     use chrono::Timelike;
-    let season = match s.when.month0() {
-        11 | 0 | 1 => "Winter",
-        2..=4 => "Spring",
-        5..=7 => "Summer",
-        _ => "Fall",
-    };
+    let season = s.season.unwrap_or_else(|| season_of(&s.when));
     let text = format!(
         r#"[Main]
 Title={title}
@@ -411,9 +425,7 @@ File.0=missions\Asobo\FreeFlights\FreeFlight\FreeFlightMain.wolf
 FirstFlightState={state}
 
 [Weather]
-UseWeatherFile=False
-UseLiveWeather=True
-WeatherCanBeLive=True
+{weather}
 CloudmapPosOverride=False
 CloudmapInitialPosX=0
 CloudmapInitialPosY=0
@@ -531,13 +543,13 @@ SimSpeed=001.00
         livery = s.livery,
         tail = s.tail_number,
         cabin = CABIN_2024,
-        state = match (s.runway_start, s.hot_start, s.parking.is_some()) {
-            (true, true, _) => "FLIGHT_RUNWAY",
-            (true, false, _) => "PREFLIGHT_TAXI",
+        state = match (s.runway_start, s.parking.is_some()) {
+            (true, _) => "PREFLIGHT_TAXI",
             // Park yerinde 2024 kullanıcıyı uçağın yanında başlatır (dış kontrol); Shift+C ile binilir.
-            (false, _, true) => "PREFLIGHT_GATE",
-            (false, _, false) => "PREFLIGHT_TAXI",
+            (false, true) => "PREFLIGHT_GATE",
+            (false, false) => "PREFLIGHT_TAXI",
         },
+        weather = weather_lines_2024(s.weather_preset),
         season = season,
         year = s.when.year(),
         day = s.when.ordinal0(),
@@ -821,7 +833,6 @@ mod tests {
             to: b,
             parking: Some(p),
             runway_start: false,
-            hot_start: false,
             lat: 40.97,
             lon: 28.81,
             alt_ft: 163.0,
@@ -830,6 +841,8 @@ mod tests {
             pln_name: Some("LTBA_LTBU"),
             cruise_alt_ft: 4500,
             when: chrono::DateTime::from_timestamp(1_800_000_000, 0).unwrap(),
+            weather_preset: None,
+            season: None,
         };
         let flt = write_flt(&s);
         for needle in ["[Main]", "MissionType=FreeFlight", "ICAO=LTBA", "GateName=PARKING", "GateNumber=1", "Sim=Cessna Skyhawk G1000 Asobo", "SimOnGround=True", "ICAO=LTBU", "RunwayNumber=05", "FirstFlightState=PREFLIGHT_GATE", "UseZuluTime=True", "Filename=LTBA_LTBU"] {
@@ -894,7 +907,6 @@ mod tests {
             to: b,
             parking: None,
             runway_start: true,
-            hot_start: false,
             lat: 40.89266,
             lon: 29.29319,
             alt_ft: 308.4,
@@ -903,13 +915,61 @@ mod tests {
             pln_name: None,
             cruise_alt_ft: 2000,
             when: chrono::DateTime::from_timestamp(1_800_000_000, 0).unwrap(),
+            weather_preset: None,
+            season: None,
         };
-        // 2020 simin kendi pist durumunu kullanır. 2024'te o durum yalnızca ana menüden yüklenirken yazılır;
-        // açık bir uçuşun üstüne yüklenirken sinemada takılı kaldığı için taksi durumu yazılır.
+        // 2020 simin kendi pist durumunu kullanır. 2024'te o durum sinemada takıldığı için hiç yazılmaz.
         assert!(write_flt(&s).contains("FirstFlightState=FLIGHT_RUNWAY"));
         assert!(write_flt_2024(&s).contains("FirstFlightState=PREFLIGHT_TAXI"));
-        let menu = FlightSetup { hot_start: true, ..s };
-        assert!(write_flt_2024(&menu).contains("FirstFlightState=FLIGHT_RUNWAY"));
+        assert!(!write_flt_2024(&s).contains("FLIGHT_RUNWAY"));
+    }
+
+    #[test]
+    fn scenario_weather_and_time_in_the_flt() {
+        use crate::career::conditions::{JobConditions, TimeOfDay, WeatherPreset, find_time, offset_min, preset};
+        // Gece, kar: Erzurum (LTCE), 15 Ocak 2027; kalkışta güneş −12°'nin altında.
+        let (a, b) = (db().get("LTCE").unwrap(), db().get("LTCI").unwrap());
+        let off = offset_min(a.lon) as i64 * 60;
+        let midnight = chrono::DateTime::parse_from_rfc3339("2027-01-15T00:00:00Z").unwrap().timestamp() - off;
+        let (utc, sun, fallback) = find_time(a.lat, a.lon, midnight, off, TimeOfDay::Night, &mut crate::career::jobs::Rng::new(3));
+        assert!(sun < -12.0 && !fallback);
+        let c = JobConditions { time: TimeOfDay::Night, weather: WeatherPreset::Snow, utc, wx: preset(WeatherPreset::Snow), season: "Winter".into(), ..Default::default() };
+        let when = c.flt_time(chrono::Utc::now());
+        assert_eq!(when.timestamp(), utc);
+        let s = FlightSetup {
+            title: "Modstead: LTCE - LTCI",
+            description: "Kar, gece",
+            aircraft_title: "Beechcraft King Air 350i",
+            livery: "",
+            tail_number: "TC-MOD",
+            from: a,
+            to: b,
+            parking: None,
+            runway_start: false,
+            lat: a.lat,
+            lon: a.lon,
+            alt_ft: a.elevation_ft as f64,
+            heading: 260.0,
+            runway: None,
+            pln_name: Some("LTCE_LTCI"),
+            cruise_alt_ft: 17000,
+            when,
+            weather_preset: c.wx.as_ref().map(|w| w.file.as_str()),
+            season: Some(c.season.as_str()),
+        };
+        let f24 = write_flt_2024(&s);
+        use chrono::{Datelike, Timelike};
+        let date = format!("[DateTimeSeason]\r\nSeason=Winter\r\nYear=2027\r\nDay={}\r\nHours={}\r\nMinutes={}\r\n", when.ordinal0(), when.hour(), when.minute());
+        for needle in ["[Weather]\r\nUseWeatherFile=True\r\nUseLiveWeather=False\r\nWeatherPresetFile=.\\WeatherPresets\\Snow.WPR\r\nWeatherCanBeLive=False\r\nCloudmapPosOverride=False", date.as_str(), "UseZuluTime=True"] {
+            assert!(f24.contains(needle), "{needle}\n{f24}");
+        }
+        assert!(!f24.contains("UseLiveWeather=True"));
+        // 2020: saat ve mevsim uygulanır, hava canlı kalır.
+        let f20 = write_flt(&s);
+        assert!(f20.contains("Season=Winter") && f20.contains(&format!("Hours={}", when.hour())) && f20.contains("UseLiveWeather=True") && !f20.contains("WeatherPresetFile"));
+        // Canlı iş: bugünkü gibi.
+        let live = write_flt_2024(&FlightSetup { weather_preset: None, season: None, ..s });
+        assert!(live.contains("UseWeatherFile=False\r\nUseLiveWeather=True\r\nWeatherCanBeLive=True") && !live.contains("WeatherPresetFile"));
     }
 
     #[test]

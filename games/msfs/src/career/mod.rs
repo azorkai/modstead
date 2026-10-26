@@ -12,9 +12,12 @@
 //! - bu dosya: kalıcı durum ve arayüzün çağırdığı işlemler.
 
 pub mod achievements;
+pub mod addons;
 pub mod aircraft;
 pub mod airports;
 pub mod commands;
+pub mod conditions;
+pub mod deck;
 pub mod dispatch;
 pub mod economy;
 pub mod families;
@@ -30,9 +33,13 @@ pub mod maintenance;
 pub mod menu;
 pub mod missions;
 pub mod model;
+pub mod paths;
+mod pause_guard;
 pub mod progression;
+pub mod qr;
 pub mod records;
 pub mod simconnect;
+pub mod tiles;
 pub mod tracker;
 pub mod weather;
 
@@ -45,7 +52,7 @@ use modstead_core::fsx;
 use modstead_core::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use aircraft::{Class, classify_name, info};
+use aircraft::{Class, info};
 use airports::{Airport, db};
 use economy::{Damage, Settlement};
 use flt::AirportDetail;
@@ -140,6 +147,20 @@ pub struct Live {
     pub last_data: Option<Instant>,
     #[serde(skip)]
     pub launch_state: Option<engine::Launch>,
+    /// Sim içi koda istek ve not (`/api/sim-assist`); arayüze gitmez.
+    #[serde(skip)]
+    pub assist: SimAssist,
+}
+
+/// Sim içi koda (ana arayüzdeki Modstead kodu) yardım isteği: başlatmadan sonra takılan aktif duraklatmayı kapat
+/// ve kullanıcıya kısa not göster (bkz. `pause_guard`, `hud/menu/API.md`).
+#[derive(Debug, Clone, Serialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SimAssist {
+    /// Aktif duraklatmayı kapatma isteği: 0 yok; her olayda yeni numara, sim içi kod her numarayı bir kez işler.
+    pub unpause: u32,
+    /// Sim içinde gösterilecek not (Modstead'in dilinde); yoksa `None`.
+    pub notice: Option<String>,
 }
 
 /// Simden öğrenilen ve diske yazılan önbellekler.
@@ -188,6 +209,8 @@ pub struct PilotView {
     pub medical_fee: i64,
     /// Evden uzakta dinlenmenin (otel) ücreti; evdeyse 0.
     pub rest_cost: i64,
+    /// Kariyer yolu: rütbe, basamaklar, yoldaki saat ve primler (`paths`).
+    pub path_status: paths::PathStatus,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -244,17 +267,41 @@ pub struct CareerView {
     pub achievements: Vec<achievements::Achievement>,
 }
 
-/// Yüklü uçak seçeneği.
+/// Yüklü uçak seçeneği: simin listesi, uçulan uçaklar ve mod paketleri birleşik (`addons::merge`).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AircraftOption {
     pub title: String,
     pub liveries: Vec<String>,
     pub class: Option<Class>,
-    /// "sim" (bu uçağa binildi, değerler simden) | "user" | "name" (adından tahmin) | "unknown"
+    /// "user" (elle) | "icao" (tip kodu) | "sim" (bu uçağa binildi, değerler simden) | "cfg" (paketin dosyaları) |
+    /// "name" (adından tahmin) | "unknown"
     pub class_source: String,
+    /// Elle seçim olmasaydı sınıf ve kaynağı (arayüzdeki "otomatik" seçeneği).
+    pub auto_class: Option<Class>,
+    pub auto_source: String,
     pub flyable: bool,
     pub manages_own_loading: bool,
+    /// Kendi EFB'sinin kaynağı: "user" (elle) | "package" (paketin geliştiricisi) | "title" (başlıktan) | "".
+    pub loading_source: String,
+    /// Elle seçim olmasaydı kendi EFB'si sayılır mıydı.
+    pub auto_loading: bool,
+    /// "sim" (simin listesi ya da uçulan uçak) | "mod" (kütüphanedeki ya da Community'deki bir paket).
+    pub origin: String,
+    /// Mod uçağıysa paketi.
+    pub package: Option<addons::AircraftPackage>,
+    /// Mod paketinin etkin olduğu simler ("msfs2020", "msfs2024"); simin kendi uçağında boş.
+    pub sims: Vec<String>,
+    /// Paketin kendi küçük resmi var mı (`msfs_career_aircraft_thumb`).
+    pub thumb: bool,
+    /// ICAO tip kodu ve gerçek tip adı ("A20N", "Airbus A320neo"); bilinmiyorsa boş.
+    pub icao_type: String,
+    pub real_type: String,
+    /// Otomatik sınıfın güveni; elle verilmiş ya da bilinmeyen sınıfta yok.
+    pub confidence: Option<aircraft::Confidence>,
+    /// Uçuş kâğıdının değerleri ve kaynağı ("sim" | "cfg" | "").
+    pub specs: Option<aircraft::SimSpecs>,
+    pub specs_source: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -268,6 +315,17 @@ pub struct CreateRequest {
     /// Doğum yılı (sağlık sertifikasının süresi yaşa bağlı); verilmezse 30 yaş sayılır.
     #[serde(default)]
     pub birth_year: Option<i32>,
+}
+
+/// Arayüzün kayıt isteği: `CreateRequest` + kariyer yolu. `start`: "student" (sıfırdan) ya da "fast" (deneyimli
+/// başla); eski "commercial" ve "airline" değerleri de kabul edilir (yol verilmezse "airline" havayolu yoludur).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewCareer {
+    #[serde(flatten)]
+    pub request: CreateRequest,
+    #[serde(default)]
+    pub path: Option<paths::CareerPath>,
 }
 
 // ---------- Kariyer ----------
@@ -307,6 +365,10 @@ impl Career {
         };
         let mut data = data;
         migrate(&mut data);
+        // Tür başına saati olmayan eski kariyer: kariyer yolunun saatleri seyir defterinden.
+        if let Some(p) = data.pilot.as_mut() {
+            paths::backfill(&mut p.stats, &log);
+        }
         let journal = journal::Journal::new(&cache_dir.join("logs"));
         journal.write("uygulama", &format!("kariyer açıldı (Modstead {})", env!("CARGO_PKG_VERSION")));
         Arc::new(Career {
@@ -329,7 +391,11 @@ impl Career {
         let _ = self.link.set(LinkHandle::spawn(handler));
         // Simin içindeki Modstead sayfalarının yerel sunucusu (yalnızca 127.0.0.1; bkz. hud_server).
         match hud_server::start(self.clone()) {
-            Some(p) => self.note("panel", format!("panel sunucusu 127.0.0.1:{p} üzerinde")),
+            Some(p) => {
+                self.note("panel", format!("panel sunucusu 127.0.0.1:{p} üzerinde"));
+                // Uçuş ekranı aynı sunucudan; kullanıcı yerel ağ kipini açık bıraktıysa o da açılır.
+                deck::started(self, p);
+            }
             None => self.note("panel", "panel sunucusu açılamadı (portlar dolu); panel paketteki kopyayla çalışır"),
         }
     }
@@ -431,42 +497,51 @@ impl Career {
 
     // ----- Pilot -----
 
+    /// Yeni kariyer (yol seçilmeden): eski "airline" başlangıcı havayolu yoludur, diğerleri genel yol.
     pub fn create(&self, req: CreateRequest) -> AppResult<()> {
+        let path = if req.start == "airline" { paths::CareerPath::Airline } else { paths::CareerPath::General };
+        self.create_in(req, path)
+    }
+
+    /// Yeni kariyer bir yolda: sıfırdan (öğrenci) ya da deneyimli (yolun lisans paketi ve tutarlı uçuş geçmişi;
+    /// bkz. `paths::start`). Eski "commercial" ve "airline" başlangıçları deneyimli sayılır.
+    pub fn create_in(&self, req: CreateRequest, path: paths::CareerPath) -> AppResult<()> {
         let name = req.name.trim();
         if name.is_empty() || name.chars().count() > 40 {
             return Err(AppError::msg(tr!("Pilot adı 1–40 karakter olmalı.", "The pilot name must be 1–40 characters.")));
         }
         let home = db().get(&req.home).ok_or_else(|| AppError::msg(tr!("Ana üs havalimanı bulunamadı.", "Home airport not found.")))?;
-        let (licenses, money, level, hours): (&[&str], i64, u32, f64) = match req.start.as_str() {
-            "commercial" => (&["spl", "ppl", "cpl", "me", "ir"], 25_000, 5, 20.0),
-            "airline" => (&["spl", "ppl", "cpl", "me", "ir", "jet", "atpl", "narrow"], 120_000, 16, 120.0),
-            _ => (&["spl"], 3_000, 1, 0.0),
-        };
-        let money_mult = match req.difficulty {
-            Difficulty::Easy => 1.5,
-            Difficulty::Normal => 1.0,
-            Difficulty::Realistic => 0.7,
-        };
-        let money = (money as f64 * money_mult).round() as i64;
+        let fast = matches!(req.start.as_str(), "fast" | "commercial" | "airline");
+        let start = paths::start(path, fast, req.difficulty);
+        let money = start.money;
         let birth_year = req.birth_year.filter(|y| (1930..=2012).contains(y)).unwrap_or(0);
-        let held: Vec<String> = licenses.iter().map(|s| s.to_string()).collect();
-        let pilot = Pilot {
+        let t = now();
+        let mut records = records::Records::new_pilot(&start.licenses, fast, birth_year, t);
+        if fast && start.licenses.iter().any(|l| l == "heli") {
+            records.seed_helicopter(t);
+        }
+        let mut pilot = Pilot {
             birth_year,
-            records: records::Records::new_pilot(&held, matches!(req.start.as_str(), "commercial" | "airline"), birth_year, now()),
+            records,
             name: name.to_string(),
             callsign: req.callsign.trim().chars().take(12).collect::<String>().to_uppercase(),
             home: home.icao.clone(),
             location: home.icao.clone(),
             money,
             loan: 0,
-            xp: xp_for_level(level),
-            licenses: licenses.iter().map(|s| s.to_string()).collect(),
+            xp: start.xp,
+            licenses: start.licenses,
             reputation: 50.0,
             difficulty: req.difficulty,
-            start: if matches!(req.start.as_str(), "commercial" | "airline") { req.start.clone() } else { "student".into() },
+            start: if fast { "fast".into() } else { "student".into() },
             created_at: crate::store::now_iso(),
-            stats: Stats { hours, ..Default::default() },
+            stats: start.stats,
+            path,
+            path_since: t,
+            ..Default::default()
         };
+        paths::promote(&mut pilot);
+        self.note("komut", format!("yeni kariyer: {path:?} yolu, {}", if fast { "deneyimli başlangıç" } else { "sıfırdan" }));
         {
             let mut d = self.lock_data();
             let known = std::mem::take(&mut d.known_aircraft);
@@ -498,6 +573,28 @@ impl Career {
         self.changed();
     }
 
+    /// Kariyer yolunu değiştirir: lisans, saat, para ve itibar kalır; rütbe yeni yolun kendi saatlerinden hesaplanır
+    /// (bkz. `paths`). Elde iş varken değiştirilemez (ilanın primi eski yola göre).
+    pub fn set_path(&self, path: paths::CareerPath) -> AppResult<()> {
+        let mut d = self.lock_data();
+        if d.active.is_some() {
+            return Err(AppError::msg(tr!("Önce elinizdeki işi bitirin ya da bırakın.", "Finish or drop your current job first.")));
+        }
+        let p = d.pilot.as_mut().ok_or_else(no_pilot)?;
+        if p.path == path {
+            return Ok(());
+        }
+        let old = p.path;
+        p.path = path;
+        p.path_since = now();
+        paths::promote(p);
+        self.save(&d);
+        drop(d);
+        self.note("komut", format!("kariyer yolu: {old:?} → {path:?}"));
+        self.changed();
+        Ok(())
+    }
+
     // ----- İlanlar -----
 
     pub fn board(&self) -> AppResult<Vec<Job>> {
@@ -512,6 +609,10 @@ impl Career {
         let status = p.records.status(&p.licenses, p.difficulty, t);
         let ir = p.has("ir") && (status.ifr_current || !status.enforce_currency);
         for j in list.iter_mut() {
+            // Senaryo havalı işin havası ön ayardandır (`conditions`); METAR ona uygulanmaz.
+            if j.conditions.wx.is_some() {
+                continue;
+            }
             let Some(m) = caches.metar.get(&j.to, t) else { continue };
             j.weather = Some(m.category);
             let bonus = weather::bad_weather_bonus(m.category);
@@ -624,20 +725,13 @@ impl Career {
         Ok(())
     }
 
-    /// Bir uçağın sınıfı: kullanıcı > simden öğrenilen > addan tahmin.
+    /// Bir uçağın sınıfı: kullanıcı > ICAO tip kodu > simden öğrenilen > mod paketinin dosyaları > addan tahmin
+    /// (`addons::class_for`).
     pub(crate) fn class_of(d: &CareerData, title: &str, atc_model: &str) -> (Option<Class>, &'static str) {
-        if let Some(c) = d.class_overrides.get(title) {
-            return (Some(*c), "user");
-        }
-        if let Some(k) = d.known_aircraft.get(title) {
-            if k.class.is_some() {
-                return (k.class, "sim");
-            }
-        }
-        match classify_name(title, atc_model) {
-            Some(c) => (Some(c), "name"),
-            None => (None, "unknown"),
-        }
+        let index = addons::index();
+        let addon = index.find(title).filter(|a| !a.sims.is_empty());
+        let (class, src, _) = addons::class_for(d, title, atc_model, addon);
+        (class, src)
     }
 
     /// Simden alınmış havalimanı ayrıntısı (bellek ya da disk önbelleği).
@@ -665,45 +759,11 @@ impl Career {
         db().get(icao).map(|a| a.runway.split('/').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()).unwrap_or_default()
     }
 
+    /// Uçak listesi: simin listesi (2024), uçulan uçaklar ve simlerde etkin mod paketlerinin uçakları (`addons`).
     pub fn installed_aircraft(&self) -> Vec<AircraftOption> {
         let d = self.lock_data();
-        let held = d.pilot.as_ref().map(|p| p.licenses.clone()).unwrap_or_default();
-        let mut map: Vec<(String, Vec<String>)> = Vec::new();
-        for (t, l) in &self.caches.lock().unwrap().installed.items {
-            if aircraft::is_passive(t) {
-                continue;
-            }
-            match map.iter_mut().find(|(x, _)| x == t) {
-                Some((_, ls)) => {
-                    if !l.is_empty() && !ls.contains(l) {
-                        ls.push(l.clone());
-                    }
-                }
-                None => map.push((t.clone(), if l.is_empty() { vec![] } else { vec![l.clone()] })),
-            }
-        }
-        for k in d.known_aircraft.values() {
-            if !map.iter().any(|(t, _)| *t == k.title) {
-                map.push((k.title.clone(), vec![]));
-            }
-        }
-        let mut out: Vec<AircraftOption> = map
-            .into_iter()
-            .map(|(title, liveries)| {
-                let model = d.known_aircraft.get(&title).map(|k| k.atc_model.clone()).unwrap_or_default();
-                let (class, src) = Self::class_of(&d, &title, &model);
-                AircraftOption {
-                    flyable: class.is_some_and(|c| can_fly(c, &held)),
-                    manages_own_loading: aircraft::manages_own_loading(&title),
-                    title,
-                    liveries,
-                    class,
-                    class_source: src.to_string(),
-                }
-            })
-            .collect();
-        out.sort_by(|a, b| a.class.cmp(&b.class).then(a.title.to_lowercase().cmp(&b.title.to_lowercase())));
-        out
+        let items = self.caches.lock().unwrap().installed.items.clone();
+        addons::merge(&d, &items, &addons::index(), &addons::prefs())
     }
 
     pub fn set_class(&self, title: &str, class: Option<Class>) -> AppResult<()> {
@@ -728,6 +788,8 @@ impl Career {
         }
         let mut d = self.lock_data();
         let (class, _) = Self::class_of(&d, title, "");
+        // Filodaki uçağın sınıfı satın alırken belirlendi; başlıktan çıkmıyorsa o geçerli.
+        let class = class.or_else(|| fleet_id.as_ref().and_then(|fid| d.fleet.iter().find(|f| &f.id == fid)).and_then(|f| f.class));
         let p = d.pilot.clone().ok_or_else(no_pilot)?;
         let a = d.active.as_ref().ok_or_else(|| AppError::msg(tr!("Önce bir iş kabul edin.", "Accept a job first.")))?;
         if a.tracker.as_ref().is_some_and(|t| t.started()) {
@@ -845,6 +907,11 @@ impl Career {
 
     pub fn logbook(&self) -> Vec<LogEntry> {
         self.log.lock().unwrap().iter().rev().map(light_entry).collect()
+    }
+
+    /// Aktif uçuşun şimdiye kadarki izi (uçuş ekranı); aktif takip yoksa boş.
+    pub fn active_track(&self) -> Vec<TrackPoint> {
+        self.lock_data().active.as_ref().and_then(|a| a.tracker.as_ref()).map(|t| t.track.clone()).unwrap_or_default()
     }
 
     pub fn flight(&self, id: &str) -> AppResult<(LogEntry, Vec<TrackPoint>)> {
@@ -983,7 +1050,8 @@ impl Career {
         let valid = s.invalid.is_none() && !s.crashed && tracker.airborne_ever();
         let xp = if valid && result != "abandoned" {
             let base = progression::flight_xp(s.score, block_h, job.distance_nm.min(s.flown_nm.max(job.distance_nm * 0.5)), class, checkride_passed == Some(true));
-            (base as f64 * (1.0 + s.bonus_pct as f64 / 100.0)).round() as u32
+            // Prosedür bonusları, senaryonun (gece, kötü hava) XP eki ve kariyer yolunun XP primi.
+            (base as f64 * (1.0 + s.bonus_pct as f64 / 100.0) * (1.0 + job.conditions.xp_bonus as f64 / 100.0) * (1.0 + job.path_xp_bonus as f64 / 100.0)).round() as u32
         } else {
             0
         };
@@ -1026,6 +1094,10 @@ impl Career {
             if job.distance_nm >= 50.0 {
                 ps.cross_country_hours += credited;
             }
+            // Kariyer yolunda uçulan saat iş türünden hesaplanır (`paths::path_hours`).
+            if credited > 0.0 {
+                *ps.kind_hours.entry(job.kind.clone()).or_default() += credited;
+            }
             ps.night_landings += landings.iter().filter(|(n, _)| *n).count() as u32;
             ps.instrument_approaches += s.instrument_approaches;
             if s.stable_approach == Some(true) {
@@ -1067,6 +1139,11 @@ impl Career {
                 }
             }
         }
+        // Yeni lisans, saat ya da itibarla yolda bir üst basamağa çıkıldıysa kalıcı olarak kaydedilir.
+        let promotion = d.pilot.as_mut().and_then(paths::promote).map(str::to_string);
+        if let Some(r) = &promotion {
+            self.note("takip", format!("terfi: {r}"));
+        }
         if st.net != 0 {
             let route = format!("{} → {}", job.from, job.to);
             push_ledger(d, st.net, if job.mode == Mode::Contract { "contract" } else { "job_pay" }, &route);
@@ -1101,6 +1178,7 @@ impl Career {
             credited_hours: (credited * 100.0).round() / 100.0,
             checkride_passed,
             appealed: Vec::new(),
+            promotion,
         };
         self.save(d);
         let tracks = self.dir.join("tracks");
@@ -1145,7 +1223,11 @@ impl Career {
             grant = e.job.checkride.clone();
         }
         let new_xp = if e.xp > 0 || grant.is_some() {
-            (progression::flight_xp(new, block_h, dist, class, e.checkride_passed == Some(true)) as f64 * (1.0 + e.summary.bonus_pct as f64 / 100.0)).round() as u32
+            (progression::flight_xp(new, block_h, dist, class, e.checkride_passed == Some(true)) as f64
+                * (1.0 + e.summary.bonus_pct as f64 / 100.0)
+                * (1.0 + e.job.conditions.xp_bonus as f64 / 100.0)
+                * (1.0 + e.job.path_xp_bonus as f64 / 100.0))
+                .round() as u32
         } else {
             0
         };
@@ -1170,6 +1252,8 @@ impl Career {
                     pm.licenses.push(l);
                 }
             }
+            // Kazanılan lisans ya da itibar yolda yeni bir basamak açmış olabilir.
+            paths::promote(pm);
         }
         self.save(&d);
         drop(d);
@@ -1413,11 +1497,33 @@ impl Career {
     pub(crate) fn dispatch_for(&self, d: &CareerData, p: &Pilot, a: &ActiveJob) -> Option<dispatch::Dispatch> {
         let class = a.aircraft.as_ref().and_then(|x| x.class).or(a.job.class)?;
         let (from, to) = (db().get(&a.job.from)?, db().get(&a.job.to)?);
-        let specs = a.aircraft.as_ref().and_then(|x| d.known_aircraft.get(&x.title)).map(|k| k.specs.clone());
+        // Simin değerleri (uçağa binildiyse) mod paketinin dosyalarındakilerden önce gelir.
+        let specs = a.aircraft.as_ref().and_then(|x| d.known_aircraft.get(&x.title).map(|k| k.specs.clone()).filter(|s| s.mtow_lb > 0.0 || s.empty_lb > 0.0).or_else(|| addons::specs_for(&x.title)));
         let wx = self.weather_for(&[&a.job.from, &a.job.to]);
         let dep_wx = wx.first().cloned().flatten();
         let dest_wx = wx.get(1).cloned().flatten();
-        let arrival = now() as f64 + a.job.plan.block_min * 60.0;
+        // Senaryo işinde hava ön ayardan, varış saati senaryonun saatinden (`conditions`).
+        let c = &a.job.conditions;
+        if let Some(s) = c.wx.as_ref() {
+            return Some(dispatch::dispatch(&dispatch::DispatchInput {
+                db: db(),
+                class,
+                from,
+                to,
+                distance_nm: a.job.distance_nm,
+                air_min: a.job.plan.air_min,
+                pax: a.job.pax,
+                cargo_kg: a.job.cargo_kg,
+                specs: specs.as_ref(),
+                dest_category: Some(s.category),
+                dep_weather: Some(s.temp_qnh()),
+                dest_weather: Some(s.temp_qnh()),
+                dest_wet: s.wet(),
+                night_arrival: c.arrives_at_night(to, now(), a.job.plan.block_min),
+                pilot_ir: p.has("ir"),
+            }));
+        }
+        let arrival = c.departure(now()) as f64 + a.job.plan.block_min * 60.0;
         Some(dispatch::dispatch(&dispatch::DispatchInput {
             db: db(),
             class,
@@ -1512,7 +1618,9 @@ impl Career {
         let d = self.lock_data();
         let a = d.active.as_ref()?;
         let model = a.aircraft.as_ref().and_then(|p| d.known_aircraft.get(&p.title)).map(|k| k.atc_model.clone()).unwrap_or_default();
-        Some(flt::simbrief_url(&a.job.from, &a.job.to, flt::icao_type(&model).as_deref()))
+        // Mod uçağında tip kodu paketin `icao_type_designator`'ından; ATC modeli "AC_MODEL A320" gibi boşluklu da olabilir.
+        let icao = flt::icao_type(&model).or_else(|| aircraft::icao_from_atc_model(&model)).or_else(|| a.aircraft.as_ref().and_then(|p| addons::icao_for(&p.title)));
+        Some(flt::simbrief_url(&a.job.from, &a.job.to, icao.as_deref()))
     }
 }
 
@@ -1592,11 +1700,13 @@ fn fleet_value(d: &CareerData) -> i64 {
 
 fn pilot_view(p: &Pilot, fleet_value: i64, now: i64) -> PilotView {
     let level = level_for_xp(p.xp);
-    let (tr_t, en_t) = progression::title(&p.licenses);
+    // Unvan: yolda bir basamaktaysa rütbe (Kaptan, Kargo kaptanı…), değilse en yüksek lisans.
+    let (tr_t, en_t) = paths::title(p);
     let status = p.records.status(&p.licenses, p.difficulty, now);
     PilotView {
         medical_fee: records::medical_fee(status.medical_required, p.difficulty),
         rest_cost: rest_cost(p),
+        path_status: paths::status(p),
         status,
         level,
         level_xp: xp_for_level(level),
@@ -1632,8 +1742,8 @@ pub(crate) fn check_records(p: &Pilot, job: &Job) -> AppResult<()> {
     let t = now();
     let status = p.records.status(&p.licenses, p.difficulty, t);
     let block_h = job.plan.block_min / 60.0;
-    let arrival = t as f64 + job.plan.block_min * 60.0;
-    let night = db().get(&job.to).is_some_and(|a| env::is_night(a.lat, a.lon, arrival));
+    // Senaryo saatli işte varış saati senaryodan (`conditions`), canlıda şimdiden.
+    let night = db().get(&job.to).is_some_and(|a| job.conditions.arrives_at_night(a, t, job.plan.block_min));
     let heli = job.class == Some(Class::Helicopter);
     match records::blocker(&status, carries_passengers(job), heli, night, block_h) {
         None => Ok(()),

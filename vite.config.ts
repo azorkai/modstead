@@ -54,5 +54,12 @@ export default defineConfig({
     target: "es2022",
     sourcemap: false,
     chunkSizeWarningLimit: 1200,
+    // İki sayfa: uygulamanın kendisi ve yerel sunucunun verdiği uçuş ekranı (/deck → deck.html).
+    rolldownOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        deck: fileURLToPath(new URL("./deck.html", import.meta.url)),
+      },
+    },
   },
 });

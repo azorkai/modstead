@@ -1,6 +1,10 @@
 // Kariyer önizleme verisi. Adres: ?view=game:msfs:career  ·  &career=new (ilk kayıt) | idle (aktif iş yok) | ready (kontrol kapısı)
+// Uçuş ekranı: /deck.html (aynı veri; uçak rotada ilerler)  ·  &career=landed (indi, parka taksi) · &career=parked (park etti, uçuşu bitir)  ·  &deck=lan (yerel ağ erişimi açık başlar)
 
-import type { Airport, AirportHit, CareerView, HudStatus, MenuStatus, ClassInfo, FlightDetail, Job, Landing, LedgerEntry, Live, LogEntry, Metar, TrackPoint } from "./types";
+import type { Airport, AirportHit, CareerView, DeckInfo, HudStatus, MenuStatus, ClassInfo, FlightDetail, Job, Landing, LedgerEntry, Live, LogEntry, Metar, TilesInfo, TrackPoint } from "./types";
+import type { CareerPath, Difficulty, JobConditions, ScenarioWx } from "./types";
+import { applyPathPreview, mockCatalog, mockSetPath } from "./paths-mocks";
+import { aircraftMocks } from "./aircraft/mocks";
 
 const params = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
 const mode = params.get("career") ?? "flying";
@@ -114,6 +118,49 @@ const classes: ClassInfo[] = [
   C({ id: "helicopter", nameTr: "Helikopter", nameEn: "Helicopter", examples: "H125, H135, Bell 407, Cabri G2", seats: 5, rentH: 900, price: 900_000, maintH: 200, licenses: ["ppl", "heli"] }),
 ];
 
+// Hava ve zaman senaryoları (`career::conditions`): ön ayar değerleri arka uçtaki tabloyla aynı.
+const SWX = (file: string, sky: string, ceilingFt: number | null, visibilitySm: number, windKt: number, category: ScenarioWx["category"], extra: Partial<ScenarioWx> = {}): ScenarioWx => ({
+  file,
+  sky,
+  ceilingFt,
+  visibilitySm,
+  windDir: 270,
+  windKt,
+  tempC: 15,
+  precip: "",
+  thunderstorm: false,
+  snowCoverM: 0,
+  category,
+  ...extra,
+});
+const PRESET = {
+  clear: SWX("ClearSky.WPR", "", null, 10, 2, "VFR"),
+  few: SWX("FewClouds.WPR", "FEW016 FEW164", null, 10, 4, "VFR"),
+  broken: SWX("BrokenClouds.WPR", "FEW015 BKN030", 3000, 8, 12, "MVFR"),
+  overcast: SWX("Overcast.WPR", "FEW015 OVC040 BKN100", 4000, 5, 8, "MVFR"),
+  rain: SWX("Rain.WPR", "SCT015 BKN030 SCT100", 3000, 3, 10, "MVFR", { precip: "rain" }),
+  snow: SWX("Snow.WPR", "OVC018 SCT047", 1800, 1, 5, "IFR", { precip: "snow", tempC: -5, snowCoverM: 0.5 }),
+  storm: SWX("Storm.WPR", "OVC015 OVC030CB BKN200", 1500, 1.5, 30, "IFR", { precip: "rain", thunderstorm: true }),
+};
+const today = Math.floor(now / 86400) * 86400;
+/** İstanbul'da yaklaşık yerel saat (boylamdan UTC+2) → unix. */
+const localAt = (h: number, m: number, base = today) => base + (h - 2) * 3600 + m * 60;
+const cond = (p: Partial<JobConditions>): JobConditions => ({
+  time: "now",
+  weather: "live",
+  utc: 0,
+  utcOffsetMin: 120,
+  sunDeg: 0,
+  fallback: false,
+  nightArrival: false,
+  season: "",
+  wx: null,
+  payBonus: 0,
+  xpBonus: 0,
+  needsIr: false,
+  ...p,
+});
+
 const job = (p: Partial<Job> & Pick<Job, "id" | "kind" | "from" | "to" | "distanceNm" | "pay">): Job => ({
   mode: "employee",
   class: "light_piston",
@@ -137,8 +184,33 @@ const job = (p: Partial<Job> & Pick<Job, "id" | "kind" | "from" | "to" | "distan
 });
 
 const board: Job[] = [
-  job({ id: "j1", kind: "medical", from: "LTBA", to: "LTBJ", distanceNm: 178, pay: 1420, class: "turboprop_single", pax: 2, cargoKg: 140, cargo: "patient_transfer", client: "Ege Air Service", urgent: true, deadlineH: 3 }),
-  job({ id: "j2", kind: "cargo", from: "LTBA", to: "LTBU", distanceNm: 41.7, pay: 230, cargoKg: 180, cargo: "spare_parts" }),
+  job({
+    id: "j1",
+    kind: "medical",
+    from: "LTBA",
+    to: "LTBJ",
+    distanceNm: 178,
+    pay: 1560,
+    class: "turboprop_single",
+    pax: 2,
+    cargoKg: 140,
+    cargo: "patient_transfer",
+    client: "Ege Air Service",
+    urgent: true,
+    deadlineH: 3,
+    conditions: cond({ time: "night", utc: localAt(22, 10), sunDeg: -41, nightArrival: true, payBonus: 10, xpBonus: 5 }),
+  }),
+  job({
+    id: "j2",
+    kind: "cargo",
+    from: "LTBA",
+    to: "LTBU",
+    distanceNm: 41.7,
+    pay: 240,
+    cargoKg: 180,
+    cargo: "spare_parts",
+    conditions: cond({ time: "dusk", weather: "few", utc: localAt(17, 35), sunDeg: 3, wx: PRESET.few, payBonus: 5, xpBonus: 3 }),
+  }),
   job({
     id: "j3",
     kind: "charter",
@@ -153,10 +225,87 @@ const board: Job[] = [
     client: "Mavi Charter",
     quote: { revenue: 6180, estRent: 1690, estFuel: 450, estFees: 105, estNav: 64, estHandling: 24, estProfit: 3935, fuelPrice: 1.06 },
     weather: "MVFR",
+    conditions: cond({ time: "day", weather: "overcast", utc: localAt(11, 20), sunDeg: 38, wx: PRESET.overcast }),
   }),
-  job({ id: "j4", kind: "passenger", from: "LTBA", to: "LTAI", distanceNm: 290, pay: 1890, class: "turboprop_single", pax: 7, cargo: "tourists", client: "Toros Aviation" }),
-  job({ id: "j5", kind: "bush", from: "LTBA", to: "LTBQ", distanceNm: 67, pay: 510, cargoKg: 160, pax: 1, cargo: "survey_team", client: "Granite Mining Co." }),
-  job({ id: "j6", kind: "ferry", from: "LTBA", to: "LTBR", distanceNm: 58, pay: 260, class: "piston_twin", cargo: "aircraft_delivery", client: "Atlas Lojistik" }),
+  job({
+    id: "j4",
+    kind: "passenger",
+    from: "LTBA",
+    to: "LTAI",
+    distanceNm: 290,
+    pay: 2550,
+    class: "turboprop_single",
+    pax: 7,
+    cargo: "tourists",
+    client: "Toros Aviation",
+    weather: "IFR",
+    conditions: cond({ time: "day", weather: "storm", utc: localAt(14, 5), sunDeg: 31, wx: PRESET.storm, payBonus: 35, xpBonus: 18, needsIr: true }),
+  }),
+  job({
+    id: "j5",
+    kind: "bush",
+    from: "LTBA",
+    to: "LTBQ",
+    distanceNm: 67,
+    pay: 510,
+    cargoKg: 160,
+    pax: 1,
+    cargo: "survey_team",
+    client: "Granite Mining Co.",
+    conditions: cond({ time: "day", weather: "clear", utc: localAt(9, 45), sunDeg: 27, wx: PRESET.clear }),
+  }),
+  job({
+    id: "j6",
+    kind: "ferry",
+    from: "LTBA",
+    to: "LTBR",
+    distanceNm: 58,
+    pay: 350,
+    class: "piston_twin",
+    cargo: "aircraft_delivery",
+    client: "Atlas Lojistik",
+    weather: "IFR",
+    conditions: cond({
+      time: "night",
+      weather: "snow",
+      utc: localAt(19, 40, Math.floor(Date.UTC(new Date().getUTCFullYear() + 1, 0, 15) / 1000)),
+      sunDeg: -27,
+      nightArrival: true,
+      season: "Winter",
+      wx: PRESET.snow,
+      payBonus: 35,
+      xpBonus: 18,
+      needsIr: true,
+    }),
+  }),
+  job({
+    id: "j10",
+    kind: "cargo",
+    from: "LTBA",
+    to: "LTBR",
+    distanceNm: 58,
+    pay: 290,
+    cargoKg: 140,
+    cargo: "mail",
+    client: "Harbor Mail",
+    weather: "MVFR",
+    plan: { distanceNm: 58, blockMin: 51, airMin: 42, fuelKg: 48, payloadKg: 140, cruiseAltFt: 3000 },
+    conditions: cond({ time: "day", weather: "rain", utc: localAt(13, 15), sunDeg: 35, wx: PRESET.rain, payBonus: 5, xpBonus: 3 }),
+  }),
+  job({
+    id: "j11",
+    kind: "passenger",
+    from: "LTBA",
+    to: "LTBJ",
+    distanceNm: 178,
+    pay: 1240,
+    class: "piston_twin",
+    pax: 4,
+    cargo: "commuters",
+    client: "Kuzey Hava Taksi",
+    weather: "MVFR",
+    conditions: cond({ time: "dawn", weather: "broken", utc: localAt(6, 55), sunDeg: 1, wx: PRESET.broken, payBonus: 5, xpBonus: 3 }),
+  }),
   job({
     id: "j7",
     kind: "tour",
@@ -410,9 +559,9 @@ const view: CareerView = {
           dispatch: {
             ifr: false,
             nightArrival: false,
-            fuel: { rule: "vfr_day", taxiKg: 1, tripKg: 22, contingencyKg: 0, alternateKg: 0, finalReserveKg: 15, extraKg: 0, minimumKg: 38, blockKg: 38, reserveMin: 30, enduranceMin: 74 },
-            weights: { emptyKg: 767, payloadKg: 180, zfwKg: 947, towKg: 984, lwKg: 962, mtowKg: 1157, mlwKg: 1157, fuelCapacityKg: 145, fromSim: true },
-            alternate: null,
+            fuel: { rule: "vfr_day", taxiKg: 1, tripKg: 11, contingencyKg: 1, alternateKg: 9, finalReserveKg: 13, extraKg: 24, minimumKg: 35, blockKg: 59, reserveMin: 30, enduranceMin: 136 },
+            weights: { emptyKg: 767, payloadKg: 180, zfwKg: 947, towKg: 1006, lwKg: 995, mtowKg: 1157, mlwKg: 1157, fuelCapacityKg: 145, fromSim: true },
+            alternate: { icao: "LTFM", name: "İstanbul Havalimanı", distanceNm: 40 },
             departure: { icao: "LTBA", availableFt: 9843, requiredFt: 1460, densityAltFt: 640, lighted: true, fuel: "both" },
             arrival: { icao: "LTBU", availableFt: 9000, requiredFt: 1240, densityAltFt: 900, lighted: true, fuel: "both" },
             issues: [],
@@ -485,6 +634,101 @@ const view: CareerView = {
   ],
 };
 
+// Kariyer yolları: &path=<yol> örnek pilotu o yola koyar; &start=new|fast o yolda yeni pilot (bkz. paths-mocks.ts).
+applyPathPreview(view, board, params, classes);
+
+// Uçuş ekranı önizlemesi: uçak sayfa açıldığında rotanın ortasında, seyirde; 9 dakikada %90'a gelir ve başa döner.
+// Rüzgâr 040°/14 kt sağ arkadan: burun izden ~6° sağda (rüzgâra karşı düzeltme).
+const ROUTE = { from: { lat: 40.976, lon: 28.814 }, to: { lat: 41.138, lon: 27.919 }, nm: 41.7, elev: 100, cruise: 4500 };
+const T0 = Date.now();
+const LOOP_S = 540;
+const progress = () => 0.5 + ((((Date.now() - T0) / 1000) % LOOP_S) / LOOP_S) * 0.4;
+const at = (f: number) => ({ lat: ROUTE.from.lat + (ROUTE.to.lat - ROUTE.from.lat) * f, lon: ROUTE.from.lon + (ROUTE.to.lon - ROUTE.from.lon) * f });
+/** Uçulan mesafeye göre irtifa: kalkıştan sonra tırmanış, seyir, 3° alçalma. */
+const altAt = (flown: number) => Math.min(ROUTE.cruise, 160 + flown * 520, ROUTE.elev + (ROUTE.nm - flown) * 318);
+const usedLb = (flown: number) => 8 + (flown / 111) * 55;
+
+function flyingNow(): Pick<Live, "telemetry" | "flight"> {
+  if (mode === "landed" || mode === "parked") {
+    return {
+      telemetry: { lat: ROUTE.to.lat - 0.004, lon: ROUTE.to.lon + 0.006, altFt: 168, aglFt: 0, gsKt: 14, iasKt: 12, vsFpm: 0, heading: 52, pitch: 0, bank: 0, onGround: true, g: 1, fuelLb: 98, totalLb: 2314, enginesOn: true, parkingBrake: false, gearDown: true, flaps: 10, simRate: 1, slew: false, absTime: 0 },
+      flight: {
+        phase: mode === "parked" ? "parked" : "taxi_in",
+        elapsedS: 1820,
+        flownNm: 42.6,
+        remainingNm: 0.4,
+        fuelUsedLb: 32,
+        scoreNow: 94,
+        events: [
+          { t: 1792, code: "touchdown", severity: "info", penalty: 0, value: 96 },
+          { t: 1102, code: "bank", severity: "minor", penalty: 3, value: 46.1 },
+          { t: 318, code: "takeoff", severity: "info", penalty: 0, value: 62 },
+        ],
+        landing: log[0].landing,
+        invalid: null,
+      },
+    };
+  }
+  const f = progress();
+  const flown = ROUTE.nm * f;
+  const remaining = ROUTE.nm - flown;
+  const p = at(f);
+  const alt = altAt(flown);
+  const descending = alt < ROUTE.cruise && flown > ROUTE.nm / 2;
+  const fuelLb = 130 - usedLb(flown);
+  const wobble = Math.sin(Date.now() / 7000);
+  return {
+    telemetry: {
+      lat: p.lat,
+      lon: p.lon,
+      altFt: Math.round(alt + (descending ? 0 : wobble * 18)),
+      aglFt: Math.round(alt - 140),
+      gsKt: 111,
+      iasKt: descending ? 112 : 104,
+      vsFpm: descending ? -590 : Math.round(wobble * 40),
+      heading: 290,
+      pitch: descending ? -1.5 : 2,
+      bank: 0,
+      onGround: false,
+      g: 1,
+      fuelLb,
+      totalLb: 2216 + fuelLb,
+      enginesOn: true,
+      parkingBrake: false,
+      gearDown: true,
+      flaps: 0,
+      simRate: 1,
+      slew: false,
+      absTime: 0,
+    },
+    flight: {
+      phase: remaining < 5 ? "approach" : descending ? "descent" : "cruise",
+      elapsedS: Math.round(380 + (flown / 111) * 3600),
+      flownNm: flown,
+      remainingNm: remaining,
+      fuelUsedLb: usedLb(flown),
+      scoreNow: 97,
+      events: [
+        { t: 1102, code: "bank", severity: "minor", penalty: 3, value: 46.1 },
+        { t: 318, code: "takeoff", severity: "info", penalty: 0, value: 62 },
+      ],
+      landing: null,
+      invalid: null,
+    },
+  };
+}
+
+/** Şimdiye kadarki iz: yarım deniz milinde bir nokta. */
+function trackNow(): TrackPoint[] {
+  const flown = ROUTE.nm * progress();
+  const n = Math.max(2, Math.round(flown * 2));
+  return Array.from({ length: n }, (_, i) => {
+    const d = (flown * i) / n;
+    const p = at(d / ROUTE.nm);
+    return [p.lat, p.lon, Math.round(altAt(d)), i === 0 ? 60 : 108] as TrackPoint;
+  });
+}
+
 const live: Live = {
   link: view.link,
   inFlight: mode !== "new" && mode !== "idle",
@@ -508,6 +752,26 @@ const live: Live = {
         ]
       : [],
   launch: mode === "ready" ? { step: "done", note: "Hazır. Yakıtı plana göre ayarlayın; motorları çalıştırdığınızda takip başlar.", elapsedS: 46 } : null,
+  env:
+    mode === "new" || mode === "idle"
+      ? null
+      : {
+          lightBeacon: true,
+          lightLanding: mode !== "ready",
+          lightNav: true,
+          lightStrobe: mode !== "ready",
+          lightTaxi: false,
+          windKt: mode === "ready" ? 12 : 14,
+          windDir: 40,
+          visibilityM: 9999,
+          inCloud: false,
+          precip: 0,
+          temperatureC: mode === "ready" ? 18 : 9,
+          qnhHpa: 1016,
+          seatbeltSign: true,
+          cabinAltFt: 4500,
+          transponder: 4521,
+        },
   flight:
     mode === "ready" || mode === "idle" || mode === "new"
       ? null
@@ -573,10 +837,48 @@ const detail = (id: string): FlightDetail => {
   return { entry: e, track, from: apt(e.job.from) ?? null, to: apt(e.job.to) ?? null, arrived: apt(e.arrived) ?? null };
 };
 
+/** QR'a benzeyen yer tutucu (okunmaz): sunucununkiyle aynı biçim (beyaz zemin, 4 modül sessiz bölge). */
+function fakeQr(text: string): string {
+  const n = 25;
+  let h = 2166136261;
+  for (const c of text) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  const finder = (x: number, y: number) => {
+    for (const [fx, fy] of [
+      [0, 0],
+      [n - 7, 0],
+      [0, n - 7],
+    ]) {
+      const [dx, dy] = [x - fx, y - fy];
+      if (dx >= 0 && dx < 7 && dy >= 0 && dy < 7) return Math.max(Math.abs(dx - 3), Math.abs(dy - 3)) !== 2;
+      if (dx >= -1 && dx <= 7 && dy >= -1 && dy <= 7) return false;
+    }
+    return null;
+  };
+  let d = "";
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      h = Math.imul(h ^ (x * 31 + y), 16777619);
+      const on = finder(x, y) ?? (x === 6 || y === 6 ? (x + y) % 2 === 0 : ((h >>> 7) & 3) === 0 || ((h >>> 3) & 1) === 1);
+      if (on) d += `${d ? " " : ""}M${x + 4},${y + 4}h1v1h-1z`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n + 8} ${n + 8}" shape-rendering="crispEdges" stroke="none"><rect width="100%" height="100%" fill="#FFFFFF"/><path d="${d}" fill="#000000"/></svg>`;
+}
+
+let deckKey = "q7Ve2xK9";
+const lanUrl = () => `http://192.168.1.24:47213/deck?k=${deckKey}&lang=tr`;
+const withLan = (d: DeckInfo, on: boolean): DeckInfo => ({ ...d, lan: { ...d.lan, enabled: on, url: on ? lanUrl() : null, error: null }, qrSvg: on ? fakeQr(lanUrl()) : null });
+let deck: DeckInfo = withLan(
+  { port: 47213, localUrl: "http://127.0.0.1:47213/deck", lan: { enabled: false, ip: "192.168.1.24", url: null, error: null }, qrSvg: null, windowOpen: false },
+  params.get("deck") === "lan",
+);
+
 export const careerMocks: Record<string, (args?: Record<string, unknown>) => unknown> = {
   msfs_career_state: () => view,
   msfs_career_create: () => view,
   msfs_career_reset: () => null,
+  msfs_career_paths: (a) => mockCatalog((a?.difficulty as Difficulty | null) ?? view.pilot?.difficulty ?? "normal", classes),
+  msfs_career_set_path: (a) => mockSetPath(view, String(a?.path ?? "general") as CareerPath),
   msfs_career_board: () => board,
   msfs_career_weather: () => metars,
   msfs_career_medical: () => 250,
@@ -586,16 +888,10 @@ export const careerMocks: Record<string, (args?: Record<string, unknown>) => unk
   msfs_career_appeal: () => log[3],
   msfs_career_accept: () => null,
   msfs_career_cancel: () => null,
-  msfs_career_aircraft: () => [
-    { title: "Cessna Skyhawk G1000 Asobo", liveries: ["Asobo White", "Turkish Aero Club"], class: "light_piston", classSource: "sim", flyable: true, managesOwnLoading: false },
-    { title: "Diamond DA62 Asobo", liveries: [], class: "piston_twin", classSource: "name", flyable: true, managesOwnLoading: false },
-    { title: "Daher TBM 930 Asobo", liveries: [], class: "turboprop_single", classSource: "sim", flyable: true, managesOwnLoading: false },
-    { title: "FenixA320 IAE - Turkish", liveries: [], class: "narrowbody", classSource: "name", flyable: false, managesOwnLoading: true },
-    { title: "Kuşkonmaz Ultralight", liveries: [], class: null, classSource: "unknown", flyable: false, managesOwnLoading: false },
-  ],
+  // Uçak listesi (sim + mod uçakları), küçük resim ve yük yöntemi: aircraft/mocks.ts.
+  ...aircraftMocks,
   msfs_career_refresh_aircraft: () => null,
   msfs_career_pick_aircraft: () => null,
-  msfs_career_set_class: () => null,
   msfs_career_launch: () => null,
   msfs_career_reposition: () => null,
   msfs_career_finish: () => log[0],
@@ -612,7 +908,35 @@ export const careerMocks: Record<string, (args?: Record<string, unknown>) => unk
   msfs_career_borrow: () => 55_000,
   msfs_career_repay: () => 10_000,
   msfs_career_ledger: () => ledger,
-  msfs_career_live: () => live,
+  msfs_career_live: (): Live => (live.flight ? { ...live, ...flyingNow() } : live),
+  msfs_career_track: () => (live.flight ? trackNow() : []),
+  msfs_career_deck_info: () => deck,
+  msfs_career_deck_set_lan: (a) => (deck = withLan(deck, !!a?.on)),
+  msfs_career_deck_rotate: () => {
+    deckKey = Math.random().toString(36).slice(2, 10);
+    return (deck = withLan(deck, deck.lan.enabled));
+  },
+  msfs_career_deck_open: () => {
+    deck = { ...deck, windowOpen: true };
+    return null;
+  },
+  // Önizlemede karo sunucusu yoktur: harita yalnızca vektörle çizilir. Raster katmanları denemek için `?tiles=<kök>`
+  // çalışan bir Modstead'in yerel sunucusunu gösterir (ör. http://127.0.0.1:47213); örnek görüntü uydurulmaz.
+  msfs_career_tiles_info: (): TilesInfo => ({
+    base: /^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(params.get("tiles") ?? "") ? params.get("tiles") : null,
+    layers: [
+      { id: "relief", minZoom: 0, maxZoom: 5, online: false, attribution: "Natural Earth", license: "Public Domain", licenseUrl: "https://www.naturalearthdata.com/about/terms-of-use/" },
+      {
+        id: "sat",
+        minZoom: 0,
+        maxZoom: 13,
+        online: true,
+        attribution: "EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)",
+        license: "CC BY 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
+      },
+    ],
+  }),
   msfs_career_simbrief: () => "https://dispatch.simbrief.com/options/custom?orig=LTBA&dest=LTBU&type=C172",
   msfs_career_reveal_plan: () => null,
   msfs_career_reveal_journal: () => null,

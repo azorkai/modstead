@@ -55,8 +55,8 @@ pub static INFO: GameInfo = GameInfo {
     // DOĞRULANMALI: alan adı doğru, sayısal kimlik henüz Nexus'tan teyit edilmedi (GraphQL sorgularında kullanılır).
     nexus: &[NexusGame { domain: "microsoftflightsimulator", id: 3407 }],
     steam_app_ids: &[sims::STEAM_APP_2024, sims::STEAM_APP_2020],
-    // Kariyerin gerçek havası (METAR, `career::weather`).
-    hosts: GameHosts { download: &["aviationweather.gov"], download_suffix: &[], media: &[] },
+    // Kariyerin gerçek havası (METAR, `career::weather`) ve haritanın uydu karoları (yalnızca görsel; `career::tiles`).
+    hosts: GameHosts { download: &["aviationweather.gov"], download_suffix: &[], media: &["tiles.maps.eox.at"] },
     // MSFS paketlerinde DLL/EXE olmaz; WASM modülleri simin korumalı alanında çalışır.
     content: ContentPolicy { expected_code: &[], info_ext: &["wasm"] },
     trusted_sources: &[
@@ -361,14 +361,33 @@ impl Game for Msfs {
     fn discard_job(&self, job: &JobHandle) {
         install::discard(job);
     }
+
+    /// Sim açıkken (SimConnect bağlı ya da süreç çalışıyor) ve kariyer uçuşu başlatılırken/izlenirken Modstead
+    /// yeniden başlatılmamalı: bağlantı, izleyici ve sim içi panelin sunucusu kopar.
+    fn busy(&self) -> BoxFuture<'_, bool> {
+        let me = self.clone();
+        Box::pin(async move {
+            tokio::task::spawn_blocking(move || {
+                let live = me.career().live();
+                live.link.state == "connected" || live.in_flight || live.flight.is_some() || live.launch.is_some() || me.sims().iter().any(|s| s.running)
+            })
+            .await
+            // Denetim çöktüyse güvenli taraf: meşgul say.
+            .unwrap_or(true)
+        })
+    }
 }
 
 pub fn init(app: &tauri::AppHandle, services: Arc<Services>) -> Arc<dyn Game> {
     let game = Msfs::new(services);
     install::clean_stale_staging(&game);
+    // Uçuş ekranı: pencere tutamacı ve (sürüm derlemesinde) gömülü sayfası; sunucu açılmadan önce bağlanır.
+    career::deck::attach(app);
     game.career().start_link();
     // Sim güncellenince ana menü kutusunu kaldıran koruma (bkz. career::menu).
     career::menu::start_guard(game.clone());
+    // Mod uçakları: kütüphane ve Community'deki uçak paketleri arka planda okunur (bkz. career::addons).
+    career::addons::warm(game.clone());
     app.manage(game.clone());
     Arc::new(game)
 }
@@ -408,6 +427,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         career::commands::msfs_career_state,
         career::commands::msfs_career_create,
         career::commands::msfs_career_reset,
+        career::commands::msfs_career_paths,
+        career::commands::msfs_career_set_path,
         career::commands::msfs_career_board,
         career::commands::msfs_career_weather,
         career::commands::msfs_career_medical,
@@ -419,6 +440,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         career::commands::msfs_career_cancel,
         career::commands::msfs_career_aircraft,
         career::commands::msfs_career_refresh_aircraft,
+        career::commands::msfs_career_aircraft_thumb,
+        career::commands::msfs_career_set_loading,
         career::commands::msfs_career_pick_aircraft,
         career::commands::msfs_career_set_class,
         career::commands::msfs_career_launch,
@@ -450,5 +473,11 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         career::commands::msfs_career_reveal_plan,
         career::commands::msfs_career_journal,
         career::commands::msfs_career_reveal_journal,
+        career::commands::msfs_career_track,
+        career::commands::msfs_career_deck_info,
+        career::commands::msfs_career_deck_set_lan,
+        career::commands::msfs_career_deck_rotate,
+        career::commands::msfs_career_deck_open,
+        career::commands::msfs_career_tiles_info,
     ]
 }

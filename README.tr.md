@@ -36,6 +36,10 @@ SHA-256 özeti `SHA256SUMS.txt` dosyasındadır; PowerShell'de
 ([diğer yollar](docs/RELEASING.md#verify-a-download), İngilizce). Kendiniz derlemek için:
 [Kaynaktan derleme](#kaynaktan-derleme).
 
+Modstead kendini güncel tutar: yeni sürümleri arka planda denetler, her indirmenin imzasını doğrular ve yalnızca siz
+**Yeniden başlat**'a basınca kurar; sim açıkken ya da kariyer uçuşu izlenirken asla. Denetimi Ayarlar →
+Güncellemeler'den kapatabilirsiniz. 0.1.0'da güncelleyici yok; onun üstüne yeni bir sürümü bir kez kurun.
+
 ## Modstead MSFS için ne yapar
 
 | Sim | Modstead ne yapar |
@@ -58,6 +62,16 @@ kesintinin formülü belgelidir.
 
 - **İş ilanları:** kargo, yolcu, charter, uçak teslimi, arazi, ambulans ve havayolu işleri; lisansa ve itibara göre,
   harita üzerinde. CPL'den sonra "kendi hesabına" işler.
+- **Kariyer yolları:** başta havayolu, kargo, arazi, ambulans, charter ya da hava işlerini seçersin ya da serbest pilot
+  kalırsın. Sıfırdan ya da o yolun lisans ve saatleriyle deneyimli pilot olarak başlarsın; üç rütbede yükselir, yol
+  primi alırsın. Yolu sonradan hiçbir şey kaybetmeden değiştirebilirsin.
+- **Mod uçakları:** kütüphanendeki ve Community klasörlerindeki mod uçakları (Fenix, PMDG, iniBuilds…) boyalarıyla,
+  sim kapalıyken de listelenir. Sınıf ICAO tip kodundan bulunur; yükü ve yakıtı kendi EFB'sinden yöneten uçaklar
+  tanınır. İkisini de uçak başına değiştirebilirsin.
+- **Hava ve saat senaryoları:** işler gece, şafakta, karda, yağmurda, fırtınada ya da açık havada olabilir; ilan
+  panosu hangisi olduğunu gösterir, uçuş simde o hava ve saatle başlar.
+- **Uçuş ekranı:** canlı harita (çevrimdışı harita ya da uydu görüntüsü) ve uçuşun değerleri ayrı bir pencerede ya da
+  ev ağındaki tablet veya telefonda (varsayılan kapalı, anahtar ve QR koduyla korunur).
 - **Otomatik hazırlık:** gerekirse sim açılır, simin kendi verisinden uygun park yeri seçilir (ya da motorlar çalışır
   hâlde pist başından başlanır), `.FLT`/`.PLN` yazılır ve rota simin GPS'ine girer, uçak taşınır ve yük yüklenir.
   Gerçek MSFS 2024'te denendi.

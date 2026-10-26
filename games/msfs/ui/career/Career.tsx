@@ -1,12 +1,9 @@
-// Kariyer sayfası: pilot vitrini + sekmeler (Panel, İş ilanları, Seyir defteri, Lisanslar, Hangar ve finans).
+// Kariyer sayfası: pilot lisansı (kahraman) + sekmeler (Panel, İş ilanları, Seyir defteri, Lisanslar, Hangar ve finans).
 // Pilot yoksa ilk kayıt ekranı açılır.
 
-import clsx from "clsx";
 import { motion } from "motion/react";
-import { Award, BookOpen, Briefcase, Gauge, LayoutDashboard, MapPin, Star, Timer, Wallet, Warehouse } from "lucide-react";
-import { useArt } from "@/lib/art";
-import { Progress, Skeleton } from "@/ui";
-import { MsfsArt } from "../Art";
+import { Award, BookOpen, Briefcase, LayoutDashboard, MapPin, Warehouse } from "lucide-react";
+import { Skeleton } from "@/ui";
 import { Dashboard } from "./Dashboard";
 import { FlightDialog } from "./FlightDialog";
 import { hours, money, num } from "./format";
@@ -16,8 +13,10 @@ import { Jobs } from "./Jobs";
 import { Licenses } from "./Licenses";
 import { Logbook } from "./Logbook";
 import { Onboarding } from "./Onboarding";
-import { LinkPill, TabBar } from "./parts";
-import { useCareer, useCareerEvents, useWeather } from "./queries";
+import { Bar, CareerNav, Hint, INK, LinkPill, topLicenseArt, trLang } from "./parts";
+import { PATH_FOCUS, hasPath, pathPhoto } from "./paths";
+import { PathChip } from "./CareerPaths";
+import { useBoard, useCareer, useCareerEvents, useWeather } from "./queries";
 import { type CareerTab, useCareerUi } from "./store";
 import type { CareerView } from "./types";
 
@@ -27,15 +26,17 @@ export default function Career() {
   const { data: view, isLoading } = useCareer();
   // Gerçek hava: pilot varsa panodaki varışlar ve aktif iş için (arka uç önbellekler, 30 dakikada bir sorar).
   useWeather(!!view?.pilot);
+  // Pano: sekmedeki ilan sayısı ve paneldeki öneriler için (yerel komut, 60 sn önbellek).
+  const { data: board } = useBoard(!!view?.pilot);
   const tab = useCareerUi((s) => s.tab);
   const setTab = useCareerUi((s) => s.setTab);
 
   if (isLoading || !view) {
     return (
       <div className="mx-auto flex max-w-[1180px] flex-col gap-5">
-        <Skeleton className="h-[250px] rounded-3xl" />
-        <Skeleton className="h-11" />
-        <div className="grid grid-cols-[1.5fr_1fr] gap-5">
+        <Skeleton className="h-[156px] rounded-[20px]" />
+        <Skeleton className="h-11 w-[640px] rounded-full" />
+        <div className="grid grid-cols-[1fr_372px] gap-5">
           <Skeleton className="h-[420px]" />
           <Skeleton className="h-[420px]" />
         </div>
@@ -44,19 +45,19 @@ export default function Career() {
   }
   if (!view.pilot) return <Onboarding view={view} />;
 
-  const ready = view.licenses.filter((l) => l.ready).length;
+  const ready = view.licenses.filter((l) => l.ready && !l.held).length;
   return (
-    <div className="mx-auto flex max-w-[1180px] flex-col gap-5 pb-16">
+    <div className="mx-auto flex max-w-[1180px] flex-col gap-6 pb-16">
       <Hero view={view} />
-      <TabBar<CareerTab>
+      <CareerNav<CareerTab>
         value={tab}
         onChange={setTab}
         tabs={[
           { id: "panel", label: t.tabs.panel, icon: LayoutDashboard },
-          { id: "jobs", label: t.tabs.jobs, icon: Briefcase },
-          { id: "logbook", label: t.tabs.logbook, icon: BookOpen },
-          { id: "licenses", label: t.tabs.licenses, icon: Award, badge: ready || null },
-          { id: "hangar", label: t.tabs.hangar, icon: Warehouse },
+          { id: "jobs", label: t.tabs.jobs, icon: Briefcase, count: board?.length ?? null },
+          { id: "logbook", label: t.tabs.logbook, icon: BookOpen, count: view.pilot.stats.flights },
+          { id: "licenses", label: t.tabs.licenses, icon: Award, alert: ready || null },
+          { id: "hangar", label: t.tabs.hangar, icon: Warehouse, count: view.fleet.length || null },
         ]}
       />
       <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>
@@ -71,76 +72,85 @@ export default function Career() {
   );
 }
 
-/** Pilot vitrini: oyunun büyük görseli üstünde ad, unvan, seviye, sayılar ve bulunduğu yer. */
+/** Pilot şeridi: üstte ince, sessiz bir lisans çizimi üstünde ad, unvan ve seviye; altta tek satır sayılar ve
+ *  bulunduğu havalimanı. Görsel alanı iki temada da koyudur; sayı satırı temanın yüzeyini alır. */
 function Hero({ view }: { view: CareerView }) {
   const t = useCareerT();
-  const art = useArt("msfs", "hero");
   const p = view.pilot!;
+  // Yolu olan pilotta kahraman görseli yolun uçağı; serbest pilotta en yüksek lisansın çizimi.
+  const pathArt = hasPath(p) && p.path ? pathPhoto(p.path) : null;
+  const art = pathArt?.src ?? topLicenseArt(p.licenses);
   const progress = p.nextLevelXp > p.levelXp ? (p.xp - p.levelXp) / (p.nextLevelXp - p.levelXp) : 1;
   const loc = view.location;
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className={clsx("relative overflow-hidden rounded-3xl border border-line", !art && "hero-surface")}
-    >
-      {art ? (
-        <img src={art} alt="" draggable={false} className="absolute inset-0 size-full object-cover" style={{ objectPosition: "70% 40%" }} />
-      ) : (
-        <MsfsArt className="pointer-events-none absolute -right-6 bottom-0 h-full w-[62%] text-accent opacity-90" />
-      )}
-      {art && (
-        <div
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(90deg, rgb(8 9 12 / 0.92) 0%, rgb(8 9 12 / 0.7) 45%, rgb(8 9 12 / 0.25) 80%), linear-gradient(0deg, rgb(8 9 12 / 0.75) 0%, transparent 55%)" }}
-        />
-      )}
-      <div className={clsx("relative grid grid-cols-[1fr_auto] items-end gap-8 px-8 pb-7 pt-7", art ? "text-white" : "text-fg")}>
-        <div className="min-w-0">
-          <div className={clsx("mb-2 text-[11px] font-semibold uppercase tracking-[0.12em]", art ? "text-white/60" : "text-muted")}>{t.title}</div>
-          <h1 className="text-display truncate text-[34px] font-semibold leading-[1.05] tracking-tight">{p.name}</h1>
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <span className={clsx("inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-semibold", art ? "msfs-on-image" : "accent-soft")}>
-              <Award className="size-3.5" />
-              {p.title}
-            </span>
-            <span className={clsx("inline-flex h-6 items-center rounded-full px-2.5 text-[12px] font-semibold", art ? "msfs-on-image" : "border border-line bg-surface-2")}>{t.hero.level(p.level)}</span>
-            {p.callsign && <span className={clsx("inline-flex h-6 items-center rounded-full px-2.5 font-mono text-[11.5px]", art ? "msfs-on-image text-white/85" : "border border-line bg-surface-2 text-fg-2")}>{p.callsign}</span>}
-            {p.licenses
-              .filter((l) => l !== "spl")
-              .map((l) => (
-                <span key={l} className={clsx("inline-flex h-6 items-center rounded-md px-1.5 font-mono text-[10.5px] font-semibold uppercase", art ? "bg-white/12 text-white/85" : "bg-surface-3 text-fg-2")}>
-                  {l}
-                </span>
-              ))}
-          </div>
-          <div className="mt-4 max-w-[420px]">
-            <div className={clsx("mb-1.5 flex justify-between text-[11.5px]", art ? "text-white/70" : "text-muted")}>
-              <span>{t.hero.level(p.level)}</span>
-              <span className="tabular">{t.hero.xp(p.xp - p.levelXp, p.nextLevelXp - p.levelXp)}</span>
+    <motion.section initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="card overflow-hidden rounded-[20px]">
+      <div data-theme="dark" data-game="msfs" className="relative h-[88px] overflow-hidden" style={{ background: INK }}>
+        {art && (
+          <img
+            src={art}
+            alt=""
+            draggable={false}
+            className="absolute inset-y-0 right-0 h-full w-[46%] object-cover"
+            title={pathArt?.credit}
+            style={{ objectPosition: pathArt?.src && p.path ? PATH_FOCUS[p.path] : "62% 8%", maskImage: "linear-gradient(90deg, transparent 0%, #000 40%)", WebkitMaskImage: "linear-gradient(90deg, transparent 0%, #000 40%)" }}
+          />
+        )}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgb(7 9 20 / 0.6) 40%, rgb(7 9 20 / 0.35) 100%)" }} />
+        <div className="relative flex h-full items-center gap-10 px-6 text-white">
+          <div className="min-w-0 max-w-[48%] shrink">
+            <h1 lang={trLang(p.name)} className="headline truncate pb-0.5 text-[30px] text-white">
+              {p.name}
+            </h1>
+            <div className="mt-1.5 flex items-center gap-2 text-[12.5px] text-white/70">
+              {hasPath(p) && p.pathStatus && <PathChip status={p.pathStatus} />}
+              <span className="font-semibold text-white/90">{p.title}</span>
+              {p.callsign && (
+                <>
+                  <span className="text-white/30">·</span>
+                  <span className="font-mono text-[12px] tracking-[0.04em]">{p.callsign}</span>
+                </>
+              )}
+              <span className="text-white/30">·</span>
+              <span>{t.hero.base(p.home)}</span>
             </div>
-            <Progress value={progress} className={art ? "bg-white/15" : undefined} />
           </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <HeroStat onImage={!!art} icon={<Wallet className="size-3.5" />} label={t.hero.money} value={money(p.money)} hint={p.loan > 0 ? t.hero.loan(money(p.loan)) : undefined} />
-            <HeroStat onImage={!!art} icon={<Timer className="size-3.5" />} label={t.hero.hours} value={hours(p.stats.hours)} />
-            <HeroStat onImage={!!art} icon={<Star className="size-3.5" />} label={t.hero.reputation} value={num(p.reputation, 0)} />
-            <HeroStat onImage={!!art} icon={<Gauge className="size-3.5" />} label={t.hero.rating} value={p.rating === null ? "—" : num(p.rating, 1)} />
+          <div className="w-[240px] shrink-0">
+            <div className="mb-1.5 flex items-baseline justify-between text-[12px]">
+              <span className="flex items-center gap-1.5 font-semibold text-white">
+                {t.hero.level(p.level)}
+                <Hint text={t.guide.xp} className="text-white/50 hover:text-white" />
+              </span>
+              <span className="tabular text-white/60">{t.hero.xp(p.xp - p.levelXp, p.nextLevelXp - p.levelXp)}</span>
+            </div>
+            <Bar value={progress} track="bg-white/15" className="h-1.5" />
           </div>
+          <span className="flex-1" />
+          <LinkPill link={view.link} onImage />
         </div>
-        <div className="flex w-[300px] flex-col items-end gap-3">
-          <LinkPill link={view.link} onImage={!!art} />
-          {loc && (
-            <div className={clsx("w-full rounded-2xl px-4 py-3.5", art ? "msfs-on-image" : "card")}>
-              <div className={clsx("flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em]", art ? "text-white/60" : "text-muted")}>
-                <MapPin className="size-3.5" />
+      </div>
+
+      <div className="flex divide-x divide-line">
+        <Cell label={t.hero.money} value={money(p.money)} hint={p.loan > 0 ? t.guide.loan : undefined} extra={p.loan > 0 ? <span className="text-warn">{t.hero.loan(money(p.loan))}</span> : undefined} />
+        <Cell label={t.hero.hours} value={hours(p.stats.hours)} unit={t.units.h} extra={p.stats.flights > 0 ? t.hero.flights(p.stats.flights) : undefined} />
+        <Cell label={t.hero.reputation} value={num(p.reputation, 0)} unit="/ 100" hint={t.guide.reputation} />
+        {p.rating !== null && <Cell label={t.hero.rating} value={num(p.rating, 1)} unit="/ 100" hint={t.guide.rating} />}
+        <div className="flex min-w-0 flex-1 items-center gap-3 px-6 py-4" title={loc ? `${t.hero.elevation} ${num(loc.elevationFt)} ft` : undefined}>
+          <MapPin className="size-4 shrink-0 text-accent" />
+          {loc ? (
+            <div className="min-w-0 flex-1">
+              <div className="text-[11.5px] text-muted">
                 {t.hero.location}
+                {(loc.city || loc.country) && <span> · {[loc.city, loc.country].filter(Boolean).join(", ")}</span>}
               </div>
-              <div className="mt-1.5 font-mono text-[24px] font-semibold leading-none">{loc.icao}</div>
-              <div className={clsx("mt-1 truncate text-[12.5px]", art ? "text-white/80" : "text-fg-2")}>{loc.name}</div>
-              <div className={clsx("truncate text-[11.5px]", art ? "text-white/55" : "text-muted")}>{[loc.city, loc.country].filter(Boolean).join(", ")}</div>
+              <div className="mt-1 flex min-w-0 items-baseline gap-2">
+                <span className="num shrink-0 text-[20px] text-fg">{loc.icao}</span>
+                <span className="line-clamp-1 min-w-0 text-[13px] font-medium text-fg-2" title={loc.name}>
+                  {loc.name}
+                </span>
+              </div>
             </div>
+          ) : (
+            <span className="text-[12.5px] text-muted">—</span>
           )}
         </div>
       </div>
@@ -148,15 +158,18 @@ function Hero({ view }: { view: CareerView }) {
   );
 }
 
-function HeroStat({ icon, label, value, hint, onImage }: { icon: React.ReactNode; label: string; value: string; hint?: string; onImage: boolean }) {
+function Cell({ label, value, unit, extra, hint }: { label: string; value: string; unit?: string; extra?: React.ReactNode; hint?: string }) {
   return (
-    <div className={clsx("min-w-[118px] rounded-xl px-3 py-2", onImage ? "msfs-on-image" : "well")}>
-      <div className={clsx("flex items-center gap-1.5 text-[11px] font-medium", onImage ? "text-white/65" : "text-muted")}>
-        {icon}
+    <div className="shrink-0 px-6 py-4">
+      <div className="flex items-center gap-1.5 whitespace-nowrap text-[11.5px] text-muted">
         {label}
+        {hint && <Hint text={hint} />}
       </div>
-      <div className="tabular mt-0.5 text-[17px] font-semibold leading-tight">{value}</div>
-      {hint && <div className={clsx("text-[10.5px]", onImage ? "text-white/55" : "text-muted")}>{hint}</div>}
+      <div className="mt-1 flex items-baseline gap-1.5 whitespace-nowrap">
+        <span className="num text-[20px] text-fg">{value}</span>
+        {unit && <span className="text-[12px] font-semibold text-muted">{unit}</span>}
+        {extra && <span className="text-[11.5px] text-muted">· {extra}</span>}
+      </div>
     </div>
   );
 }

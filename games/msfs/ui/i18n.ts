@@ -2,6 +2,15 @@
 
 import { useDict } from "@/lib/i18n";
 
+/** Yılın bulunma eki, okunuşun son sesine göre: 2020'de, 2024'te, 2030'da. */
+const LOC_UNIT: Record<string, string> = { "1": "de", "2": "de", "3": "te", "4": "te", "5": "te", "6": "da", "7": "de", "8": "de", "9": "da" };
+const LOC_TENS: Record<string, string> = { "1": "da", "2": "de", "3": "da", "4": "ta", "5": "de", "6": "ta", "7": "te", "8": "de", "9": "da" };
+function de(y: string): string {
+  const unit = y.at(-1) ?? "";
+  if (unit !== "0") return LOC_UNIT[unit] ?? "de";
+  return LOC_TENS[y.at(-2) ?? ""] ?? "de";
+}
+
 const tr = {
   common: {
     refresh: "Yenile",
@@ -51,8 +60,8 @@ const tr = {
     gallery: "Galeri",
     list: "Liste",
     selected: (n: number) => `${n} seçili`,
-    enableIn: (s: string) => `${s}'te aç`,
-    disableIn: (s: string) => `${s}'te kapat`,
+    enableIn: (s: string) => `${s}'${de(s)} aç`,
+    disableIn: (s: string) => `${s}'${de(s)} kapat`,
     importSel: "Kütüphaneye al",
     uninstallSel: "Kaldır",
     clearSel: "Seçimi temizle",
@@ -197,12 +206,34 @@ const tr = {
     openGlobal: "Genel ayarlar",
     saved: "Kaydedildi",
   },
+  home: {
+    play: (y: string) => `MSFS ${y}`,
+    playHint: (y: string, store: string) => `MSFS ${y} başlat · ${store}`,
+    library: "Kütüphane",
+    libraryLine: (a: number, b: number) => `2020'de ${a} · 2024'te ${b} etkin`,
+    noLibrary: "Kütüphane klasörü seçilmedi",
+    career: "Kariyer",
+    careerStart: "Kariyerine başla",
+    careerStartHint: "Öğrenci pilot olarak başla, iş al, lisans kazan.",
+    level: (n: number) => `Seviye ${n}`,
+    activeJob: "Etkin iş",
+    noJob: (icao: string) => `${icao} meydanında; iş panosu açık`,
+    discover: "Keşfet",
+    discoverTitle: "Ücretsiz modlar ve siteler",
+    discoverHint: "Her indirme kurulmadan önce taranır",
+    updates: (n: number) => `${n} güncelleme hazır`,
+    health: "Sağlık",
+    healthOk: "Etkin modlar simde yüklenir",
+    healthBad: (n: number) => `${n} sorun modun yüklenmesini engelliyor`,
+    problems: "Sorun",
+    open: "Aç",
+  },
   overview: {
     launch: (y: string) => `Başlat · MSFS ${y}`,
     launched: (y: string) => `MSFS ${y} başlatılıyor`,
     running: (y: string) => `MSFS ${y} açık`,
     featured: "Vitrinde",
-    stats: { mods: "Mod", enabled: (y: string) => `${y}'te etkin`, problems: "Sorun", size: "Kütüphane" },
+    stats: { mods: "Mod", enabled: (y: string) => `${y}'${de(y)} etkin`, problems: "Sorun", size: "Kütüphane" },
     recent: "Hangarın",
     recentSub: "Son eklenenler ve favoriler",
     seeAll: "Tümünü gör",
@@ -311,6 +342,9 @@ const tr = {
 
 export type MsfsDict = typeof tr;
 
+/** İngilizce tekil/çoğul. */
+const pl = (n: number, one: string, many: string) => (n === 1 ? one : many);
+
 const en: MsfsDict = {
   common: {
     refresh: "Refresh",
@@ -329,8 +363,8 @@ const en: MsfsDict = {
     running: "Running",
     notFound: "Not found",
     library: "Library",
-    files: (n) => `${n} files`,
-    mods: (n) => `${n} mods`,
+    files: (n) => `${n} ${pl(n, "file", "files")}`,
+    mods: (n) => `${n} ${pl(n, "mod", "mods")}`,
     failed: "The operation could not be completed",
     edition: { steam: "Steam", store: "Microsoft Store", manual: "Set manually", disabled: "Disabled", "": "Not found" },
   },
@@ -349,7 +383,7 @@ const en: MsfsDict = {
   builtFor: (y) => `Built for ${y}`,
   library: {
     title: "Library",
-    subtitle: (total, active) => `${total} mods · ${active} enabled`,
+    subtitle: (total, active) => `${total} ${pl(total, "mod", "mods")} · ${active} enabled`,
     add: "Add mod",
     addHint: "Choose an archive (.zip, .7z, .rar); it is scanned before installing.",
     filters: { all: "All", active: "Enabled", inactive: "Disabled", problems: "Problems", unmanaged: "Unmanaged" },
@@ -374,11 +408,11 @@ const en: MsfsDict = {
     noLibraryTitle: "No library folder chosen",
     noLibraryBody: "Mod files live in a single library folder and are linked into the sims. Choose a folder first.",
     chooseLibrary: "Choose library folder",
-    unmanagedNote: (n) => `${n} mods sit directly in the Community folder. Move them to the library to switch them on and off per sim with one click.`,
+    unmanagedNote: (n) => `${n === 1 ? "1 mod sits" : `${n} mods sit`} directly in the Community folder. Move ${n === 1 ? "it" : "them"} to the library to switch ${n === 1 ? "it" : "them"} on and off per sim with one click.`,
     importAll: "Move all to library",
     toggled: (n) => (n === 1 ? "Change applied" : `${n} mods updated`),
-    imported: (n) => `${n} mods moved to the library`,
-    removed: (n) => `${n} mods removed`,
+    imported: (n) => `${n} ${pl(n, "mod", "mods")} moved to the library`,
+    removed: (n) => `${n} ${pl(n, "mod", "mods")} removed`,
     toggleFailed: "Some mods could not be changed",
     confirmRemoveTitle: (n) => (n === 1 ? "Remove this mod?" : `Remove ${n} mods?`),
     confirmRemoveBody: "The files in the library are deleted and the links in both sims are removed. This cannot be undone.",
@@ -386,7 +420,7 @@ const en: MsfsDict = {
     notInSim: (s) => `MSFS ${s} not found`,
     managedElsewhere: "Managed by another tool",
     importFirst: "Move it to the library to switch it on and off",
-    issues: (n) => `${n} issues`,
+    issues: (n) => `${n} ${pl(n, "issue", "issues")}`,
     favorite: "Favourite",
   },
   drawer: {
@@ -409,14 +443,14 @@ const en: MsfsDict = {
     dependencies: "Dependencies",
     source: "Source",
     installed: "Installed",
-    wasm: (n) => `${n} WASM modules`,
+    wasm: (n) => `${n} WASM ${pl(n, "module", "modules")}`,
     noReport: "No security report for this mod (moved in from Community or installed outside Modstead).",
     scanNow: "Scan now",
     scanned: "Scan finished",
-    stripped: (n) => `${n} executable files were removed during install.`,
+    stripped: (n) => (n === 1 ? "1 executable file was removed during install." : `${n} executable files were removed during install.`),
     verify: "Deep verify",
     verifying: "Verifying…",
-    verified: (files, ms) => `${files} files checked in ${ms} ms`,
+    verified: (files, ms) => `${files} ${pl(files, "file", "files")} checked in ${ms} ms`,
     import: "Move to library",
     uninstall: "Remove",
     external: "This package is another tool's link (e.g. FSDT Addon Manager); Modstead leaves it alone.",
@@ -446,13 +480,13 @@ const en: MsfsDict = {
     attention: "Needs attention",
     attentionSub: "Reds first: these stop the mod from loading in the sim.",
     info: "Info",
-    infoSub: (n) => `${n} info notes`,
+    infoSub: (n) => `${n} info ${pl(n, "note", "notes")}`,
     allGoodTitle: "All good",
     allGoodBody: "No problems in the enabled mods. Rescan after starting a sim to also check Content.xml and exe.xml.",
     conflictsTitle: "Conflicts",
     conflictsSub: "Two packages enabled in the same sim provide the same file or the same airport; which one wins is unclear.",
     noConflicts: "No conflicts between the enabled mods.",
-    filesConflict: (n) => `${n} shared files`,
+    filesConflict: (n) => `${n} shared ${pl(n, "file", "files")}`,
     airportConflict: (icao) => `Two sceneries for ${icao}`,
     disable: (title) => `Disable “${title}”`,
     samples: "Sample files",
@@ -460,9 +494,9 @@ const en: MsfsDict = {
     fixNested: "Fix",
     fixDisable2020: "Disable in 2020",
     pathGroup: (n) => (n === 1 ? "One package exceeds the path limit" : `${n} packages exceed the path limit`),
-    pathSummary: (files, sim) => `${files} files have paths that are too long; MSFS ${sim} may not load them.`,
+    pathSummary: (files, sim) => (files === 1 ? `1 file has a path that is too long; MSFS ${sim} may not load it.` : `${files} files have paths that are too long; MSFS ${sim} may not load them.`),
     pathSummaryNoCount: (sim) => `Some files have paths that are too long; MSFS ${sim} may not load them.`,
-    files: (n) => `${n} files`,
+    files: (n) => `${n} ${pl(n, "file", "files")}`,
     howToFix: "How to fix",
     details: "Details",
     pathWhy: "On Windows a file path can be at most 259 characters. If the sim's packages folder sits in a long location (like the Microsoft Store version's default), some files of deeply nested mods silently fail to load. The fix is to move the packages folder to a short path; your mods stay in the Modstead library.",
@@ -476,7 +510,7 @@ const en: MsfsDict = {
     openPackages: "Open packages folder",
     openConfig: "Show UserCfg.opt",
     linkRemoved: "Broken link removed",
-    nestedFixed: (n) => `${n} packages moved to the Community root`,
+    nestedFixed: (n) => `${n} ${pl(n, "package", "packages")} moved to the Community root`,
     general: "General",
   },
   settings: {
@@ -506,6 +540,28 @@ const en: MsfsDict = {
     openGlobal: "General settings",
     saved: "Saved",
   },
+  home: {
+    play: (y) => `MSFS ${y}`,
+    playHint: (y, store) => `Launch MSFS ${y} · ${store}`,
+    library: "Library",
+    libraryLine: (a, b) => `${a} enabled in 2020 · ${b} in 2024`,
+    noLibrary: "No library folder chosen",
+    career: "Career",
+    careerStart: "Start your career",
+    careerStartHint: "Begin as a student pilot, take jobs, earn licences.",
+    level: (n) => `Level ${n}`,
+    activeJob: "Active job",
+    noJob: (icao) => `At ${icao}; the job board is open`,
+    discover: "Discover",
+    discoverTitle: "Free mods and mod sites",
+    discoverHint: "Every download is scanned before install",
+    updates: (n) => (n === 1 ? "1 update ready" : `${n} updates ready`),
+    health: "Health",
+    healthOk: "Enabled mods load in the sim",
+    healthBad: (n) => (n === 1 ? "1 problem stops a mod from loading" : `${n} problems stop mods from loading`),
+    problems: "Problems",
+    open: "Open",
+  },
   overview: {
     launch: (y) => `Launch · MSFS ${y}`,
     launched: (y) => `Starting MSFS ${y}`,
@@ -519,7 +575,7 @@ const en: MsfsDict = {
     attentionAll: (n) => `All ${n} problems`,
     noAttention: "No problems in the enabled mods.",
     sims: "Simulators",
-    enabledCount: (n) => `${n} enabled mods`,
+    enabledCount: (n) => `${n} enabled ${pl(n, "mod", "mods")}`,
     community: "Community",
     collection: "Collection",
     noSims: "MSFS 2020 or 2024 was not found. Start the sim once or choose the packages folder in Settings.",
@@ -575,9 +631,9 @@ const en: MsfsDict = {
     saved: "Profile saved",
     emptyTitle: "No profiles yet",
     emptyBody: "Switch mods on and off the way you like, then save that setup as a profile.",
-    count: (n) => `${n} mods`,
+    count: (n) => `${n} ${pl(n, "mod", "mods")}`,
     updated: (d) => `updated: ${d}`,
-    missing: (n) => `${n} mods are no longer in the library`,
+    missing: (n) => (n === 1 ? "1 mod is no longer in the library" : `${n} mods are no longer in the library`),
   },
   startup: {
     title: "Security",
@@ -595,7 +651,7 @@ const en: MsfsDict = {
     noReports: "No mod has a report yet.",
     verdict: { safe: "Safe", caution: "Caution", danger: "Dangerous" },
     scanned: (d) => `scanned: ${d}`,
-    notScanned: (n) => `${n} mods have no report`,
+    notScanned: (n) => (n === 1 ? "1 mod has no report" : `${n} mods have no report`),
     scanAll: "Scan the unscanned",
     scanning: (i, n) => `Scanning ${i}/${n}`,
   },
@@ -611,10 +667,10 @@ const en: MsfsDict = {
     simRunning: "running",
     suggested: "suggested",
     built2024In2020: "A package built for 2024 can crash 2020.",
-    strip: (n) => `${n} executable files will be removed before install; the sim does not need them.`,
-    keepExe: (n) => `${n} executable files will be kept (turned off in MSFS settings).`,
+    strip: (n) => `${n} executable ${pl(n, "file", "files")} will be removed before install; the sim does not need ${n === 1 ? "it" : "them"}.`,
+    keepExe: (n) => `${n} executable ${pl(n, "file", "files")} will be kept (turned off in MSFS settings).`,
     target: "Target",
-    executables: (n) => `${n} code files`,
+    executables: (n) => `${n} code ${pl(n, "file", "files")}`,
   },
 };
 

@@ -156,7 +156,7 @@ export default function Library() {
           onChange={(v) => ui.set({ sim: v })}
           options={[{ value: "all", label: t.common.all }, ...SIMS.filter((s) => simOf(scan, s)?.detected).map((s) => ({ value: s, label: <SimLabel sim={s} /> }))]}
         />
-        <div className="flex items-center rounded-[10px] border border-line bg-surface-2/50 p-0.5">
+        <div className="flex h-9 items-center rounded-full border border-line bg-surface-2/70 p-0.5">
           <IconButton size="sm" label={t.library.gallery} active={ui.view === "gallery"} onClick={() => ui.set({ view: "gallery" })}>
             <LayoutGrid className="size-4" />
           </IconButton>
@@ -249,7 +249,7 @@ function Chip({ active, onClick, children, count }: { active: boolean; onClick: 
       type="button"
       onClick={onClick}
       className={clsx(
-        "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
+        "inline-flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-[12.5px] font-semibold transition-colors",
         active ? "accent-soft border-[color-mix(in_oklab,var(--accent)_35%,transparent)]" : "border-line text-fg-2 hover:border-line-strong hover:text-fg",
       )}
     >
@@ -282,7 +282,7 @@ function Card({ mod, scan, index }: { mod: ModEntry; scan: ScanResult; index: nu
     >
       <div className="relative aspect-[16/10]">
         <Thumb mod={mod} className={clsx("absolute inset-0 transition-[filter]", !active && mod.source === "library" && "saturate-[0.55]")} imgClassName="transition-transform duration-500 group-hover:scale-[1.03]" />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(0deg, rgb(8 9 12 / 0.78) 0%, rgb(8 9 12 / 0.1) 46%, transparent 70%)" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(0deg, rgb(7 9 20 / 0.8) 0%, rgb(7 9 20 / 0.1) 46%, transparent 70%)" }} />
         <div className="absolute left-2.5 top-2.5 flex items-center gap-1.5">
           <button
             type="button"
@@ -291,15 +291,15 @@ function Card({ mod, scan, index }: { mod: ModEntry; scan: ScanResult; index: nu
               e.stopPropagation();
               togglePick(mod.id);
             }}
-            className={clsx("msfs-on-image flex size-6 items-center justify-center rounded-md text-white transition-opacity", picked || anyPicked ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
+            className={clsx("msfs-on-image flex size-6 items-center justify-center rounded-full text-white transition-opacity", picked || anyPicked ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
           >
             {picked ? <CheckSquare className="size-3.5" /> : <Square className="size-3.5" />}
           </button>
-          <span className="msfs-on-image inline-flex h-6 items-center rounded-md border border-white/15 px-1.5 font-mono text-[10.5px] font-semibold tracking-[0.06em] text-white" title={catLabel(mod.info.category, lang)}>
+          <span className="msfs-on-image inline-flex h-6 items-center rounded-full px-2 font-mono text-[10.5px] font-semibold tracking-[0.08em] text-white" title={catLabel(mod.info.category, lang)}>
             {CAT_CODE[mod.info.category]}
           </span>
           {mod.info.builtFor === "2024" && (
-            <span className="msfs-on-image inline-flex h-6 items-center gap-1 rounded-md border border-white/15 px-1.5 font-mono text-[10.5px] font-semibold text-white" title={t.builtFor("2024")}>
+            <span className="msfs-on-image inline-flex h-6 items-center gap-1 rounded-full px-2 font-mono text-[10.5px] font-semibold text-white" title={t.builtFor("2024")}>
               <span className="size-1.5 rounded-full" style={{ background: SIM_COLOR.msfs2024 }} />
               FS24
             </span>
@@ -308,7 +308,7 @@ function Card({ mod, scan, index }: { mod: ModEntry; scan: ScanResult; index: nu
         <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5">
           {mod.meta.favorite && <Star className="size-4 fill-warn text-warn drop-shadow" />}
           {errors > 0 && (
-            <span className="inline-flex h-6 items-center gap-1 rounded-md bg-danger px-1.5 text-[11px] font-semibold text-white shadow" title={t.library.issues(errors)}>
+            <span className="inline-flex h-6 items-center gap-1 rounded-full bg-danger px-2 text-[11px] font-semibold text-white shadow" title={t.library.issues(errors)}>
               <AlertTriangle className="size-3" />
               {errors}
             </span>
@@ -325,7 +325,7 @@ function Card({ mod, scan, index }: { mod: ModEntry; scan: ScanResult; index: nu
       </div>
       <div className="flex items-start gap-2 px-3.5 pb-3 pt-2.5">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-semibold text-fg" title={mod.info.title}>
+          <div className="truncate text-[14px] font-semibold text-fg" title={mod.info.title}>
             {mod.info.title}
           </div>
           <div className="mt-0.5 truncate text-[11.5px] text-muted">{[mod.info.creator, version(mod.info.version)].filter(Boolean).join(" · ") || mod.info.folder}</div>
@@ -399,8 +399,8 @@ function UnmanagedBanner({ count, scan }: { count: number; scan: ScanResult | un
   const ops = useModOps();
   const ids = (scan?.mods ?? []).filter((m) => m.source === "community").map((m) => m.id);
   return (
-    <div className="mb-5 flex items-center gap-4 rounded-2xl border border-line bg-surface-2/50 px-4 py-3">
-      <div className="accent-soft flex size-9 shrink-0 items-center justify-center rounded-xl">
+    <div className="mb-5 flex items-center gap-4 rounded-2xl border border-dashed border-line-strong px-4 py-3">
+      <div className="accent-soft flex size-9 shrink-0 items-center justify-center rounded-full">
         <HardDriveDownload className="size-4" />
       </div>
       <p className="min-w-0 flex-1 text-[12.5px] text-fg-2">{t.library.unmanagedNote(count)}</p>
@@ -442,7 +442,7 @@ function BulkBar({ scan, shown }: { scan: ScanResult; shown: ModEntry[] }) {
     <motion.div
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="card-raised fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 px-3 py-2"
+      className="card-raised fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full py-2 pl-3 pr-2"
       style={{ marginLeft: 162 }}
     >
       <span className="px-2 text-[12.5px] font-semibold text-fg">{t.library.selected(picked.length)}</span>

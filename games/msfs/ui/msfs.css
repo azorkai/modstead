@@ -1,7 +1,7 @@
 /* MSFS'e özel küçük stiller. Görsel (kapak, poster, kahraman) üstündeki etiketler iki temada da koyu kalır:
    açık temanın buzlu zemini görselin üstünde beyaz yazıyı okunmaz yapar (bkz. docs/TASARIM.md). */
 .msfs-on-image {
-  background: rgb(10 12 16 / 0.52);
+  background: rgb(7 9 20 / 0.5);
   border: 1px solid rgb(255 255 255 / 0.16);
   backdrop-filter: blur(14px) saturate(1.3);
   -webkit-backdrop-filter: blur(14px) saturate(1.3);

@@ -28,74 +28,178 @@
 						<div id="ms-empty-path" class="ms-path"></div>
 						<div id="ms-empty-alt" class="ms-empty-alt"></div>
 					</div>
-					<!-- Aktif iş: hazırlanıyor, hazır, uçuşta, kesildi. -->
+					<!-- Aktif iş: hazırlanıyor, hazır, uçuşta, kesildi. Yerleşim panelin boyutuna göre (JS → MS_LAYOUTS):
+					     dar panelde sekmeler, büyük panelde harita ve ayrıntılar birlikte. Harita JS ile iki yuvadan birine
+					     taşınır: yan yana yerleşimlerde soldaki, diğerlerinde başlığın altındaki. Düğmeler data-input-group
+					     taşır (simde tıklama yalnızca onlara ulaşır). data-pri: yer yetmezse önce küçük olan gizlenir. -->
 					<div id="ms-job" class="ms-job">
-						<!-- Geniş panelde iki sütun yan yana, diğerlerinde alt alta. -->
-						<div class="ms-col-a">
-						<div class="ms-head">
-							<span id="ms-kind" class="ms-tag"></span>
-							<span id="ms-state" class="ms-state"></span>
+						<div id="ms-slot-side" class="ms-slot-side"></div>
+						<div id="ms-main" class="ms-main">
+							<div id="ms-head" class="ms-head">
+								<span id="ms-kind" class="ms-tag"></span>
+								<span id="ms-state" class="ms-state"></span>
+							</div>
+							<div id="ms-tabs" class="ms-tabs">
+								<div class="ms-tab" data-ms-tab="sum" data-input-group="generic-button"><span></span></div>
+								<div class="ms-tab" data-ms-tab="map" data-input-group="generic-button"><span></span></div>
+								<div class="ms-tab" data-ms-tab="info" data-input-group="generic-button"><span></span></div>
+							</div>
+							<div id="ms-slot-main" class="ms-slot-main">
+								<!-- Harita iki tuvalde: altta karolar ve rota (görünüm değişince çizilir), üstte uçak (her kare). -->
+								<div id="ms-mapbox" class="ms-mapbox">
+									<canvas id="ms-map-base" class="ms-map"></canvas>
+									<canvas id="ms-map" class="ms-map"></canvas>
+									<div id="ms-map-note" class="ms-map-note"></div>
+									<div class="ms-zoom">
+										<div class="ms-zbtn" data-ms-act="zin" data-input-group="generic-button">+</div>
+										<div class="ms-zbtn" data-ms-act="zout" data-input-group="generic-button">−</div>
+										<div id="ms-zauto" class="ms-zbtn ms-zauto" data-ms-act="zauto" data-input-group="generic-button"></div>
+									</div>
+									<!-- Sağ alt: katman seçimi (harita / uydu) ve karoların atfı. -->
+									<div id="ms-map-foot" class="ms-map-foot">
+										<div id="ms-lyr" class="ms-lyr" style="display: none">
+											<div id="ms-lyr-relief" class="ms-lyr-btn" data-ms-act="lyr-relief" data-input-group="generic-button"></div>
+											<div id="ms-lyr-sat" class="ms-lyr-btn" data-ms-act="lyr-sat" data-input-group="generic-button"></div>
+										</div>
+										<div id="ms-map-attr" class="ms-map-attr" style="display: none"></div>
+									</div>
+								</div>
+							</div>
+							<div id="ms-slot-instr" class="ms-slot-instr"></div>
+							<!-- Dar yerleşimin harita sekmesinde haritanın altındaki şerit. -->
+							<div id="ms-strip" class="ms-strip">
+								<div class="ms-scell"><div id="ms-sl-a" class="ms-label"></div><div id="ms-sv-a" class="ms-sval"></div></div>
+								<div class="ms-scell"><div id="ms-sl-b" class="ms-label"></div><div id="ms-sv-b" class="ms-sval"></div></div>
+								<div class="ms-scell"><div id="ms-sl-gs" class="ms-label"></div><div id="ms-sv-gs" class="ms-sval"></div></div>
+								<div class="ms-scell"><div id="ms-sl-alt" class="ms-label"></div><div id="ms-sv-alt" class="ms-sval"></div></div>
+							</div>
+							<div id="ms-cols" class="ms-cols">
+								<!-- Özet: rota, kalan ve varış, puan, ücret, evre çizelgesi ya da kontrol kapısı. -->
+								<div id="ms-sum" class="ms-sec ms-sum">
+									<div class="ms-route">
+										<span id="ms-from" class="ms-icao"></span>
+										<div class="ms-track">
+											<div class="ms-track-base"></div>
+											<div id="ms-track-fill" class="ms-track-fill"></div>
+											<div id="ms-track-dot" class="ms-track-dot"></div>
+											<div class="ms-track-end"></div>
+										</div>
+										<span id="ms-to" class="ms-icao ms-icao-to"></span>
+									</div>
+									<div class="ms-big">
+										<div class="ms-big-cell">
+											<div id="ms-l-a" class="ms-label"></div>
+											<div id="ms-a" class="ms-big-value"></div>
+										</div>
+										<div class="ms-big-cell ms-big-cell-2">
+											<div id="ms-l-b" class="ms-label"></div>
+											<div id="ms-b" class="ms-big-value"></div>
+										</div>
+									</div>
+									<div id="ms-row-flight" class="ms-row" data-pri="4">
+										<div class="ms-cell">
+											<div id="ms-l-score" class="ms-label"></div>
+											<div id="ms-score" class="ms-value"></div>
+										</div>
+										<div class="ms-cell ms-cell-2">
+											<div id="ms-l-land" class="ms-label"></div>
+											<div id="ms-land" class="ms-value"></div>
+										</div>
+									</div>
+									<div id="ms-row-pay" class="ms-row" data-pri="2">
+										<div class="ms-cell">
+											<div id="ms-l-pay" class="ms-label"></div>
+											<div id="ms-pay" class="ms-value"></div>
+										</div>
+										<div class="ms-cell ms-cell-2">
+											<div id="ms-l-due" class="ms-label"></div>
+											<div id="ms-due" class="ms-value"></div>
+										</div>
+									</div>
+									<div class="ms-fill"></div>
+									<!-- Uçuşta: evre çizelgesi. -->
+									<div id="ms-phases" class="ms-phases" data-pri="5">
+										<div id="ms-steps" class="ms-steps"></div>
+										<div class="ms-steps-cap">
+											<span id="ms-step-now" class="ms-step-now"></span>
+											<span id="ms-step-next" class="ms-step-next"></span>
+										</div>
+									</div>
+									<!-- Hazırlıkta: kontrol kapısı. -->
+									<div id="ms-gate" class="ms-gate">
+										<div class="ms-gate-head">
+											<span id="ms-gate-title" class="ms-label"></span>
+											<span id="ms-gate-count" class="ms-gate-count"></span>
+										</div>
+										<div id="ms-checks" class="ms-checks"></div>
+									</div>
+									<div id="ms-note" class="ms-note" data-pri="3"></div>
+								</div>
+								<!-- Ayrıntılar: göstergeler, rüzgâr ve yakıt, varış havası, son kesintiler, pencere ve tablet. -->
+								<div id="ms-info" class="ms-sec ms-info">
+									<div id="ms-instr" class="ms-instr" data-pri="6">
+										<div class="ms-icell"><div id="ms-l-gs" class="ms-label"></div><div id="ms-gs" class="ms-ival"></div></div>
+										<div class="ms-icell"><div id="ms-l-alt" class="ms-label"></div><div id="ms-alt" class="ms-ival"></div></div>
+										<div class="ms-icell"><div id="ms-l-vs" class="ms-label"></div><div id="ms-vs" class="ms-ival"></div></div>
+										<div class="ms-icell"><div id="ms-l-hdg" class="ms-label"></div><div id="ms-hdg" class="ms-ival"></div></div>
+									</div>
+									<div id="ms-row-wf" class="ms-row ms-row-wf" data-pri="5">
+										<div class="ms-cell ms-cell-wind">
+											<div id="ms-l-wind" class="ms-label"></div>
+											<div id="ms-wind" class="ms-value"></div>
+											<div id="ms-wind-sub" class="ms-sub"></div>
+										</div>
+										<div class="ms-cell ms-cell-2 ms-cell-fuel">
+											<div id="ms-l-fuel" class="ms-label"></div>
+											<div id="ms-fuel" class="ms-value"></div>
+											<div id="ms-fuel-sub" class="ms-sub"></div>
+										</div>
+									</div>
+									<div id="ms-row-wx" class="ms-row" data-pri="4">
+										<div class="ms-cell">
+											<div id="ms-l-wx" class="ms-label"></div>
+											<div id="ms-wx" class="ms-value"></div>
+											<div id="ms-wx-rwy" class="ms-sub"></div>
+											<div id="ms-wx-len" class="ms-sub" data-pri="2"></div>
+										</div>
+									</div>
+									<div id="ms-row-ipay" class="ms-row ms-ipay" data-pri="3">
+										<div class="ms-cell">
+											<div id="ms-l-ipay" class="ms-label"></div>
+											<div id="ms-ipay" class="ms-value"></div>
+										</div>
+										<div class="ms-cell ms-cell-2">
+											<div id="ms-l-idue" class="ms-label"></div>
+											<div id="ms-idue" class="ms-value"></div>
+										</div>
+									</div>
+									<div id="ms-pens-box" class="ms-pens-box" data-pri="1">
+										<div id="ms-l-pens" class="ms-label"></div>
+										<div id="ms-pens" class="ms-pens"></div>
+									</div>
+									<div class="ms-fill"></div>
+									<div class="ms-actions">
+										<div id="ms-act-window" class="ms-btn" data-ms-act="window" data-input-group="generic-button"><span id="ms-btn-window"></span></div>
+										<div id="ms-act-tablet" class="ms-btn ms-btn-2" data-ms-act="tablet" data-input-group="generic-button"><span id="ms-btn-tablet"></span></div>
+									</div>
+									<div id="ms-toast" class="ms-toast"></div>
+								</div>
+							</div>
 						</div>
-						<div class="ms-route">
-							<span id="ms-from" class="ms-icao"></span>
-							<div class="ms-track">
-								<div class="ms-track-base"></div>
-								<div id="ms-track-fill" class="ms-track-fill"></div>
-								<div id="ms-track-dot" class="ms-track-dot"></div>
-								<div class="ms-track-end"></div>
+						<!-- Tablette aç: yerel ağ adresi ve karekodu (ya da tablet erişiminin nasıl açılacağı). -->
+						<div id="ms-deck" class="ms-deck">
+							<div class="ms-deck-head">
+								<span id="ms-deck-title" class="ms-label"></span>
+								<div class="ms-btn ms-deck-close" data-ms-act="deck-close" data-input-group="generic-button"><span id="ms-deck-close"></span></div>
 							</div>
-							<span id="ms-to" class="ms-icao ms-icao-to"></span>
-						</div>
-						<div class="ms-big">
-							<div class="ms-big-cell">
-								<div id="ms-l-a" class="ms-label"></div>
-								<div id="ms-a" class="ms-big-value"></div>
+							<div class="ms-deck-body">
+								<div id="ms-deck-qr" class="ms-deck-qr"><img id="ms-deck-img" class="ms-deck-img" alt=""/></div>
+								<div class="ms-deck-text">
+									<div id="ms-deck-url" class="ms-deck-url"></div>
+									<div id="ms-deck-msg" class="ms-deck-msg"></div>
+									<div id="ms-deck-path" class="ms-path"></div>
+								</div>
 							</div>
-							<div class="ms-big-cell ms-big-cell-2">
-								<div id="ms-l-b" class="ms-label"></div>
-								<div id="ms-b" class="ms-big-value"></div>
-							</div>
-						</div>
-						</div>
-						<div class="ms-col-b">
-						<div id="ms-row-flight" class="ms-row">
-							<div class="ms-cell">
-								<div id="ms-l-score" class="ms-label"></div>
-								<div id="ms-score" class="ms-value"></div>
-							</div>
-							<div class="ms-cell ms-cell-2">
-								<div id="ms-l-land" class="ms-label"></div>
-								<div id="ms-land" class="ms-value"></div>
-							</div>
-						</div>
-						<div class="ms-row">
-							<div class="ms-cell">
-								<div id="ms-l-pay" class="ms-label"></div>
-								<div id="ms-pay" class="ms-value"></div>
-							</div>
-							<div class="ms-cell ms-cell-2">
-								<div id="ms-l-due" class="ms-label"></div>
-								<div id="ms-due" class="ms-value"></div>
-							</div>
-						</div>
-						<div class="ms-fill"></div>
-						<!-- Uçuşta: evre çizelgesi. -->
-						<div id="ms-phases" class="ms-phases">
-							<div id="ms-steps" class="ms-steps"></div>
-							<div class="ms-steps-cap">
-								<span id="ms-step-now" class="ms-step-now"></span>
-								<span id="ms-step-next" class="ms-step-next"></span>
-							</div>
-						</div>
-						<!-- Hazırlıkta: kontrol kapısı. -->
-						<div id="ms-gate" class="ms-gate">
-							<div class="ms-gate-head">
-								<span id="ms-gate-title" class="ms-label"></span>
-								<span id="ms-gate-count" class="ms-gate-count"></span>
-							</div>
-							<div id="ms-checks" class="ms-checks"></div>
-						</div>
-						<div id="ms-note" class="ms-note"></div>
 						</div>
 					</div>
 				</div>

@@ -39,6 +39,8 @@ pub struct Stats {
     pub night_landings: u32,
     pub instrument_approaches: u32,
     pub stable_approaches: u32,
+    /// İş türü → saat (kariyer yolunda uçulan saat bundan hesaplanır; bkz. `paths`).
+    pub kind_hours: HashMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -56,7 +58,7 @@ pub struct Pilot {
     pub licenses: Vec<String>,
     pub reputation: f64,
     pub difficulty: Difficulty,
-    /// "student" | "commercial" | "airline"
+    /// "student" (sıfırdan) | "fast" (deneyimli başla); eski kayıtlarda "commercial" | "airline".
     pub start: String,
     pub created_at: String,
     pub stats: Stats,
@@ -64,6 +66,12 @@ pub struct Pilot {
     pub birth_year: i32,
     /// Yeterlilik, sağlık sertifikası, görev süresi (`records`).
     pub records: super::records::Records,
+    /// Kariyer yolu (`paths`); eski kayıtlarda yok → Genel.
+    pub path: super::paths::CareerPath,
+    /// Yolun seçildiği zaman (unix sn; 0 = kayıttan beri).
+    pub path_since: i64,
+    /// Yol başına ulaşılan rütbe basamağı (kalıcı: itibar düşse de geri alınmaz).
+    pub path_ranks: super::paths::Ranks,
 }
 
 impl Pilot {
@@ -118,6 +126,12 @@ pub struct Job {
     pub ir_required: bool,
     /// Hava işinin hedefleri (tur, atlayış, fotoğraf, arama-kurtarma); boşsa sıradan iş.
     pub objectives: Vec<super::missions::Objective>,
+    /// Hava ve zaman senaryosu (`conditions`); eski kayıtlarda yoksa canlı hava ve gerçek saat.
+    pub conditions: super::conditions::JobConditions,
+    /// Kariyer yoluna uyum (`paths::fit`): yol dışı mı; yoldaysa ücrete eklenmiş prim ve uçuş sonu XP primi (%).
+    pub off_path: bool,
+    pub path_pay_bonus: u8,
+    pub path_xp_bonus: u8,
 }
 
 /// Uçuşa kullanılan uçak.
@@ -258,4 +272,6 @@ pub struct LogEntry {
     pub checkride_passed: Option<bool>,
     /// İtiraz edilip kaldırılan kesintiler (kural kodları).
     pub appealed: Vec<String>,
+    /// Bu uçuşla ulaşılan yeni rütbe (`paths`), varsa.
+    pub promotion: Option<String>,
 }

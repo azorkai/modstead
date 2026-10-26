@@ -40,6 +40,11 @@ pub struct Env {
     pub transponder: u8,
     /// Işık değişkenlerinden biri hiç açık görüldü mü? Görülmediyse uçak bu değişkenleri kullanmıyordur.
     pub lights_seen: bool,
+    /// Sim aktif duraklatmada: uçak donar, dünya akar (`IS IN ACTIVE PAUSE`; 2024'te `Pause_EX1` bunu bildirmiyor).
+    pub active_pause: bool,
+    /// `SIMULATION TIME` (sn): aktif duraklatmada ilerlemez. Yalnızca duraklatma bekçisi için; arayüze gitmez.
+    #[serde(skip)]
+    pub sim_time_s: f64,
 }
 
 impl Env {

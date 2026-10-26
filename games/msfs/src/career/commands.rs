@@ -10,7 +10,10 @@ use super::aircraft::Class;
 use super::airports::{Airport, Size, db, distance_nm};
 use super::model::{Job, LedgerEntry, LogEntry, StartAt};
 use super::tracker::TrackPoint;
-use super::{AircraftOption, Career, CareerView, CreateRequest, Live, jobs};
+use super::deck::{self, DeckInfo};
+use super::paths::{self, CareerPath, PathInfo};
+use super::progression::Difficulty;
+use super::{AircraftOption, Career, CareerView, Live, NewCareer, jobs};
 use crate::Msfs;
 
 type G<'a> = State<'a, Msfs>;
@@ -27,9 +30,32 @@ pub async fn msfs_career_state(game: G<'_>) -> AppResult<CareerView> {
 }
 
 #[tauri::command]
-pub async fn msfs_career_create(game: G<'_>, request: CreateRequest) -> AppResult<CareerView> {
+pub async fn msfs_career_create(game: G<'_>, request: NewCareer) -> AppResult<CareerView> {
     run(&game, move |c| {
-        c.create(request)?;
+        match request.path {
+            Some(path) => c.create_in(request.request, path)?,
+            None => c.create(request.request)?,
+        }
+        Ok(c.view())
+    })
+    .await
+}
+
+/// Kariyer yollarının kataloğu (kayıt ekranı ve yol değiştirme): paketler seçilen zorlukla ölçeklenir.
+#[tauri::command]
+pub async fn msfs_career_paths(game: G<'_>, difficulty: Option<Difficulty>) -> AppResult<Vec<PathInfo>> {
+    run(&game, move |c| {
+        let d = difficulty.or_else(|| c.lock_data().pilot.as_ref().map(|p| p.difficulty)).unwrap_or_default();
+        Ok(paths::catalog(db(), d))
+    })
+    .await
+}
+
+/// Kariyer yolunu değiştirir (lisans, saat, para ve itibar kalır).
+#[tauri::command]
+pub async fn msfs_career_set_path(game: G<'_>, path: CareerPath) -> AppResult<CareerView> {
+    run(&game, move |c| {
+        c.set_path(path)?;
         Ok(c.view())
     })
     .await
@@ -48,11 +74,17 @@ pub async fn msfs_career_reset(game: G<'_>) -> AppResult<()> {
 #[tauri::command]
 pub async fn msfs_career_weather(game: G<'_>) -> AppResult<Vec<super::weather::Metar>> {
     let career = game.career();
+    weather(&career).await
+}
+
+/// `msfs_career_weather`'ın gövdesi; uçuş ekranının uzaktan çağrısı da bunu kullanır (`hud_server`).
+pub async fn weather(career: &Career) -> AppResult<Vec<super::weather::Metar>> {
     let targets = career.weather_targets();
     let want = career.weather_wanted(&targets);
     if !want.is_empty() {
-        let url = game.services.http.ensure_allowed(&super::weather::url(&want))?;
-        match game.services.http.client.get(url).send().await {
+        let http = &career.services.http;
+        let url = http.ensure_allowed(&super::weather::url(&want))?;
+        match http.client.get(url).send().await {
             Ok(r) if r.status().is_success() => {
                 let body = r.text().await.unwrap_or_default();
                 let items = super::weather::parse_json(&body, modstead_core::fsx::now_ts());
@@ -110,16 +142,40 @@ pub async fn msfs_career_cancel(game: G<'_>) -> AppResult<()> {
 
 #[tauri::command]
 pub async fn msfs_career_aircraft(game: G<'_>) -> AppResult<Vec<AircraftOption>> {
-    run(&game, |c| Ok(c.installed_aircraft())).await
+    let g: Msfs = game.inner().clone();
+    // Mod uçakları son taramadan (değişmediyse önbellekten); sonra simin listesi ve uçulan uçaklarla birleşir.
+    tokio::task::spawn_blocking(move || {
+        super::addons::refresh(&g, false);
+        Ok(g.career().installed_aircraft())
+    })
+    .await?
 }
 
+/// Simden uçak listesini yeniden ister ve diski yeniden tarar (Community'ye elle eklenen mod uçakları da görünsün).
 #[tauri::command]
 pub async fn msfs_career_refresh_aircraft(game: G<'_>) -> AppResult<()> {
-    run(&game, |c| {
+    let g: Msfs = game.inner().clone();
+    tokio::task::spawn_blocking(move || {
+        let c = g.career();
         c.send(super::link::Command::RefreshAircraft);
+        super::addons::refresh(&g, true);
+        c.changed();
         Ok(())
     })
-    .await
+    .await?
+}
+
+/// Mod uçağının paketindeki küçük resim (ham bayt; arayüz `blob:` adresine çevirir). `livery` verilirse o boyanınki.
+#[tauri::command]
+pub async fn msfs_career_aircraft_thumb(title: String, livery: Option<String>) -> AppResult<tauri::ipc::Response> {
+    let bytes = tokio::task::spawn_blocking(move || super::addons::thumbnail(&title, livery.as_deref())).await??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// Uçağın yükü ve yakıtı kendi EFB'sinden mi yönetilir: `Some` elle seçer, `None` otomatiğe döner.
+#[tauri::command]
+pub async fn msfs_career_set_loading(game: G<'_>, title: String, own: Option<bool>) -> AppResult<()> {
+    run(&game, move |c| super::addons::set_own_loading(c, &title, own)).await
 }
 
 #[tauri::command]
@@ -239,16 +295,20 @@ pub struct MapAirport {
 /// Haritada görünen kutudaki havalimanları. `detail`: 0 yalnızca büyükler, 1 ortalar da, 2 hepsi.
 #[tauri::command]
 pub async fn msfs_career_map_airports(south: f64, west: f64, north: f64, east: f64, detail: u8) -> AppResult<Vec<MapAirport>> {
+    Ok(map_airports(south, west, north, east, detail))
+}
+
+/// `msfs_career_map_airports`'un gövdesi (uçuş ekranının uzaktan çağrısı da kullanır).
+pub fn map_airports(south: f64, west: f64, north: f64, east: f64, detail: u8) -> Vec<MapAirport> {
     let sizes: &[Size] = match detail {
         0 => &[Size::Large],
         1 => &[Size::Large, Size::Medium],
         _ => &[Size::Large, Size::Medium, Size::Small, Size::Seaplane],
     };
-    Ok(db()
-        .in_box(south, west, north, east, sizes, 400)
+    db().in_box(south, west, north, east, sizes, 400)
         .into_iter()
         .map(|a| MapAirport { icao: a.icao.clone(), name: a.name.clone(), size: a.size, lat: a.lat, lon: a.lon, runway: a.runway.clone() })
-        .collect())
+        .collect()
 }
 
 /// Sim içi panelin (HUD) durumu: kütüphanede kurulu mu, hangi simlere bağlı.
@@ -395,4 +455,47 @@ pub async fn msfs_career_reveal_plan(game: G<'_>) -> AppResult<()> {
         Ok(())
     })
     .await
+}
+
+/// Aktif uçuşun şimdiye kadarki izi (`FlightDetail.track` ile aynı biçim); aktif takip yoksa boş.
+#[tauri::command]
+pub async fn msfs_career_track(game: G<'_>) -> AppResult<Vec<TrackPoint>> {
+    run(&game, |c| Ok(c.active_track())).await
+}
+
+// ---------- Uçuş ekranı (bkz. `deck`) ----------
+
+/// Uçuş ekranının adresleri, yerel ağ durumu ve QR kodu.
+#[tauri::command]
+pub async fn msfs_career_deck_info(game: G<'_>) -> AppResult<DeckInfo> {
+    let c = game.career();
+    Ok(tokio::task::spawn_blocking(move || deck::info(&c)).await?)
+}
+
+/// Yerel ağ kipini açar ya da kapatır (açınca Windows güvenlik duvarı ilk seferde izin sorabilir).
+#[tauri::command]
+pub async fn msfs_career_deck_set_lan(game: G<'_>, on: bool) -> AppResult<DeckInfo> {
+    let c = game.career();
+    tokio::task::spawn_blocking(move || deck::set_lan(&c, on)).await?
+}
+
+/// Yeni yerel ağ anahtarı: eski adres ve QR kodu geçersiz olur.
+#[tauri::command]
+pub async fn msfs_career_deck_rotate(game: G<'_>) -> AppResult<DeckInfo> {
+    let c = game.career();
+    tokio::task::spawn_blocking(move || deck::rotate(&c)).await?
+}
+
+/// Uçuş ekranı penceresini açar ya da öne getirir (async: pencere ana iş parçacığında kurulmasın diye).
+#[tauri::command]
+pub async fn msfs_career_deck_open() -> AppResult<()> {
+    tokio::task::spawn_blocking(deck::open_window).await?
+}
+
+// ---------- Harita karoları (bkz. `tiles`) ----------
+
+/// Harita katmanları ve karoların alınacağı yerel sunucu (`<base>/api/tiles/<katman>/<z>/<x>/<y>`).
+#[tauri::command]
+pub async fn msfs_career_tiles_info() -> AppResult<super::tiles::TilesInfo> {
+    Ok(super::tiles::info())
 }

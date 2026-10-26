@@ -1,13 +1,19 @@
-"""Kariyer haritasının coğrafi verisini üretir: games/msfs/ui/career/map/{coarse,detail,places}.ts
+"""Kariyer haritasının coğrafi verisini üretir: games/msfs/ui/career/map/{coarse,detail,places,rivers,urban,roads,runways}.ts
 
 Kaynak: Natural Earth (https://www.naturalearthdata.com/, kamu malı / Public Domain), GeoJSON sürümleri
-(https://github.com/nvkelso/natural-earth-vector/tree/master/geojson).
-Kullanım:  python -I games/msfs/tools/map.py <geojson-klasörü> <çıktı-klasörü>
+(https://github.com/nvkelso/natural-earth-vector/tree/master/geojson); pistler OurAirports
+(https://ourairports.com/data/, kamu malı / Public Domain).
+Kullanım:  python -I games/msfs/tools/map.py <geojson-klasörü> <çıktı-klasörü> [<ourairports-klasörü>] [--only ad,ad]
 
 Klasörde beklenen dosyalar:
   ne_50m_land, ne_50m_lakes, ne_50m_admin_0_boundary_lines_land   → coarse.ts (dünya görünümü, tek parça)
   ne_10m_land, ne_10m_lakes, ne_10m_admin_0_boundary_lines_land   → detail.ts (10°'lik karolar)
   ne_10m_populated_places                                          → places.ts (şehir adları, Türkçe ve İngilizce)
+  ne_10m_rivers_lake_centerlines                                   → rivers.ts (akarsular, üç önem sınıfı)
+  ne_10m_urban_areas                                               → urban.ts (yerleşim alanları)
+  ne_10m_roads                                                     → roads.ts (ana ve ikincil yollar)
+  OurAirports airports.csv + runways.csv                           → runways.ts (uçları bilinen açık pistler)
+`--only` yalnızca adı verilen çıktıları üretir (ör. `--only rivers,urban,roads,runways`).
 
 Düzlem eşdikdörtgendir: x = boylam + 180, y = 90 - enlem (derece). Halkalar ve çizgiler Douglas-Peucker ile
 sadeleştirilir, karolara kırpılır, tamsayıya yuvarlanır ve Google "encoded polyline" biçiminde yazılır (ilk nokta
@@ -15,7 +21,9 @@ mutlak, sonrakiler fark; parçalar boşlukla ayrılır). Kıyı çizgisi ayrıca
 halkalarından, karo kenarı üzerinde uzanan (kırpmanın eklediği) kenarları atlayarak türetir.
 """
 
+import csv
 import json
+import math
 import os
 import sys
 
@@ -234,7 +242,7 @@ def tiles_of(b):
             yield tx, ty
 
 
-def tile_rings(rings, q):
+def tile_rings(rings, q, enc=encode):
     by = {}
     for pts in rings:
         b = bbox(pts)
@@ -245,11 +253,11 @@ def tile_rings(rings, q):
             clipped = pts if inside else clip_ring(pts, x0, y0, x1, y1)
             qq = quantize(clipped, q, True)
             if len(qq) >= 3 and area(qq) > 0:
-                by.setdefault((tx, ty), []).append(encode(qq))
+                by.setdefault((tx, ty), []).append(enc(qq))
     return by
 
 
-def tile_lines(lines, q):
+def tile_lines(lines, q, enc=encode):
     by = {}
     for pts in lines:
         if len(pts) < 2:
@@ -259,7 +267,7 @@ def tile_lines(lines, q):
             for part in clip_line(pts, x0, y0, x0 + TILE, y0 + TILE):
                 qq = quantize(part, q, False)
                 if len(qq) >= 2:
-                    by.setdefault((tx, ty), []).append(encode(qq))
+                    by.setdefault((tx, ty), []).append(enc(qq))
     return by
 
 
@@ -326,12 +334,197 @@ def places(src, dst):
     print(f"places: {len(rows)} yer, {os.path.getsize(dst) // 1024} KB")
 
 
-def main(src, out):
+def chained(by):
+    """Karodaki parçaları zincirleme kodlar: her parçanın ilk noktası da bir önceki parçanın son noktasına göre farktır
+    (yakın parçalarda başlangıç birkaç karakterde kalır). Arayüz bunu `decode(s, true)` ile çözer."""
+    out = {}
+    for key, parts in by.items():
+        px = py = 0
+        enc = []
+        for pts in parts:
+            s = []
+            for x, y in pts:
+                s.append(_num(x - px))
+                s.append(_num(y - py))
+                px, py = x, y
+            enc.append("".join(s))
+        out[key] = enc
+    return out
+
+
+def _tiles_ts(dst, comment, q, by, width, header=HEADER):
+    """Karolu katman dosyası: değer tek parça dizisi ya da `width` uzunlukta sınıf dizisi."""
+    keys = sorted({k for layer in by for k in layer}, key=lambda k: (k[1], k[0]))
+    with open(dst, "w", encoding="utf-8", newline="\n") as o:
+        o.write(header)
+        o.write(f"// Karo anahtarı \"x_y\": x = (boylam + 180) / {TILE}, y = (90 - enlem) / {TILE}. {comment}\n")
+        o.write(f"export const Q = {q};\n")
+        kind = "string" if width == 1 else "[" + ", ".join(["string"] * width) + "]"
+        o.write(f"export const TILES: Record<string, {kind}> = {{\n")
+        for k in keys:
+            row = [" ".join(layer.get(k, [])) for layer in by]
+            val = js(row[0]) if width == 1 else "[" + ", ".join(js(r) for r in row) + "]"
+            o.write(f'  "{k[0]}_{k[1]}": {val},\n')
+        o.write("};\n")
+    return len(keys)
+
+
+def rivers(src, dst, tol=0.005):
+    """Akarsu ve göl orta çizgileri; sınıf Natural Earth önem derecesinden: 0–3 büyük, 4–6 orta, 7–8 küçük (9 ve
+    üstü alınmaz). Küçükler biraz daha sadeleşir: yalnızca yakında görünürler, orada da kıyı kadar keskin olmaları
+    gerekmez."""
+    q = 500
+    groups = [[], [], []]
+    for f in load(src, "ne_10m_rivers_lake_centerlines"):
+        p = f["properties"]
+        rank = p.get("scalerank") or 10
+        if p.get("featurecla") not in ("River", "Lake Centerline") or rank > 8:
+            continue
+        groups[0 if rank <= 3 else 1 if rank <= 6 else 2].append(f)
+    by = [chained(tile_lines(polylines(g, tol if i < 2 else tol * 1.4), q, list)) for i, g in enumerate(groups)]
+    n = _tiles_ts(dst, "Değer: [büyük, orta, küçük] akarsular, zincirleme kodlu.", q, by, 3)
+    print(f"rivers: {n} karo, {os.path.getsize(dst) // 1024} KB")
+
+
+def urban(src, dst, tol=0.01, min_km2=8.0):
+    """Yerleşim alanları (dolgu); çok küçük alanlar atılır. Kaynak ~1 km çözünürlüklü uydu verisinden türediği için
+    ~1 km'lik sadeleştirme biçimi bozmaz."""
+    q = 500
+    feats = [f for f in load(src, "ne_10m_urban_areas") if (f["properties"].get("area_sqkm") or 0) >= min_km2]
+    by = [chained(tile_rings(polygons(feats, tol, 0.0006), q, list))]
+    n = _tiles_ts(dst, "Değer: yerleşim alanı halkaları, zincirleme kodlu.", q, by, 1)
+    print(f"urban: {n} karo, {os.path.getsize(dst) // 1024} KB")
+
+
+ROAD_MAJOR = ("Major Highway", "Beltway", "Bypass")
+
+
+def roads(src, dst, tol=0.005, secondary_rank=5):
+    """Ana yollar (otoyol, çevre yolu) ve önemli ikincil yollar; feribot ve patikalar alınmaz."""
+    q = 500
+    major, minor = [], []
+    for f in load(src, "ne_10m_roads"):
+        p = f["properties"]
+        t = p.get("type")
+        if t in ROAD_MAJOR:
+            major.append(f)
+        elif t == "Secondary Highway" and (p.get("scalerank") or 10) <= secondary_rank:
+            minor.append(f)
+    by = [chained(tile_lines(polylines(major, tol), q, list)), chained(tile_lines(polylines(minor, tol), q, list))]
+    n = _tiles_ts(dst, "Değer: [ana, ikincil] yollar, zincirleme kodlu.", q, by, 2)
+    print(f"roads: {n} karo, {os.path.getsize(dst) // 1024} KB")
+
+
+RUNWAY_TYPES = ("large_airport", "medium_airport", "small_airport", "seaplane_base")
+PAVED = ("ASP", "CON", "BIT", "PEM", "TAR", "MAC", "PAV", "ASF", "CEM")
+
+
+def surface_class(s):
+    s = (s or "").upper()
+    if any(s.startswith(p) or p in s for p in PAVED):
+        return "P"
+    if "WAT" in s:
+        return "W"
+    return "U"
+
+
+def clean(s):
+    return " ".join((s or "").replace("\t", " ").split())
+
+
+def _opposite(ident):
+    """Pistin karşı ucunun olağan adı ("05L" → "23R"); sayı değilse boş."""
+    digits = "".join(c for c in ident if c.isdigit())
+    if not digits or len(digits) > 2 or ident[: len(digits)] != digits:
+        return ""
+    n = (int(digits) + 18 - 1) % 36 + 1
+    side = {"L": "R", "R": "L", "C": "C", "": ""}.get(ident[len(digits) :], None)
+    return "" if side is None else f"{n:02d}{side}"
+
+
+def runways(folder, dst):
+    """Uçları bilinen açık pistler. Parça: kodlanmış sayılar + ":" + bir uç [+ ":" + öbür uç, olağan adı değilse].
+    Sayılar (1/Q derece, karo köşesine göre): x1, y1 (karodaki bir önceki pistin x1, y1'ine göre fark; pistler yakınlık
+    sırasında), dx, dy (öbür uç), genişlik (5 m birimi), yüzey (0 sert, 1 toprak/çim, 2 su)."""
+    q = 20000
+    known = set()
+    with open(os.path.join(folder, "airports.csv"), encoding="utf-8", newline="") as f:
+        for a in csv.DictReader(f):
+            if a["type"] in RUNWAY_TYPES:
+                known.add(a["id"])
+    rows = {}
+    with open(os.path.join(folder, "runways.csv"), encoding="utf-8", newline="") as f:
+        for r in csv.DictReader(f):
+            if r["closed"] == "1" or r["airport_ref"] not in known:
+                continue
+            try:
+                la1, lo1 = float(r["le_latitude_deg"]), float(r["le_longitude_deg"])
+                la2, lo2 = float(r["he_latitude_deg"]), float(r["he_longitude_deg"])
+            except ValueError:
+                continue
+            # Uçları çok yakın ya da çok uzak (veri hatası) olan pistler alınmaz.
+            span = math.hypot((lo2 - lo1) * math.cos(math.radians(la1)), la2 - la1) * 60 * 1852
+            if span < 150 or span > 6500:
+                continue
+            try:
+                width = float(r["width_ft"] or 0) * 0.3048
+            except ValueError:
+                width = 0
+            if not width or width > 150:
+                width = 45 if span > 2400 else 30 if span > 1200 else 18
+            x1, y1, x2, y2 = lo1 + 180, 90 - la1, lo2 + 180, 90 - la2
+            tx, ty = int(min(x1, 359.999) // TILE), int(min(y1, 179.999) // TILE)
+            le = clean(r["le_ident"]).upper().replace(" ", "").replace(":", "")
+            he = clean(r["he_ident"]).upper().replace(" ", "").replace(":", "")
+            ends = le if he == _opposite(le) else f"{le}:{he}"
+            rows.setdefault((tx, ty), []).append((x1, y1, x2, y2, max(1, round(width / 5)), surface_class(r["surface"]), ends))
+    by = {}
+    for (tx, ty), items in rows.items():
+        # Yakınlık sırası: çeyrek derecelik şeritler, şeritte boylama göre (yakın pistlerin farkı küçük kalır).
+        items.sort(key=lambda it: (int(it[1] * 4), it[0] if int(it[1] * 4) % 2 == 0 else -it[0]))
+        ox, oy = tx * TILE * q, ty * TILE * q
+        px = py = 0
+        parts = []
+        for x1, y1, x2, y2, w, s, ends in items:
+            a, b = round(x1 * q) - ox, round(y1 * q) - oy
+            c, d = round(x2 * q) - ox - a, round(y2 * q) - oy - b
+            nums = [a - px, b - py, c, d, w, {"P": 0, "U": 1, "W": 2}[s]]
+            px, py = a, b
+            parts.append("".join(_num(v) for v in nums) + ":" + ends)
+        by[(tx, ty)] = parts
+    header = "// OurAirports (ourairports.com, kamu malı) · games/msfs/tools/map.py ile üretildi; elle düzenleme.\n// Düzlem: x = boylam + 180, y = 90 - enlem.\n"
+    n = _tiles_ts(dst, "Değer: pistler (bkz. tools/map.py runways).", q, [by], 1, header)
+    total = sum(len(v) for v in rows.values())
+    print(f"runways: {total} pist, {n} karo, {os.path.getsize(dst) // 1024} KB")
+
+
+OUTPUTS = ("coarse", "detail", "places", "rivers", "urban", "roads", "runways")
+
+
+def main(src, out, airports=None, only=None):
     os.makedirs(out, exist_ok=True)
-    coarse(src, os.path.join(out, "coarse.ts"))
-    detail(src, os.path.join(out, "detail.ts"))
-    places(src, os.path.join(out, "places.ts"))
+    want = set(only or OUTPUTS)
+    if "coarse" in want:
+        coarse(src, os.path.join(out, "coarse.ts"))
+    if "detail" in want:
+        detail(src, os.path.join(out, "detail.ts"))
+    if "places" in want:
+        places(src, os.path.join(out, "places.ts"))
+    if "rivers" in want:
+        rivers(src, os.path.join(out, "rivers.ts"))
+    if "urban" in want:
+        urban(src, os.path.join(out, "urban.ts"))
+    if "roads" in want:
+        roads(src, os.path.join(out, "roads.ts"))
+    if "runways" in want and airports:
+        runways(airports, os.path.join(out, "runways.ts"))
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    args = sys.argv[1:]
+    only = None
+    if "--only" in args:
+        i = args.index("--only")
+        only = args[i + 1].split(",")
+        del args[i : i + 2]
+    main(args[0], args[1], args[2] if len(args) > 2 else None, only)

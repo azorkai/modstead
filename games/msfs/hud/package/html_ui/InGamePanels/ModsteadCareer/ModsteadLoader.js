@@ -80,6 +80,8 @@
 
 	function live(info) {
 		loaded = info;
+		// Panel ayrıntıları (canlı uçuş, harita, hava) aynı sunucudan ister; adres yoksa kendisi arar.
+		window.MS_HUD_BASE = info.base;
 		get(info.base + "/hud/body.html?v=" + info.v, 1500, function (body) {
 			var root = document.getElementById("ms-root");
 			if (body && root) root.outerHTML = body;

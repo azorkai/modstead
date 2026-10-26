@@ -8,9 +8,11 @@ use std::collections::HashSet;
 
 use super::aircraft::{CLASSES, Class, ClassInfo, info};
 use super::airports::{Airport, AirportDb, Size, Surface, distance_nm};
+use super::conditions;
 use super::economy::{self, Costs, care, care_multiplier, contract_quote, fuel_price_at, handling_fee, plan, route_charge, wage_pay};
 use super::missions::{self, Objective};
 use super::model::{Job, Mode, Pilot};
+use super::paths;
 use super::progression::{can_fly, flight_xp};
 
 /// İlan penceresi (saniye).
@@ -206,6 +208,26 @@ const CLIENTS: &[&str] = &[
     "Vadi Havacılık",
     "Granite Mining Co.",
 ];
+// İşin türüne uyan işletmeler (hepsi kurgusal): havayolu seferini bir kargo şirketi vermesin.
+const AIRLINES: &[&str] = &["Lale Hava Yolları", "Meridyen Air", "Northwind Airways", "Boğaziçi Air", "Anatolian Regional"];
+const CARGO_OPERATORS: &[&str] = &["Bulut Kargo", "Atlas Lojistik", "Skyline Freight", "Harbor Mail", "Kuzey Ekspres Kargo"];
+const BUSH_OPERATORS: &[&str] = &["Pinewood Air", "Granite Mining Co.", "Toros Aviation", "Vadi Havacılık", "Tundra Supply"];
+const MEDICAL_OPERATORS: &[&str] = &["Hayat Hava Ambulansı", "Lifewing Air Rescue", "Kuzey Kurtarma", "Mavi Işık Sağlık"];
+const CHARTER_OPERATORS: &[&str] = &["Mavi Charter", "Horizon Charter", "Kuzey Hava Taksi", "Ege Air Service", "Altın Kanat Jet"];
+const AERIAL_OPERATORS: &[&str] = &["Panorama Hava Turları", "Kartal Paraşüt Kulübü", "GeoHarita Ölçüm", "Skyview Tours"];
+
+/// İlanı veren işletme: türüne uyan listeden.
+fn operators(kind: &str) -> &'static [&'static str] {
+    match kind {
+        "airline" => AIRLINES,
+        "cargo" => CARGO_OPERATORS,
+        "bush" => BUSH_OPERATORS,
+        "medical" | "sar" => MEDICAL_OPERATORS,
+        "charter" => CHARTER_OPERATORS,
+        "tour" | "skydive" | "survey" => AERIAL_OPERATORS,
+        _ => CLIENTS,
+    }
+}
 
 /// Panodaki işler. Aynı pencerede aynı girdiyle aynı sonuç döner.
 pub fn board(input: &BoardInput) -> Vec<Job> {
@@ -223,8 +245,15 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
     if flyable.is_empty() {
         return Vec::new();
     }
-    let kinds = kinds(p);
+    // Kariyer yolu: yolun türleri panonun ≈ %60'ı (`paths::weigh_kinds`); yolun türü açık değilse pano değişmez.
+    let base_kinds = kinds(p);
+    let path_open = paths::open_on_board(p.path, &base_kinds);
+    let path_rank = paths::rank_of(p, p.path);
+    let kinds = paths::weigh_kinds(p.path, base_kinds);
     let contracts_open = p.has("cpl");
+    // Aletli koşul senaryoları geçerli aletli yetki ister (Kolay'da yeterlilik aranmaz).
+    let status = p.records.status(&p.licenses, p.difficulty, input.now);
+    let ir_current = p.has("ir") && (status.ifr_current || !status.enforce_currency);
     // Uzun menzilli sınıflar için aday listesi pahalı: sınıf başına bir kez.
     let mut candidates: Vec<(Class, Vec<(&Airport, f64)>)> = Vec::new();
     let mut out = Vec::new();
@@ -234,11 +263,13 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
             break;
         }
         let Some(kind) = rng.weighted(&kinds).copied() else { break };
+        let fit = paths::fit(p.path, path_rank, kind, path_open);
+        let path_classes = paths::def(p.path).classes;
         let options: Vec<(Class, f64)> = classes_for(kind)
             .iter()
             .filter(|c| flyable.contains(c))
-            // En yüksek sınıflar biraz daha sık: ilerleme hissedilsin.
-            .map(|c| (*c, 1.0 + (*c as u8 as f64) * 0.15))
+            // En yüksek sınıflar biraz daha sık: ilerleme hissedilsin. Yoldaki işte yolun uçakları daha sık.
+            .map(|c| (*c, (1.0 + (*c as u8 as f64) * 0.15) * if fit.prefer_classes && path_classes.contains(c) { paths::CLASS_PREFERENCE } else { 1.0 }))
             .collect();
         let Some(class) = rng.weighted(&options).copied() else { continue };
         let ci = info(class);
@@ -297,7 +328,8 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
         let load = if ci.seats > 0 && pax > 0 { pax as f64 / ci.seats as f64 } else { cargo_kg as f64 / ci.cargo_kg.max(1) as f64 };
         let care_mult = care_multiplier(care);
         let (pay, quote) = match mode {
-            Mode::Employee => (round10(wage_pay(ci, &pl, pay_kind, p.reputation, p.difficulty) as f64 * care_mult), None),
+            // Yoldaki işin primi operatör ücretine eklenir (kendi hesabına işte aşağıda kâr kısmına).
+            Mode::Employee => (round10(wage_pay(ci, &pl, pay_kind, p.reputation, p.difficulty) as f64 * care_mult * (1.0 + fit.pay_bonus as f64 / 100.0)), None),
             Mode::Contract => {
                 let costs = Costs {
                     fuel_price_kg: fuel_price_at(ci.fuel, dep.lat, dep.lon, input.now),
@@ -308,6 +340,11 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
                 // Özel yükün primi gelire eklenir (masraflar aynı).
                 q.revenue = round10(q.revenue as f64 + (q.revenue - q.est_rent - q.est_fuel - q.est_fees) as f64 * (care_mult - 1.0) * 2.0);
                 q.est_profit = q.revenue - q.est_rent - q.est_fuel - q.est_fees;
+                // Kariyer yolunun primi kâr kısmına (masraflar aynı).
+                if fit.pay_bonus > 0 {
+                    q.revenue = round10(q.revenue as f64 + q.est_profit.max(0) as f64 * fit.pay_bonus as f64 / 100.0);
+                    q.est_profit = q.revenue - q.est_rent - q.est_fuel - q.est_fees;
+                }
                 (q.revenue, Some(q))
             }
         };
@@ -324,6 +361,25 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
         if input.taken.contains(&id) {
             continue;
         }
+        // Hava ve zaman senaryosu: kendi tohumuyla (panonun geri kalanı değişmesin).
+        let cond = conditions::generate(
+            &conditions::Pick { ppl: p.has("ppl"), ir: ir_current, kind, class, from: dep, to: &dest, block_min: pl.block_min, day: slot * SLOT_SECS },
+            &mut Rng::new(hash(&format!("{id}|{}|conditions", p.created_at))),
+        );
+        let (mut pay, mut quote, mut pl) = (pay, quote, pl);
+        if cond.pay_bonus > 0 {
+            pay = round10(pay as f64 * (1.0 + cond.pay_bonus as f64 / 100.0));
+            if let Some(q) = quote.as_mut() {
+                q.revenue = pay;
+                q.est_profit = q.revenue - q.est_rent - q.est_fuel - q.est_fees;
+            }
+        }
+        // Görerek uçuşta seyir tavanın altında kalır.
+        let ifr = super::dispatch::is_ifr(class, cond.wx.as_ref().map(|w| w.category));
+        if let Some(cap) = conditions::vfr_cruise_cap(&cond, ifr, dep, &dest) {
+            pl.cruise_alt_ft = pl.cruise_alt_ft.min(cap);
+        }
+        let xp = flight_xp(90, block_h, dist, class, false) as f64 * (1.0 + cond.xp_bonus as f64 / 100.0) * (1.0 + fit.xp_bonus as f64 / 100.0);
         out.push(Job {
             id,
             kind: kind.to_string(),
@@ -336,16 +392,22 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
             cargo_kg,
             cargo: cargo.to_string(),
             care: care.to_string(),
-            client: if kind == "training" { "Modstead Flight School".into() } else { rng.pick(CLIENTS).copied().unwrap_or("Atlas Lojistik").to_string() },
+            client: if kind == "training" { "Modstead Flight School".into() } else { rng.pick(operators(kind)).copied().unwrap_or("Atlas Lojistik").to_string() },
             pay,
             quote,
             plan: pl,
             urgent,
             deadline_h,
             expires_at: (slot + 1) * SLOT_SECS,
-            xp_estimate: flight_xp(90, block_h, dist, class, false),
+            xp_estimate: xp.round() as u32,
             checkride: None,
             objectives,
+            // Senaryo havasında uçuş kategorisi ön ayardan; canlı havada METAR'dan (`Career::board`).
+            weather: cond.wx.as_ref().map(|w| w.category),
+            conditions: cond,
+            off_path: fit.off_path,
+            path_pay_bonus: fit.pay_bonus,
+            path_xp_bonus: fit.xp_bonus,
             ..Default::default()
         });
     }
@@ -485,6 +547,51 @@ mod tests {
         let mut inp = input(&p, "LTBA", now);
         inp.taken = &taken;
         assert!(!board(&inp).iter().any(|j| j.id == taken[0]));
+    }
+
+    #[test]
+    fn board_mixes_conditions_by_licence() {
+        use crate::career::conditions::{TimeOfDay, WeatherPreset};
+        use crate::career::env::FlightCategory;
+        // Öğrenci: gerçek saat ya da gündüz, yalnızca görerek uçuş koşulları.
+        let p = pilot(&["spl"]);
+        for k in 0..30 {
+            for j in board(&input(&p, "LTBA", 1_800_000_000 + k * SLOT_SECS)) {
+                assert!(matches!(j.conditions.time, TimeOfDay::Now | TimeOfDay::Day), "{:?}", j.conditions);
+                assert!(j.conditions.wx.as_ref().is_none_or(|w| w.category == FlightCategory::Vfr));
+            }
+        }
+        // Aletli yetkili havayolu pilotu, kışın Stockholm: gece, alacakaranlık ve kar senaryoları da çıkar.
+        let now = 1_799_000_000; // Ocak 2027
+        let lic = ["spl", "ppl", "cpl", "me", "ir", "atpl", "jet", "narrow"];
+        let mut p = pilot(&lic);
+        p.records = crate::career::records::Records::new_pilot(&p.licenses, true, 0, now);
+        let (mut times, mut skies, mut live) = (HashSet::new(), HashSet::new(), 0);
+        for k in 0..30 {
+            for j in board(&input(&p, "ESSA", now + k * SLOT_SECS)) {
+                let c = &j.conditions;
+                times.insert(c.time);
+                skies.insert(c.weather);
+                live += usize::from(c.is_live());
+                assert_eq!(j.weather, c.wx.as_ref().map(|w| w.category));
+                if c.time != TimeOfDay::Now {
+                    assert!(c.utc > 0 && (c.utc - now).abs() < 400 * 86400, "{c:?}");
+                }
+                if c.needs_ir {
+                    assert!(!j.ir_required, "yetkili pilota IFR senaryosu engel değil");
+                }
+            }
+        }
+        assert!(times.contains(&TimeOfDay::Night) && times.contains(&TimeOfDay::Dusk), "{times:?}");
+        assert!(skies.contains(&WeatherPreset::Snow) && skies.contains(&WeatherPreset::Clear), "{skies:?}");
+        assert!(live > 0, "canlı işler de kalır");
+        // Aletli yeterliliği düşmüş pilota (Normal zorluk) IFR senaryosu çıkmaz.
+        let p = pilot(&lic);
+        for k in 0..30 {
+            for j in board(&input(&p, "ESSA", now + k * SLOT_SECS)) {
+                assert!(!j.conditions.needs_ir, "{:?}", j.conditions);
+            }
+        }
     }
 
     #[test]

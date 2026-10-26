@@ -104,7 +104,7 @@ export function BuiltForTag({ year, onDark, className }: { year: "2020" | "2024"
   const color = year === "2024" ? SIM_COLOR.msfs2024 : SIM_COLOR.msfs2020;
   return (
     <span
-      className={clsx("inline-flex h-5 items-center rounded-md border px-1.5 text-[10.5px] font-semibold uppercase tracking-[0.06em]", onDark ? "msfs-on-image text-white" : "text-fg-2", className)}
+      className={clsx("eyebrow inline-flex h-5 items-center rounded-full border px-2", onDark ? "msfs-on-image text-white" : "text-fg-2", className)}
       style={onDark ? undefined : { borderColor: `color-mix(in oklab, ${color} 35%, transparent)`, background: `color-mix(in oklab, ${color} 10%, transparent)` }}
       title={t.builtFor(year)}
     >

@@ -219,7 +219,7 @@ impl Feed {
 /// Kütüphanedeki klasör adı (Community'de de bu adla bağlanır).
 pub const FOLDER: &str = "modstead-career-hud";
 /// Paket sürümü: panel dosyaları değişince artırılır; kurulu sürüm eskiyse arayüz güncelleme önerir.
-pub const HUD_VERSION: &str = "0.3.0";
+pub const HUD_VERSION: &str = "0.4.0";
 const TITLE: &str = "Modstead Career HUD";
 const CREATOR: &str = "Modstead";
 
