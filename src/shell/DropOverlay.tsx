@@ -65,19 +65,19 @@ export function DropOverlay() {
           <motion.div
             initial={{ scale: 0.97 }}
             animate={{ scale: 1 }}
-            className="glass flex h-full w-full flex-col items-center justify-center rounded-[28px] border-2 border-dashed"
+            className="fluted fluted-floor flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[28px] border-2 border-dashed bg-surface"
             style={{ borderColor: "color-mix(in oklab, var(--accent) 60%, transparent)" }}
           >
             {game ? (
               <GameIcon game={game} size={68} className="mb-5" />
             ) : (
-              <div className="brand-surface mb-5 flex size-16 items-center justify-center rounded-2xl">
+              <div className="brand-surface mb-5 flex size-16 items-center justify-center rounded-full">
                 <FileArchive className="size-7" />
               </div>
             )}
-            <div className="text-display text-[24px] font-semibold text-fg">{t.drop.title}</div>
-            <div className="mt-1.5 text-[13.5px] text-fg-2">{game ? t.drop.forGame(game.name) : t.drop.chooseGame}</div>
-            <div className="mt-1 text-[12px] text-muted">{t.drop.unsupported}</div>
+            <div className="headline text-[44px] text-fg">{t.drop.title}</div>
+            <div className="mt-3 text-[14px] text-fg-2">{game ? t.drop.forGame(game.name) : t.drop.chooseGame}</div>
+            <div className="eyebrow mt-2 text-muted">{t.drop.unsupported}</div>
           </motion.div>
         </motion.div>
       )}
@@ -105,10 +105,10 @@ export function FileGamePicker() {
               void installFiles(g.id, files);
               close();
             }}
-            className="flex items-center gap-3 rounded-xl border border-line bg-surface-2/50 px-3.5 py-3 text-left transition-colors hover:border-[color-mix(in_oklab,var(--accent)_40%,transparent)] hover:bg-surface-2"
+            className="flex items-center gap-3 rounded-2xl border border-line bg-surface-2/50 px-3.5 py-3 text-left transition-colors hover:border-[color-mix(in_oklab,var(--accent)_45%,transparent)] hover:bg-surface-2"
           >
             <GameIcon game={g} size={40} />
-            <span className="text-display text-[14px] font-semibold text-fg">{g.name}</span>
+            <span className="title text-[15px] text-fg">{g.name}</span>
           </button>
         ))}
       </DialogBody>

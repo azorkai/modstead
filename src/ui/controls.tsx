@@ -17,18 +17,19 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "accent-surface font-semibold hover:brightness-[1.06] active:brightness-95",
-  brand: "brand-surface font-semibold hover:brightness-[1.06] active:brightness-95",
-  secondary: "bg-surface-2 text-fg border border-line-strong hover:bg-surface-3 hover:border-[color-mix(in_oklab,var(--accent)_28%,var(--line-strong))]",
+  primary: "accent-surface hover:brightness-[1.08] active:brightness-95",
+  brand: "brand-surface hover:brightness-[1.08] active:brightness-95",
+  secondary: "bg-surface-2 text-fg border border-line-strong hover:bg-surface-3 hover:border-[color-mix(in_oklab,var(--accent)_35%,var(--line-strong))]",
   ghost: "text-fg-2 hover:text-fg hover:bg-surface-2",
-  subtle: "accent-soft border border-[color-mix(in_oklab,var(--accent)_22%,transparent)] hover:bg-[color-mix(in_oklab,var(--accent)_18%,transparent)]",
+  subtle: "accent-soft border border-[color-mix(in_oklab,var(--accent)_24%,transparent)] hover:bg-[color-mix(in_oklab,var(--accent)_18%,transparent)]",
   danger: "bg-danger/12 text-danger border border-danger/25 hover:bg-danger/18",
 };
 
+// Düğmeler hap biçimindedir (sitedeki marka dili); boy yükseklikle, dolgu metinle ölçeklenir.
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-7 px-2.5 text-[12px] gap-1.5 rounded-lg",
-  md: "h-9 px-3.5 text-[13px] gap-2 rounded-[10px]",
-  lg: "h-11 px-5 text-[14px] gap-2.5 rounded-xl",
+  sm: "h-7 px-3 text-[12px] gap-1.5",
+  md: "h-9 px-4 text-[13px] gap-2",
+  lg: "h-11 px-[22px] text-[14px] gap-2.5",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -41,7 +42,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || loading}
       className={clsx(
-        "inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition-[background,color,border,filter,transform,box-shadow] duration-150",
+        "inline-flex select-none items-center justify-center whitespace-nowrap rounded-full font-semibold tracking-[0.005em] transition-[background,color,border,filter,transform,box-shadow] duration-150",
         "active:scale-[0.985] disabled:pointer-events-none disabled:opacity-45",
         variants[variant],
         sizes[size],
@@ -70,10 +71,10 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={clsx(
-        "inline-flex shrink-0 items-center justify-center text-fg-2 transition-colors",
+        "inline-flex shrink-0 items-center justify-center rounded-full text-fg-2 transition-colors",
         "hover:bg-surface-2 hover:text-fg disabled:pointer-events-none disabled:opacity-40",
-        size === "sm" ? "size-7 rounded-md" : size === "lg" ? "size-10 rounded-xl" : "size-8 rounded-lg",
-        active && "bg-surface-2 text-fg",
+        size === "sm" ? "size-7" : size === "lg" ? "size-10" : "size-8",
+        active && "bg-surface-3 text-fg",
         className,
       )}
       {...rest}
@@ -115,11 +116,11 @@ export function Switch({
       className={clsx(
         "relative shrink-0 rounded-full p-0.5 transition-colors duration-200 disabled:opacity-40",
         w,
-        checked ? "bg-accent" : "bg-surface-3 ring-1 ring-inset ring-line-strong",
+        checked ? "bg-accent" : "bg-surface-3 ring-1 ring-inset ring-line-strong hover:ring-muted",
       )}
     >
       <motion.span
-        className={clsx("block rounded-full shadow-sm", knob, checked ? "bg-accent-ink" : "bg-fg-2")}
+        className={clsx("block rounded-full shadow-sm", knob, checked ? "bg-accent-ink" : "bg-muted")}
         animate={{ x: checked ? shift : 0 }}
         transition={{ type: "spring", stiffness: 700, damping: 38 }}
       />
@@ -188,21 +189,21 @@ export function Segmented<T extends string>({
 }) {
   const layoutId = `seg-${id ?? options.map((o) => o.value).join("")}`;
   return (
-    <div className={clsx("inline-flex rounded-[10px] border border-line bg-surface-2/60 p-0.5", size === "sm" ? "h-7" : "h-8")}>
+    <div className={clsx("inline-flex rounded-full border border-line bg-surface-2/70 p-0.5", size === "sm" ? "h-7" : "h-9")}>
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           className={clsx(
-            "relative flex items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-medium transition-colors",
+            "relative flex items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold transition-colors",
             value === o.value ? "text-fg" : "text-muted hover:text-fg-2",
           )}
         >
           {value === o.value && (
             <motion.span
               layoutId={layoutId}
-              className="absolute inset-0 rounded-lg border border-line-strong bg-surface-3 shadow-sm"
+              className="absolute inset-0 rounded-full border border-line-strong bg-surface-3 shadow-sm light:bg-surface"
               transition={{ type: "spring", stiffness: 500, damping: 40 }}
             />
           )}
@@ -221,8 +222,8 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     return (
       <div
         className={clsx(
-          "group flex h-9 items-center gap-2 rounded-[10px] border border-line-strong bg-surface-2/70 px-3 transition-[border,background,box-shadow]",
-          "focus-within:border-[color-mix(in_oklab,var(--accent)_55%,transparent)] focus-within:bg-surface-2 focus-within:shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent)_12%,transparent)]",
+          "group flex h-9 items-center gap-2 rounded-full border border-line-strong bg-surface-2/70 px-3.5 transition-[border,background,box-shadow]",
+          "hover:border-[color-mix(in_oklab,var(--fg)_22%,transparent)] focus-within:border-accent focus-within:bg-surface focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_16%,transparent)]",
           className,
         )}
       >
@@ -244,7 +245,7 @@ export function Kbd({ children, className }: { children: ReactNode; className?: 
   return (
     <kbd
       className={clsx(
-        "inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-line-strong bg-surface-2 px-1 font-sans text-[10.5px] font-medium text-muted",
+        "inline-flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-b-2 border-line-strong bg-surface-2 px-1 font-mono text-[10px] font-semibold text-muted",
         className,
       )}
     >

@@ -1,126 +1,170 @@
 /* ───────────── Modstead tasarım belirteçleri ─────────────
-   Kabuk nötr grafit zemin + Modstead moru. Her oyun alanı (`[data-game]`) kendi vurgu
-   rengini ve başlık yazı tipini taşır; bileşenler yalnızca anlamsal adları kullanır
-   (accent, fg, muted, danger…), böylece aynı bileşen her oyunda o oyunun kimliğine bürünür.
-   Ayrıntı: docs/TASARIM.md */
+   Koyu tema "mürekkep" (çok koyu, hafif mavi), açık tema "kâğıt"; kabuğun vurgusu kobalt, Modstead işareti
+   turuncu (sitedeki marka dili). Her oyun alanı (`[data-game]`) kendi vurgu rengini ve başlık yazı tipini
+   taşır; bileşenler yalnızca anlamsal adları kullanır (accent, fg, muted, danger…), böylece aynı bileşen her
+   oyunda o oyunun kimliğine bürünür. Ayrıntı: docs/TASARIM.md */
 
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b0c0f;
-  --bg-2: #101115;
-  --surface: #15161b;
-  --surface-2: #1b1c22;
-  --surface-3: #24252d;
-  --line: rgb(255 255 255 / 0.065);
-  --line-strong: rgb(255 255 255 / 0.11);
-  --fg: #eceef2;
-  --fg-2: #a6abb6;
-  --muted: #6c717d;
-  --danger: #f0636c;
-  --warn: #f0b64a;
-  --ok: #3fcf8f;
-  --info: #62a8f6;
+  --bg: #090b17;
+  --bg-2: #05070f;
+  --surface: #0e1122;
+  --surface-2: #141a30;
+  --surface-3: #1c2340;
+  --line: rgb(170 190 255 / 0.085);
+  --line-strong: rgb(170 190 255 / 0.16);
+  --fg: #f2f4fd;
+  --fg-2: #b3bbd9;
+  --muted: #7d87ad;
+  --danger: #ff6b72;
+  --warn: #ffb547;
+  --ok: #3ddc97;
+  --info: #7ea4ff;
 
-  --brand: #8f7fff;
-  --brand-2: #c3b9ff;
-  --brand-ink: #100b28;
+  /* Kobalt: kabuğun düğmeleri, odak, seçim. */
+  --brand: #3f67ff;
+  --brand-2: #8fa8ff;
+  --brand-ink: #ffffff;
+  /* Modstead işareti (logo); arayüzde vurgu olarak kullanılmaz. */
+  --mark: #ff7a1a;
+  /* Her temada koyu kalan yüzey (görsel alanları, kabartmalar). */
+  --ink: #070914;
 
   --accent: var(--brand);
   --accent-2: var(--brand-2);
   --accent-ink: var(--brand-ink);
 
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
-  --shadow-md: 0 12px 32px -16px rgb(0 0 0 / 0.75);
-  --shadow-lg: 0 30px 80px -28px rgb(0 0 0 / 0.85), 0 0 0 1px rgb(255 255 255 / 0.04);
-  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.045);
-  --scrim: rgb(5 6 9 / 0.6);
-  --glass: rgb(21 22 27 / 0.72);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 16px 36px -20px rgb(0 0 0 / 0.85);
+  --shadow-lg: 0 34px 90px -30px rgb(0 0 0 / 0.9), 0 0 0 1px rgb(170 190 255 / 0.07);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.035);
+  --scrim: rgb(3 4 10 / 0.66);
+  --glass: rgb(14 17 34 / 0.78);
 }
 
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f2f3f6;
-  --bg-2: #eaecf0;
+  --bg: #eef1f8;
+  --bg-2: #e3e8f3;
   --surface: #ffffff;
-  --surface-2: #f6f7f9;
-  --surface-3: #eceef3;
-  --line: rgb(15 20 35 / 0.08);
-  --line-strong: rgb(15 20 35 / 0.14);
-  --fg: #14161b;
-  --fg-2: #525967;
-  --muted: #878d99;
-  --danger: #d63c48;
-  --warn: #b37603;
-  --ok: #10915c;
-  --info: #2a70d4;
+  --surface-2: #f4f6fb;
+  --surface-3: #e7ebf5;
+  --line: rgb(10 15 44 / 0.09);
+  --line-strong: rgb(10 15 44 / 0.17);
+  --fg: #0a0f2c;
+  --fg-2: #3a4368;
+  --muted: #5d678e;
+  --danger: #cf2c3a;
+  --warn: #9a5c00;
+  --ok: #0b8452;
+  --info: #2457d6;
 
-  --brand: #6a55f5;
-  --brand-2: #8f7fff;
+  --brand: #2448e0;
+  --brand-2: #3f67ff;
   --brand-ink: #ffffff;
+  --mark: #ff7a1a;
+  --ink: #070914;
 
-  --shadow-sm: 0 1px 2px rgb(20 25 40 / 0.08);
-  --shadow-md: 0 12px 30px -18px rgb(20 25 40 / 0.35);
-  --shadow-lg: 0 30px 70px -30px rgb(20 25 40 / 0.4), 0 0 0 1px rgb(15 20 35 / 0.05);
-  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.7);
-  --scrim: rgb(20 24 34 / 0.38);
-  --glass: rgb(255 255 255 / 0.78);
+  --shadow-sm: 0 1px 2px rgb(10 15 44 / 0.07);
+  --shadow-md: 0 14px 32px -20px rgb(10 15 44 / 0.32);
+  --shadow-lg: 0 34px 80px -30px rgb(10 15 44 / 0.42), 0 0 0 1px rgb(10 15 44 / 0.06);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.8);
+  --scrim: rgb(10 15 44 / 0.36);
+  --glass: rgb(255 255 255 / 0.84);
 }
 
-/* ───────────── Oyun kimlikleri ───────────── */
-
-[data-game="msfs"] {
-  --accent: #ff7a1a;
-  --accent-2: #ffad66;
-  --accent-ink: #1f0d02;
-  --game-display: "Outfit Variable", "Inter Variable", system-ui, sans-serif;
+/* ───────────── Başlık dili ─────────────
+   Kabuk ve MSFS: Archivo, büyük harf, geniş. Başka yazı tipi kullanan oyunlar büyük harfi ve genişliği kapatır. */
+:root {
+  --game-display: "Archivo", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --display-case: uppercase;
+  --display-stretch: 116%;
+  --display-weight: 850;
+  --display-tracking: -0.012em;
 }
+
+/* ───────────── Oyun kimlikleri ─────────────
+   Her oyunun açık tema değerleri önce, koyu değerleri sonra gelir: böylece açık temadaki koyu adalar
+   (görsel alanları, `data-theme="dark"`) oyunun koyu tema vurgusunu alır. */
+
 [data-theme="light"] [data-game="msfs"],
 [data-theme="light"][data-game="msfs"] {
-  --accent: #e2600a;
-  --accent-2: #ff8a33;
+  --accent: #c24d00;
+  --accent-2: #e8650f;
   --accent-ink: #ffffff;
+}
+[data-game="msfs"],
+[data-theme="dark"][data-game="msfs"],
+[data-theme="dark"] [data-game="msfs"] {
+  --accent: #ff7a1a;
+  --accent-2: #ffa25c;
+  --accent-ink: #1c0b00;
 }
 
 [data-game="bannerlord"] {
-  --accent: #e3b45c;
-  --accent-2: #f4d592;
-  --accent-ink: #1b1409;
   --game-display: "Fraunces Variable", Georgia, serif;
+  --display-case: none;
+  --display-stretch: 100%;
+  --display-weight: 600;
+  --display-tracking: -0.01em;
 }
 [data-theme="light"] [data-game="bannerlord"],
 [data-theme="light"][data-game="bannerlord"] {
-  --accent: #a2700f;
-  --accent-2: #c18b25;
+  --accent: #8f6209;
+  --accent-2: #b07d18;
   --accent-ink: #fffaf0;
+}
+[data-game="bannerlord"],
+[data-theme="dark"][data-game="bannerlord"],
+[data-theme="dark"] [data-game="bannerlord"] {
+  --accent: #e3b45c;
+  --accent-2: #f4d592;
+  --accent-ink: #1b1409;
 }
 
 [data-game="stardew"] {
-  --accent: #34d17a;
-  --accent-2: #8ce6b0;
-  --accent-ink: #062611;
-  --game-display: "Pixelify Sans", "Inter Variable", system-ui, sans-serif;
+  --game-display: "Pixelify Sans", "Instrument Sans", system-ui, sans-serif;
+  --display-case: none;
+  --display-stretch: 100%;
+  --display-weight: 600;
+  --display-tracking: 0;
 }
 [data-theme="light"] [data-game="stardew"],
 [data-theme="light"][data-game="stardew"] {
-  --accent: #23874f;
-  --accent-2: #3cb371;
+  --accent: #1d7a46;
+  --accent-2: #2f9e5f;
   --accent-ink: #ffffff;
+}
+[data-game="stardew"],
+[data-theme="dark"][data-game="stardew"],
+[data-theme="dark"] [data-game="stardew"] {
+  --accent: #34d17a;
+  --accent-2: #8ce6b0;
+  --accent-ink: #062611;
 }
 
 /* Cities: Skylines II: gökyüzü mavisi (oyunun arayüz vurgusu) ve Overpass (Highway Gothic'ten türeyen
    tabela yazısı; oyunun kendi arayüz yazı tipi). */
 [data-game="cities2"] {
-  --accent: #38b8f2;
-  --accent-2: #93d8f8;
-  --accent-ink: #03141d;
-  --game-display: "Overpass Variable", "Inter Variable", system-ui, sans-serif;
+  --game-display: "Overpass Variable", "Instrument Sans", system-ui, sans-serif;
+  --display-case: uppercase;
+  --display-stretch: 100%;
+  --display-weight: 800;
+  --display-tracking: 0;
 }
 [data-theme="light"] [data-game="cities2"],
 [data-theme="light"][data-game="cities2"] {
-  --accent: #0a7cbd;
+  --accent: #0a6fa8;
   --accent-2: #2c98d4;
   --accent-ink: #ffffff;
+}
+[data-game="cities2"],
+[data-theme="dark"][data-game="cities2"],
+[data-theme="dark"] [data-game="cities2"] {
+  --accent: #38b8f2;
+  --accent-2: #93d8f8;
+  --accent-ink: #03141d;
 }
 
 @theme inline {
@@ -144,17 +188,20 @@
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
   --color-accent-ink: var(--accent-ink);
+  --color-mark: var(--mark);
+  --color-ink: var(--ink);
 
-  --font-sans: "Inter Variable", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  --font-display: var(--game-display, "Inter Variable", "Segoe UI Variable", system-ui, sans-serif);
+  --font-sans: "Instrument Sans", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--game-display, "Archivo", "Segoe UI Variable Display", system-ui, sans-serif);
+  --font-brand: "Archivo", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "Cascadia Mono", Consolas, monospace;
 
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
-  --radius-xl: 14px;
-  --radius-2xl: 18px;
-  --radius-3xl: 24px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 22px;
 
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);

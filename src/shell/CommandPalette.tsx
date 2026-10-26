@@ -17,11 +17,11 @@ function Item({ onSelect, icon, children, hint, value }: { onSelect: () => void;
     <Command.Item
       value={value}
       onSelect={onSelect}
-      className="flex h-10 cursor-default items-center gap-3 rounded-[10px] px-3 text-[13px] text-fg-2 data-[selected=true]:bg-surface-3 data-[selected=true]:text-fg"
+      className="group flex h-11 cursor-default items-center gap-3 rounded-xl px-3 text-[13.5px] text-fg-2 data-[selected=true]:bg-surface-2 data-[selected=true]:text-fg"
     >
-      <span className="flex size-[22px] items-center justify-center text-muted">{icon}</span>
+      <span className="flex size-[24px] items-center justify-center text-muted group-data-[selected=true]:text-accent">{icon}</span>
       <span className="flex-1 truncate">{children}</span>
-      {hint && <span className="text-[11.5px] text-muted">{hint}</span>}
+      {hint && <span className="eyebrow text-muted">{hint}</span>}
     </Command.Item>
   );
 }
@@ -59,24 +59,24 @@ export function CommandPalette() {
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.12 }}>
-          <div className="absolute inset-0 backdrop-blur-[3px]" style={{ background: "var(--scrim)" }} onClick={() => setPalette(false)} />
+          <div className="absolute inset-0 backdrop-blur-[2px]" style={{ background: "var(--scrim)" }} onClick={() => setPalette(false)} />
           <motion.div
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 520, damping: 38 }}
-            className="card-raised relative w-[620px] overflow-hidden"
+            className="card-raised relative w-[640px] overflow-hidden rounded-[20px]"
             style={{ boxShadow: "var(--shadow-lg)" }}
           >
             <Command loop onKeyDown={(e) => e.key === "Escape" && setPalette(false)}>
-              <div className="flex items-center gap-3 border-b border-line px-4">
-                <Search className="size-4 text-muted" />
-                <Command.Input autoFocus placeholder={t.palette.placeholder} className="h-[52px] flex-1 bg-transparent text-[14px] text-fg outline-none placeholder:text-muted" />
+              <div className="flex items-center gap-3 border-b border-line px-5">
+                <Search className="size-[18px] text-accent" />
+                <Command.Input autoFocus placeholder={t.palette.placeholder} className="h-14 flex-1 bg-transparent text-[15px] text-fg outline-none placeholder:text-muted" />
                 <Kbd>Esc</Kbd>
               </div>
               <Command.List className="max-h-[380px] overflow-y-auto p-2">
                 <Command.Empty className="px-3 py-6 text-center text-[13px] text-muted">{t.palette.empty}</Command.Empty>
-                <Command.Group heading={t.palette.go} className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-muted">
+                <Command.Group heading={t.palette.go} className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10.5px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.14em] [&_[cmdk-group-heading]]:text-muted">
                   <Item value="home ana sayfa" icon={<Home className="size-4" />} onSelect={run(() => go({ kind: "home" }))}>
                     {t.nav.home}
                   </Item>
@@ -91,7 +91,7 @@ export function CommandPalette() {
                     {t.nav.settings}
                   </Item>
                 </Command.Group>
-                <Command.Group heading={t.palette.actions} className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-muted">
+                <Command.Group heading={t.palette.actions} className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10.5px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.14em] [&_[cmdk-group-heading]]:text-muted">
                   {GAMES.filter((g) => statuses?.find((s) => s.id === g.id)?.status.installed).map((g) => (
                     <Item key={`play-${g.id}`} value={`play oyna ${g.name} ${g.short}`} icon={<GameIcon game={g} size={22} />} hint={<Play className="size-3.5 fill-current" />} onSelect={run(() => launchGame(g.id))}>
                       {t.palette.playGame(g.short)}

@@ -13,7 +13,7 @@ import { useLang, useT } from "@/lib/i18n";
 import { errorMessage, invoke } from "@/lib/ipc";
 import { keys, updateSettings, useAppInfo, useDetectMany, useGamesStatus, useNexus, useNxmStatus } from "@/lib/queries";
 import type { GameStatus, NexusStatus, NxmStatus } from "@/lib/types";
-import { Badge, Button, Input, Segmented, Skeleton, Spinner, Switch } from "@/ui";
+import { Badge, Button, Input, Scribble, Segmented, Skeleton, Spinner, Switch } from "@/ui";
 import { GAMES } from "@/games/registry";
 import type { GameModule } from "@/games/types";
 import { chooseGameFolder, notifyError, openUrl } from "./actions";
@@ -73,7 +73,7 @@ function Steps({ step }: { step: number }) {
   return (
     <div className="flex items-center gap-1.5" aria-hidden>
       {[0, 1, 2].map((i) => (
-        <motion.span key={i} className="h-1.5 rounded-full" animate={{ width: i === step ? 22 : 6, background: i <= step ? "var(--brand)" : "var(--line-strong)" }} transition={{ duration: 0.25 }} />
+        <motion.span key={i} className="h-1.5 rounded-full" animate={{ width: i === step ? 26 : 6, background: i <= step ? "var(--brand)" : "var(--line-strong)" }} transition={{ duration: 0.25 }} />
       ))}
     </div>
   );
@@ -131,14 +131,16 @@ function GameTile({ s, on, onToggle, tall }: { s: Scan; on: boolean; onToggle: (
       aria-checked={on}
       aria-label={s.game.name}
       data-game={s.game.id}
+      data-theme={hero ? "dark" : undefined}
       onClick={onToggle}
       initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3, ease: EASE }}
       className={clsx(
-        "group relative overflow-hidden rounded-[18px] border text-left outline-none transition-[border-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
-        tall ? "h-[188px]" : "h-[164px]",
-        on ? "border-accent shadow-[0_10px_30px_-16px_color-mix(in_oklab,var(--accent)_80%,transparent)]" : "border-line hover:border-line-strong",
+        "group relative overflow-hidden rounded-2xl border-2 text-left outline-none transition-[border-color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
+        hero && "bg-ink",
+        tall ? "h-[220px]" : "h-[164px]",
+        on ? "border-accent" : "border-line hover:border-line-strong",
       )}
     >
       <div className={clsx("absolute inset-0 transition-[filter,opacity] duration-300", !on && "opacity-55 grayscale")}>
@@ -146,7 +148,7 @@ function GameTile({ s, on, onToggle, tall }: { s: Scan; on: boolean; onToggle: (
           <>
             <img src={hero} alt="" draggable={false} className="absolute inset-0 size-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]" />
             {/* Görsel alanı iki temada da koyu kalır: logolar açık renklidir. */}
-            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgb(8 9 12 / 0.08) 10%, rgb(8 9 12 / 0.84) 100%)" }} />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgb(7 9 20 / 0.1) 10%, rgb(7 9 20 / 0.86) 100%), linear-gradient(90deg, rgb(7 9 20 / 0.5), transparent 60%)" }} />
           </>
         ) : (
           <div className="hero-surface absolute inset-0">{Art && <Art className="pointer-events-none absolute -right-6 bottom-0 h-full w-[118%] text-accent opacity-80" />}</div>
@@ -157,7 +159,7 @@ function GameTile({ s, on, onToggle, tall }: { s: Scan; on: boolean; onToggle: (
           <GameIcon game={s.game} size={36} dim={!on} />
           <div className="flex-1" />
           {s.picked && (
-            <Badge tone="ok" icon={<Check className="size-3" />} className="glass mt-0.5">
+            <Badge tone="ok" icon={<Check className="size-3" />} className="on-image mt-0.5">
               {t.onboarding.picked}
             </Badge>
           )}
@@ -165,9 +167,9 @@ function GameTile({ s, on, onToggle, tall }: { s: Scan; on: boolean; onToggle: (
         </div>
         <div className="min-w-0">
           {logo ? (
-            <img src={logo} alt="" draggable={false} className={clsx("max-h-[46px] max-w-[72%] object-contain object-left drop-shadow-[0_4px_18px_rgb(0_0_0/0.55)] transition-opacity", !on && "opacity-70")} />
+            <img src={logo} alt="" draggable={false} className={clsx("-ml-1.5 object-contain object-left drop-shadow-[0_4px_18px_rgb(0_0_0/0.55)] transition-opacity", tall ? "max-h-[96px] max-w-[60%]" : "max-h-[56px] max-w-[72%]", !on && "opacity-70")} />
           ) : (
-            logo === null && <span className={clsx("text-display block truncate text-[19px] font-semibold leading-tight tracking-tight", onImage ? "text-white" : "text-fg")}>{s.game.name}</span>
+            logo === null && <span className={clsx("headline block truncate text-[22px]", onImage ? "text-white" : "text-fg")}>{s.game.name}</span>
           )}
           <div className={clsx("mt-2 truncate text-[12px]", s.picked && "font-mono text-[11.5px]", onImage ? "text-white/75" : "text-fg-2")} title={s.installs.join("\n")}>
             {s.installs.join("  ·  ")}
@@ -227,14 +229,14 @@ function PipelineStep({ index, icon, title, hint, extra }: { index: number; icon
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.06 * index, ease: EASE }}
-      className="card relative flex flex-col px-4 pb-4 pt-3.5"
+      className={clsx("relative flex flex-col rounded-2xl px-4 pb-4 pt-3.5", index === 0 ? "brand-surface" : "card")}
     >
       <div className="flex items-center justify-between">
-        <span className="flex size-9 items-center justify-center rounded-xl border border-line bg-surface-2 text-accent">{icon}</span>
-        <span className="tabular text-[11px] font-medium text-muted">{String(index + 1).padStart(2, "0")}</span>
+        <span className={clsx("num text-[22px]", index === 0 ? "text-brand-ink" : "text-accent")}>{String(index + 1).padStart(2, "0")}</span>
+        <span className={index === 0 ? "text-brand-ink/80" : "text-muted"}>{icon}</span>
       </div>
-      <div className="mt-3 text-[13.5px] font-semibold text-fg">{title}</div>
-      <div className="mt-0.5 text-[12px] leading-relaxed text-fg-2">{hint}</div>
+      <div className={clsx("title mt-3 text-[14.5px]", index === 0 ? "text-brand-ink" : "text-fg")}>{title}</div>
+      <div className={clsx("mt-0.5 text-[12px] leading-relaxed", index === 0 ? "text-brand-ink/85" : "text-fg-2")}>{hint}</div>
       {extra && <div className="mt-2.5">{extra}</div>}
     </motion.li>
   );
@@ -246,11 +248,23 @@ function Welcome({ scan, onStart }: { scan: Scan[]; onStart: () => void }) {
   const t = useT();
   const pending = scan.some((s) => s.pending);
   const found = scan.filter((s) => s.found);
+  const [first, ...rest] = t.onboarding.welcome.split(" ");
   return (
     <div className="flex flex-col items-center text-center">
-      <LogoTile size={84} />
-      <h1 className="mt-7 text-[34px] font-semibold tracking-tight text-fg">{t.onboarding.welcome}</h1>
-      <p className="mt-3 max-w-[520px] text-balance text-[15px] leading-relaxed text-fg-2">{t.onboarding.welcomeBody}</p>
+      <LogoTile size={72} />
+      {/* Oyun adları özel ad (İngilizce): Türkçe büyük harf kuralı "İ" yapmasın. */}
+      <div lang="en" className="eyebrow mt-8 flex items-center gap-2.5 rounded-full border border-line-strong bg-surface/60 py-2 pl-2.5 pr-4 text-brand-2 light:text-brand">
+        <span className="size-2 rounded-full bg-mark" />
+        {GAMES.map((g) => g.name).join(" · ")}
+      </div>
+      <h1 className="headline mt-6 max-w-[16ch] text-balance text-[64px] !leading-[1.08] text-fg">
+        <span className="relative inline-block">
+          {first}
+          <Scribble className="absolute -bottom-[0.1em] left-[-2%] h-[0.2em] w-[104%] text-mark" />
+        </span>{" "}
+        {rest.join(" ")}
+      </h1>
+      <p className="mt-7 max-w-[540px] text-balance text-[15.5px] leading-relaxed text-fg-2">{GAMES.length === 1 ? t.onboarding.welcomeBodyOne(GAMES[0].name) : t.onboarding.welcomeBody}</p>
       <div className="mt-9 flex items-start gap-2">
         {scan.map((s) => (
           <ScanIcon key={s.game.id} s={s} />
@@ -271,7 +285,7 @@ function Welcome({ scan, onStart }: { scan: Scan[]; onStart: () => void }) {
           <span className="text-muted">{t.onboarding.scanNone}</span>
         )}
       </div>
-      <Button variant="brand" size="lg" className="mt-9 px-7" trailing={<ArrowRight className="size-4" />} onClick={onStart}>
+      <Button variant="brand" size="lg" className="mt-9 px-8" trailing={<ArrowRight className="size-4" />} onClick={onStart}>
         {t.onboarding.start}
       </Button>
     </div>
@@ -305,12 +319,12 @@ function GamesStep({
   return (
     <LayoutGroup>
       {none && (
-        <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-line bg-surface-2 text-fg-2">
+        <div className="mb-5 flex size-12 items-center justify-center rounded-full border border-dashed border-line-strong text-fg-2">
           <SearchX className="size-6" />
         </div>
       )}
-      <h2 className="text-[26px] font-semibold tracking-tight text-fg">{found.length ? t.onboarding.gamesFound(found.length) : none ? t.onboarding.noneTitle : t.onboarding.gamesTitle}</h2>
-      <p className="mt-2 text-pretty text-[14px] leading-relaxed text-fg-2">
+      <h2 className="headline text-[34px] text-fg">{found.length ? t.onboarding.gamesFound(found.length) : none ? t.onboarding.noneTitle : t.onboarding.gamesTitle}</h2>
+      <p className="mt-3 text-pretty text-[14px] leading-relaxed text-fg-2">
         {found.length > 1 ? t.onboarding.gamesBody : found.length ? t.onboarding.gamesBodyOne : none ? t.onboarding.noneBody(GAMES.map((g) => g.name)) : t.onboarding.gamesScanning}
       </p>
 
@@ -397,11 +411,11 @@ function NexusCard({ games, setup }: { games: GameModule[]; setup: NexusSetup })
   return (
     <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.24, ease: EASE }} className="card mt-4 overflow-hidden">
       <div className="flex items-start gap-4 px-5 pb-3.5 pt-4">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-line bg-surface-2 text-fg-2">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-fg-2">
           <KeyRound className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold text-fg">
+          <div className="title text-[15px] text-fg">
             {t.onboarding.nexusTitle} <span className="font-normal text-muted">· {t.common.optional}</span>
           </div>
           <p className="mt-0.5 text-[12.5px] leading-relaxed text-fg-2">{t.onboarding.nexusBody(games.map((g) => g.short))}</p>
@@ -444,7 +458,7 @@ function NexusCard({ games, setup }: { games: GameModule[]; setup: NexusSetup })
         )}
       </div>
       <div className="flex items-center gap-4 border-t border-line px-5 py-3.5">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-2 text-fg-2">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-fg-2">
           <Link2 className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
@@ -469,8 +483,8 @@ function SetupStep({ nexusGames, setup }: { nexusGames: GameModule[]; setup: Nex
   const noDefender = info?.defenderAvailable === false;
   return (
     <div>
-      <h2 className="text-[26px] font-semibold tracking-tight text-fg">{t.onboarding.securityTitle}</h2>
-      <p className="mt-2 text-pretty text-[14px] leading-relaxed text-fg-2">{t.onboarding.securityBody}</p>
+      <h2 className="headline text-[34px] text-fg">{t.onboarding.securityTitle}</h2>
+      <p className="mt-3 text-pretty text-[14px] leading-relaxed text-fg-2">{t.onboarding.securityBody}</p>
       <ol className="mt-6 grid grid-cols-4 gap-2.5">
         <PipelineStep index={0} icon={<BadgeCheck className="size-[18px]" />} title={t.onboarding.pipeline.verify} hint={t.onboarding.pipeline.verifyHint} />
         <PipelineStep
@@ -582,10 +596,10 @@ export function Onboarding() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div data-tauri-drag-region className="app-backdrop flex h-full flex-col">
-        <header data-tauri-drag-region className="flex h-[54px] shrink-0 items-center gap-3 pl-6 pr-4">
-          <LogoMark size={20} />
-          <span data-tauri-drag-region className="text-[13px] font-semibold text-fg">
+      <div data-tauri-drag-region className={clsx("app-backdrop relative isolate flex h-full flex-col", step === 0 && "fluted fluted-floor")}>
+        <header data-tauri-drag-region className="flex h-[52px] shrink-0 items-center gap-2.5 pl-6 pr-4">
+          <LogoMark size={22} />
+          <span data-tauri-drag-region className="title text-[15px] text-fg">
             Modstead
           </span>
           <div data-tauri-drag-region className="flex-1" />
@@ -603,7 +617,7 @@ export function Onboarding() {
         </header>
 
         <main data-tauri-drag-region className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-8">
-          <div className="my-auto w-full max-w-[720px] py-6">
+          <div className={clsx("my-auto w-full py-6", step === 0 ? "max-w-[960px]" : "max-w-[760px]")}>
             <AnimatePresence mode="wait" custom={dir}>
               <motion.div key={step} custom={dir} variants={slide} initial="enter" animate="center" exit="exit" transition={{ duration: 0.24, ease: EASE }}>
                 {step === 0 && <Welcome scan={scan} onStart={() => go(1)} />}
@@ -641,7 +655,7 @@ export function Onboarding() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="mx-auto flex w-full max-w-[784px] shrink-0 items-center justify-between px-8 pb-7 pt-4"
+              className="mx-auto flex w-full max-w-[824px] shrink-0 items-center justify-between px-8 pb-7 pt-4"
             >
               <Button variant="ghost" className="-ml-3.5" onClick={() => go(step - 1)}>
                 {t.common.back}

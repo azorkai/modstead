@@ -11,9 +11,9 @@ import type { EngineResult, Finding, SecurityReport, Severity } from "@/lib/type
 import { Badge, type Tone } from "./display";
 
 const verdictTone: Record<SecurityReport["verdict"], { icon: ReactNode; ring: string; color: string }> = {
-  safe: { icon: <ShieldCheck className="size-5" />, ring: "border-ok/25 bg-ok/[0.07]", color: "text-ok bg-ok/10" },
-  caution: { icon: <ShieldAlert className="size-5" />, ring: "border-warn/30 bg-warn/[0.07]", color: "text-warn bg-warn/10" },
-  danger: { icon: <AlertOctagon className="size-5" />, ring: "border-danger/30 bg-danger/[0.08]", color: "text-danger bg-danger/10" },
+  safe: { icon: <ShieldCheck className="size-5" />, ring: "border-ok/30 bg-ok/[0.07]", color: "text-ok bg-ok/12" },
+  caution: { icon: <ShieldAlert className="size-5" />, ring: "border-warn/35 bg-warn/[0.07]", color: "text-warn bg-warn/12" },
+  danger: { icon: <AlertOctagon className="size-5" />, ring: "border-danger/35 bg-danger/[0.08]", color: "text-danger bg-danger/12" },
 };
 
 const severityIcon: Record<Severity, ReactNode> = {
@@ -47,8 +47,8 @@ function Fact({ icon, label, children }: { icon: ReactNode; label: string; child
     <div className="well flex min-w-0 items-start gap-3 px-3.5 py-3">
       <div className="mt-0.5 text-muted">{icon}</div>
       <div className="min-w-0 flex-1">
-        <div className="text-[11.5px] font-medium text-muted">{label}</div>
-        <div className="mt-0.5 min-w-0 text-[12.5px] text-fg">{children}</div>
+        <div className="eyebrow text-muted">{label}</div>
+        <div className="mt-1.5 min-w-0 text-[12.5px] text-fg">{children}</div>
       </div>
     </div>
   );
@@ -73,15 +73,15 @@ export function SecurityPanel({ report, compact }: { report: SecurityReport; com
   const findings = report.findings.filter((f) => !compact || f.severity !== "info");
   return (
     <div className="flex flex-col gap-3">
-      <div className={clsx("flex items-center gap-3.5 rounded-2xl border px-4 py-3.5", v.ring)}>
-        <div className={clsx("flex size-10 items-center justify-center rounded-xl", v.color)}>{v.icon}</div>
+      <div className={clsx("flex items-center gap-4 rounded-2xl border px-4 py-3.5", v.ring)}>
+        <div className={clsx("flex size-11 items-center justify-center rounded-full", v.color)}>{v.icon}</div>
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold text-fg">{t.security.verdict[report.verdict]}</div>
-          <div className="text-[12.5px] text-fg-2">{t.security.verdictHint[report.verdict]}</div>
+          <div className="title text-[16px] text-fg">{t.security.verdict[report.verdict]}</div>
+          <div className="mt-0.5 text-[12.5px] text-fg-2">{t.security.verdictHint[report.verdict]}</div>
         </div>
-        <div className="text-right">
-          <div className="tabular text-[20px] font-semibold leading-none text-fg">{report.score}</div>
-          <div className="mt-1 text-[10.5px] text-muted">{t.security.score}</div>
+        <div className="border-l border-line pl-4 text-right">
+          <div className="num text-[26px] text-fg">{report.score}</div>
+          <div className="eyebrow mt-1.5 text-muted">{t.security.score}</div>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ export function SecurityPanel({ report, compact }: { report: SecurityReport; com
       )}
 
       <div className="card overflow-hidden">
-        <div className="border-b border-line px-4 py-2.5 text-[12px] font-semibold text-fg">{t.security.findings}</div>
+        <div className="eyebrow border-b border-line px-4 py-2.5 text-fg-2">{t.security.findings}</div>
         {findings.length === 0 ? (
           <div className="px-4 py-3 text-[12.5px] text-fg-2">{t.security.noFindings}</div>
         ) : (
@@ -169,7 +169,7 @@ export function SecurityPanel({ report, compact }: { report: SecurityReport; com
 
       {report.codeFiles.length > 0 && !compact && (
         <div className="card overflow-hidden">
-          <div className="border-b border-line px-4 py-2.5 text-[12px] font-semibold text-fg">{t.security.codeFiles}</div>
+          <div className="eyebrow border-b border-line px-4 py-2.5 text-fg-2">{t.security.codeFiles}</div>
           <ul className="max-h-56 divide-y divide-[var(--line)] overflow-y-auto">
             {report.codeFiles.map((f) => (
               <li key={f.path} className="flex items-center gap-3 px-4 py-2">

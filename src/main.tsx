@@ -1,6 +1,4 @@
-import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
-import "@fontsource-variable/outfit";
 import "@fontsource-variable/fraunces";
 import "@fontsource-variable/overpass";
 import "@fontsource/pixelify-sans/500.css";

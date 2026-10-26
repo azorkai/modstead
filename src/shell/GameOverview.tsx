@@ -48,7 +48,9 @@ export function GameOverview({ id, facts, children }: { id: GameId; facts?: Fact
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className={clsx("relative overflow-hidden rounded-3xl border border-line px-8 pb-7 pt-8", hero ? "min-h-[320px]" : "hero-surface")}
+        data-theme={hero ? "dark" : undefined}
+        data-game={hero ? id : undefined}
+        className={clsx("relative overflow-hidden rounded-[22px] border border-line px-8 pb-7 pt-8", hero ? "min-h-[320px] bg-ink" : "hero-surface")}
       >
         {hero ? (
           <>
@@ -57,7 +59,7 @@ export function GameOverview({ id, facts, children }: { id: GameId; facts?: Fact
             <div
               className="absolute inset-0"
               style={{
-                background: "linear-gradient(90deg, rgb(8 9 12 / 0.9) 0%, rgb(8 9 12 / 0.62) 38%, transparent 72%), linear-gradient(0deg, rgb(8 9 12 / 0.6) 0%, transparent 45%)",
+                background: "linear-gradient(90deg, rgb(7 9 20 / 0.9) 0%, rgb(7 9 20 / 0.62) 38%, transparent 72%), linear-gradient(0deg, rgb(7 9 20 / 0.6) 0%, transparent 45%)",
               }}
             />
           </>
@@ -79,7 +81,7 @@ export function GameOverview({ id, facts, children }: { id: GameId; facts?: Fact
               <img src={logo} alt="" draggable={false} className="mt-1 max-h-[96px] max-w-[380px] object-contain object-left drop-shadow-[0_6px_24px_rgb(0_0_0/0.55)]" />
             </>
           ) : (
-            <h1 className={clsx("text-display text-[34px] font-semibold leading-[1.05] tracking-tight", hero ? "text-white" : "text-fg")}>{game.name}</h1>
+            <h1 lang="en" className={clsx("headline text-[40px]", hero ? "text-white" : "text-fg")}>{game.name}</h1>
           )}
           <p className={clsx("mt-2 text-[14px]", hero ? "text-white/80" : "text-fg-2")}>{game.tagline[lang]}</p>
           <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -95,7 +97,7 @@ export function GameOverview({ id, facts, children }: { id: GameId; facts?: Fact
               </Button>
             )}
             {status?.installs.map((i) => (
-              <Badge key={i.path} tone="neutral" className={clsx("h-7 rounded-lg px-2.5 text-[12px]", hero && "glass border-line-strong text-fg")}>
+              <Badge key={i.path} tone="neutral" className={clsx("h-7 px-3 text-[12px]", hero && "on-image")}>
                 {i.label}
                 {i.version && <span className="text-muted">· {i.version}</span>}
               </Badge>
@@ -120,11 +122,11 @@ export function GameOverview({ id, facts, children }: { id: GameId; facts?: Fact
             // Taşıma sürerken küçük, açılır bir not: sayfanın asıl işini gölgelemesin.
             <details className="card group overflow-hidden">
               <summary className="flex cursor-default list-none items-center gap-3 px-5 py-3.5 [&::-webkit-details-marker]:hidden">
-                <div className="accent-soft flex size-8 shrink-0 items-center justify-center rounded-lg">
+                <div className="accent-soft flex size-8 shrink-0 items-center justify-center rounded-full">
                   <Wrench className="size-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-[13px] font-semibold text-fg">{t.game.porting.title}</h3>
+                  <h3 className="title text-[14px] text-fg">{t.game.porting.title}</h3>
                   <p className="truncate text-[12px] text-fg-2">{t.game.porting.body}</p>
                 </div>
                 <Badge tone="neutral">{game.porting.features.length}</Badge>
@@ -146,7 +148,7 @@ export function GameOverview({ id, facts, children }: { id: GameId; facts?: Fact
         <div className="flex flex-col gap-5">
           <section className="card overflow-hidden">
             <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
-              <h3 className="text-[13.5px] font-semibold text-fg">{t.game.installs}</h3>
+              <h3 className="title text-[15px] text-fg">{t.game.installs}</h3>
               <IconButton label={t.common.refresh} size="sm" onClick={() => qc.invalidateQueries({ queryKey: keys.games })}>
                 <RefreshCw className="size-3.5" />
               </IconButton>
@@ -186,7 +188,7 @@ export function GameOverview({ id, facts, children }: { id: GameId; facts?: Fact
           {(facts?.length || status?.notes.some((n) => n.tone !== "ok")) ? (
             <section className="card overflow-hidden">
               <header className="border-b border-line px-5 py-3.5">
-                <h3 className="text-[13.5px] font-semibold text-fg">{t.game.status}</h3>
+                <h3 className="title text-[15px] text-fg">{t.game.status}</h3>
               </header>
               <ul className="divide-y divide-[var(--line)]">
                 {facts?.map((f) => (

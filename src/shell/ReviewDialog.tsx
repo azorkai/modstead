@@ -58,7 +58,7 @@ export function ReviewDialog() {
           <DialogBody className="flex flex-col gap-5">
             {report && <SecurityPanel report={report} />}
             <div>
-              <h4 className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-muted">{t.security.plan}</h4>
+              <h4 className="eyebrow mb-2.5 text-muted">{t.security.plan}</h4>
               {game?.ReviewPlan ? <game.ReviewPlan job={job} onOptions={setOptions} /> : <div className="well px-4 py-3 text-[12.5px] text-fg-2">{t.security.planFallback}</div>}
             </div>
           </DialogBody>

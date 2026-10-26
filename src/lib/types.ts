@@ -80,6 +80,8 @@ export interface Settings {
   onboarded: boolean;
   games: string[];
   lastGame: string | null;
+  /** Modstead'in yeni sürümünü arka planda denetle ve indir (kurulum yalnızca kullanıcı onaylayınca). */
+  autoUpdate: boolean;
   resolvedLanguage: "tr" | "en";
 }
 
@@ -215,3 +217,25 @@ export interface AppError {
 }
 
 export const FINAL_STAGES: Stage[] = ["done", "failed", "cancelled"];
+
+// ───────────── Modstead güncellemesi (src-tauri/src/updater.rs) ─────────────
+
+export type UpdatePhase = "idle" | "checking" | "downloading" | "ready" | "installing" | "error";
+
+export interface UpdateStatus {
+  /** Çalışan sürüm. */
+  current: string;
+  phase: UpdatePhase;
+  /** Bulunan yeni sürüm (`date`: Unix saniyesi, `url`: GitHub'daki sürüm sayfası). */
+  available: { version: string; notes: string | null; date: number | null; url: string } | null;
+  /** İndirme ilerlemesi (0–1). */
+  progress: number | null;
+  checkedAt: number | null;
+  error: string | null;
+  /** Hata ayıklama derlemesinde yanlış: kendini güncellemez. */
+  canInstall: boolean;
+  /** Çalışan sürümün GitHub sayfası. */
+  currentUrl: string;
+  /** Kurulumu bekleten oyunlar ve görevler; yalnızca `update_status` doldurur (olaylarda `null`). */
+  busy: { games: GameId[]; jobs: number } | null;
+}

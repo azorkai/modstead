@@ -14,6 +14,7 @@ import type {
   SecretsStatus,
   Settings,
   SettingsPatch,
+  UpdateStatus,
 } from "./types";
 
 export const queryClient = new QueryClient({
@@ -31,6 +32,7 @@ export const keys = {
   secrets: ["secrets"] as const,
   nxm: ["nxm-status"] as const,
   jobs: ["jobs"] as const,
+  update: ["update"] as const,
 };
 
 export function useAppInfo() {
@@ -89,6 +91,19 @@ export function useNxmStatus() {
 
 export function useJobs() {
   return useQuery({ queryKey: keys.jobs, queryFn: () => invoke<JobSnapshot[]>("jobs_list"), staleTime: Infinity });
+}
+
+export const fetchUpdate = () => invoke<UpdateStatus>("update_status");
+
+/** Modstead güncellemesi. Olaylar (`modstead://update`) önbelleği tazeler; güncelleme hazırken neyin beklettiği
+ *  (açık oyun, süren indirme) yarım dakikada bir yeniden sorulur. */
+export function useUpdate() {
+  return useQuery({
+    queryKey: keys.update,
+    queryFn: fetchUpdate,
+    staleTime: 30_000,
+    refetchInterval: (q) => (q.state.data?.phase === "ready" ? 30_000 : false),
+  });
 }
 
 /** Olaydan gelen görev görüntüsünü önbelleğe işler. */

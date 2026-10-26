@@ -31,7 +31,7 @@ function JobRow({ job }: { job: JobSnapshot }) {
           {game ? (
             <GameIcon game={game} size={32} />
           ) : (
-            <div className="accent-soft flex size-8 items-center justify-center rounded-lg">
+            <div className="flex size-8 items-center justify-center rounded-[10px] bg-surface-2 text-fg-2">
               <Download className="size-4" />
             </div>
           )}
@@ -49,7 +49,7 @@ function JobRow({ job }: { job: JobSnapshot }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg">{job.title}</span>
+            <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-fg">{job.title}</span>
             {final ? (
               <IconButton label={t.jobs.dismiss} size="sm" onClick={dismiss} className="opacity-0 group-hover:opacity-100">
                 <X className="size-3.5" />
@@ -60,9 +60,13 @@ function JobRow({ job }: { job: JobSnapshot }) {
               </IconButton>
             ) : null}
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-muted">
-            <span className="text-fg-2">{game?.short}</span>
-            <span>·</span>
+          <div className="mt-0.5 flex items-center gap-2 text-[12px] text-muted">
+            {game && (
+              <>
+                <span className="text-fg-2">{game.short}</span>
+                <span>·</span>
+              </>
+            )}
             <span className="truncate">{job.error ?? (job.stage === "downloading" && job.total ? `${bytes(job.bytes)} / ${bytes(job.total)}` : job.message || t.jobs.stages[job.stage])}</span>
           </div>
           {!final && job.stage !== "review" && (
@@ -93,7 +97,8 @@ export function JobsDock() {
   const setJobs = useUi((s) => s.setJobs);
   const { data: jobs } = useJobs();
   const panel = useRef<HTMLDivElement>(null);
-  const list = [...(jobs ?? [])].sort((a, b) => Number(FINAL_STAGES.includes(a.stage)) - Number(FINAL_STAGES.includes(b.stage)) || b.updated - a.updated);
+  // Arayüzde gizli oyunların işleri gösterilmez (bkz. games/registry.ts → HIDDEN).
+  const list = (jobs ?? []).filter((j) => gameModule(j.game)).sort((a, b) => Number(FINAL_STAGES.includes(a.stage)) - Number(FINAL_STAGES.includes(b.stage)) || b.updated - a.updated);
   const active = list.filter((j) => !FINAL_STAGES.includes(j.stage)).length;
 
   useEffect(() => {
@@ -128,13 +133,13 @@ export function JobsDock() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.98 }}
           transition={{ duration: 0.16 }}
-          className="glass fixed right-4 top-[58px] z-40 flex max-h-[calc(100vh-90px)] w-[420px] origin-top-right flex-col overflow-hidden rounded-2xl border border-line-strong"
+          className="fixed right-4 top-[56px] z-40 flex max-h-[calc(100vh-88px)] w-[430px] origin-top-right flex-col overflow-hidden rounded-[18px] border border-line-strong bg-surface"
           style={{ boxShadow: "var(--shadow-lg)" }}
         >
-          <header className="flex items-center justify-between border-b border-line px-4 py-3">
+          <header className="flex items-center justify-between border-b border-line px-4 py-3.5">
             <div>
-              <h3 className="text-[13.5px] font-semibold text-fg">{t.jobs.title}</h3>
-              <p className="text-[11.5px] text-muted">{active ? t.jobs.active(active) : t.jobs.empty}</p>
+              <h3 className="title text-[15px] text-fg">{t.jobs.title}</h3>
+              <p className="eyebrow mt-1 text-muted">{active ? t.jobs.active(active) : t.jobs.empty}</p>
             </div>
             {list.some((j) => FINAL_STAGES.includes(j.stage)) && (
               <Button size="sm" variant="ghost" onClick={clear}>

@@ -35,9 +35,9 @@ export default function App() {
         theme={settings?.theme === "light" ? "light" : settings?.theme === "dark" ? "dark" : "system"}
         toastOptions={{
           classNames: {
-            toast: "!bg-surface !border !border-line-strong !text-fg !rounded-xl !shadow-lg",
+            toast: "!bg-surface !border !border-line-strong !text-fg !rounded-2xl !shadow-lg !font-sans",
             description: "!text-fg-2",
-            actionButton: "!bg-accent !text-accent-ink",
+            actionButton: "!bg-accent !text-accent-ink !rounded-full !font-semibold",
           },
         }}
       />

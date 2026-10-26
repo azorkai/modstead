@@ -21,6 +21,16 @@
 Her oyun **tek klasördür**: `games/<oyun>/src` (Rust paketi `game-<oyun>`) ve `games/<oyun>/ui` (arayüz modülü).
 Bir oyunun değişiklikleri kendi klasöründe kalır; ortak koda yalnızca eklemeli ve geriye uyumlu değişiklik girer.
 
+**Arayüz–arka uç bağı** (`src/lib/ipc.ts`, `invoke`/`listen`): üç taşıma vardır.
+- Uygulamada Tauri komutları ve olayları.
+- Tarayıcıda (önizleme kipi) `src/lib/mock.ts` ve oyunların örnek verileri.
+- Uzak taşıma (`setRemoteTransport`): sayfa bir oyunun yerel sunucusundan açıldıysa komutlar
+  `GET {kök}/api/call/<komut>?a=<JSON>` ile gider, yerel ağda `X-Modstead-Key` başlığıyla. Olay yoktur; sayfa yoklar.
+  Hangi komutların açık olduğuna sunucu karar verir. İlk kullanan: MSFS uçuş ekranı (`deck.html`, ikinci Vite girişi;
+  `games/msfs/hud/menu/API.md`).
+
+**MSFS haritası** (`games/msfs/ui/career/RouteMap.tsx`, `map/`): Web Mercator. Altta yerel sunucunun karoları (`/api/tiles/relief|sat/z/x/y`: gömülü Natural Earth II yükselti gölgesi z0–5, EOxCloudless 2016 uydu z0–13, önbellekli), üstte vektör katmanlar (kara/göl/kıyı/sınır, nehir, şehir alanı, yol, OurAirports pistleri; ilk gerektiğinde yüklenen parçalar, `games/msfs/tools/map.py`). Uçak ve iz her karede, harita yalnızca görünüm değişince çizilir. Sim içi panel aynı karoları kendi tuvalinde kullanır.
+
 ## Çekirdek (`crates/core`, paket `modstead-core`)
 
 Oyundan bağımsız her şey. Bilerek Tauri'ye bağlı değildir; testler pencere olmadan koşar.
@@ -59,6 +69,7 @@ pub trait Game: Send + Sync + 'static {
     fn handle_nxm(&self, url: String) -> BoxFuture<'_, AppResult<JobSnapshot>>;          // varsayılan: desteklenmiyor
     fn install_files(&self, paths: Vec<String>) -> BoxFuture<'_, AppResult<Vec<JobSnapshot>>>; // varsayılan: bağlanmadı
     fn discard_job(&self, job: &JobHandle) {}                      // görev kaldırılınca karantinayı temizle
+    fn busy(&self) -> BoxFuture<'_, bool>;                         // varsayılan: false (bkz. Modstead güncellemesi)
 }
 ```
 
@@ -69,7 +80,10 @@ içerik kuralını (`content`: ör. Bannerlord ve SMAPI için `dll` olağan, MSF
 Sözleşme bilerek küçüktür: yalnızca kabuğun oyunlar arası ihtiyacı. Oyunun asıl ekranları kendi komutlarıyla
 (`<oyun>_…`) çalışır ve kendi durumunu `app.manage(Arc<Oyun>)` ile tutar.
 
-Arayüz (`src/games/types.ts`): `GameModule { id, name, short, tagline, Icon, Art, routes, ReviewPlan?, confirmJob?, mocks?, porting? }`.
+Arayüz (`src/games/types.ts`): `GameModule { id, name, short, tagline, Icon, Art, routes, ReviewPlan?, confirmJob?, mocks?, porting?, home? }`.
+Rotada `fullBleed: true` sayfayı kenardan kenara çizer (üst çubuk görselin üstünde saydam). `home` ana sayfaya
+oyunun katkısıdır: `Actions` (vitrindeki Oyna düğmesinin yerine) ve `Panel` (vitrinin altındaki giriş kutucukları);
+ikisi de isteğe bağlı, ana sayfa ağ isteği başlatmamalı (bkz. docs/TASARIM.md → Ana sayfa).
 
 ## Komut yönlendirme
 
@@ -80,11 +94,13 @@ tablosuna, `bannerlord_` ise Bannerlord'unkine… Bu sayede oyun komutu eklemek 
 Kabuk ayrıca `art://<oyun>/<tür>` protokolünü sunar (Windows'ta `http://art.localhost/…`): oyunun `GameInfo.steam_app_ids`
 için Steam'in yerel kütüphane görsel önbelleğindeki kahraman, logo, başlık, dikey kapak ve simge görselleri
 (`stores::steam_library_art`). Yalnızca o önbellekten okur (`stores::is_steam_art_path`); CSP'de `img-src` buna açıktır.
+CSP `img-src` ayrıca MSFS'in yerel sunucusuna (`http://127.0.0.1:47213-47215`) açıktır: kariyer haritası karolarını oradan alır (`/api/tiles/…`, `games/msfs/hud/menu/API.md`).
 
 Kabuk komutları: `app_info`, `games_status`, `game_status`, `game_detect`, `game_set_path`, `game_launch`,
 `game_install_files`, `settings_get`, `settings_update`, `nexus_status`, `nexus_set_key`, `nexus_clear_key`,
 `secrets_status`, `secret_set`, `secret_clear`, `nxm_status`, `nxm_register`, `nxm_unregister`, `nxm_open`,
-`pending_take`, `jobs_list`, `job_cancel`, `job_dismiss`, `jobs_clear`, `open_url`, `open_app_folder`.
+`pending_take`, `jobs_list`, `job_cancel`, `job_dismiss`, `jobs_clear`, `open_url`, `open_app_folder`,
+`update_status`, `update_check`, `update_install`.
 
 ## Kurulum akışı (tüm oyunlar için aynı iskelet)
 
@@ -112,6 +128,39 @@ Karar kuralları (`security::finalize`): kritik bulgu, Defender tehdidi, VirusTo
 ya da puan ≥30 → **dikkat** ve açık onay. Defender çalışamadıysa (`require_scan`), kaynak özet yayımlamıyorsa
 (`require_verified`) ya da site tanınmıyorsa açık onay istenir. Yerel dosyalar yalnızca not alır.
 
+## Modstead güncellemesi
+
+Uygulamanın kendisi `tauri-plugin-updater` ile, imzalı olarak güncellenir (`src-tauri/src/updater.rs`; sürüm hattı ve
+anahtar: `docs/RELEASING.md` → Updates).
+
+```
+açılıştan ~45 sn sonra, sonra 6 saatte bir (Ayarlar → "Güncellemeleri otomatik denetle"; elle: update_check)
+  │  GET github.com/azorkai/modstead/releases/latest/download/latest.json   (taslak ve ön sürüm "latest" olmaz)
+  ▼
+yeni sürüm (ön sürüm değil, daha büyük) → indirme adresi bu deponun releases/download/…exe'si mi?
+  │  indir (bellekte) → minisign imzası gömülü açık anahtarla + imzadaki sürüm = bildirilen sürüm (requireSignedVersion)
+  ▼
+phase "ready" → modstead://update → arayüz: "Güncelleme hazır · Yeniden başlat" bildirimi + üst çubukta gösterge
+  │  kullanıcı "Yeniden başlat" → update_install
+  ▼
+meşgul mü? (her oyunun Game::busy() + süren indirme/kurulum görevi; incelemede bekleyen sayılmaz) → evetse reddet
+  │  hayırsa: pencere durumu kaydedilir, NSIS kurucusu sessiz ilerleme kipinde başlar, Modstead kapanır,
+  ▼  kurucu uygulamayı yeniden açar. Basılmazsa güncelleme sonraki açılışta yeniden sunulur.
+```
+
+- **Meşgul kuralı (`Game::busy`)**: Modstead yeniden başlatılırsa oyunda yarım kalacak bir iş varsa `true`. Varsayılan
+  `false`: modları oyun kapalıyken uygulanan oyunlar için açık oyun engel değildir. MSFS: SimConnect bağlı, sim süreci
+  açık ya da kariyer uçuşu başlatılıyor/izleniyor (`career::Live`). Ucuz olmalı; kabuk yalnızca kurulumdan önce ve
+  güncelleme hazırken arayüz sorduğunda (`update_status`) çağırır.
+- **İzinler**: arayüze eklentinin hiçbir izni verilmez (`capabilities/`); denetim, indirme ve kurulum kabuk
+  komutlarından geçer, meşgul kuralı Rust'ta uygulanır. Uçuş ekranı penceresinin (`msfs-deck`) yetkisi yoktur.
+- **Ağ**: eklenti kendi HTTP istemcisini kullanır (çekirdeğin `Http`'si değil). Tek sunucu GitHub'dır, HTTPS zorunludur,
+  uç nokta `tauri.conf.json`'da sabittir ve indirme adresi bu deponun sürüm dosyalarıyla sınırlıdır.
+- **Kurucu**: çalıştırılan tek kurucu Modstead'in kendi imzası doğrulanmış kurucusudur ("kurucular asla çalıştırılmaz"
+  kuralı mod arşivleri içindir).
+- Hata ayıklama derlemesi kendiliğinden denetlemez ve kurmaz (geliştirme yuvaları kurulu uygulamanın üstüne yazmasın);
+  elle denetim çalışır. Önizleme kipinde `?update=ready|busy|downloading|checking|error|never`.
+
 ## Olaylar
 
 | Olay | Yük | Kim yayar |
@@ -121,6 +170,7 @@ ya da puan ≥30 → **dikkat** ve açık onay. Defender çalışamadıysa (`req
 | `modstead://nxm` | `{ url, game }` | kabuk (ikinci örnekten gelen bağlantı; arayüz onay sorar) |
 | `modstead://files` | `{ paths }` | kabuk (ikinci örnekten gelen arşivler) |
 | `modstead://notify` | `{ tone, title, detail }` | herkes (`services.notify`) |
+| `modstead://update` | `UpdateView` (`busy` boş) | kabuk (`src-tauri/src/updater.rs`): Modstead güncellemesinin durumu |
 | `<oyun>://…` | serbest | oyun (ör. `stardew://smapi-progress`) |
 
 ## Veri
@@ -132,6 +182,7 @@ ya da puan ≥30 → **dikkat** ve açık onay. Defender çalışamadıysa (`req
 | `%LOCALAPPDATA%\app.modstead\games\<oyun>\` | önbellek, indirmeler, çöp kutusu |
 | `%LOCALAPPDATA%\app.modstead\staging\` | varsayılan karantina (oyunlar mümkünse hedefle aynı birimde kendi karantinasını kullanır) |
 | `%LOCALAPPDATA%\app.modstead\logs\` | günlük (tauri-plugin-log) |
+| `%LOCALAPPDATA%\app.modstead\updater.json` | Modstead güncellemesinin son denetim zamanı |
 | Kimlik Bilgisi Yöneticisi | `Modstead/NexusMods/ApiKey`, `Modstead/VirusTotal/ApiKey`, `Modstead/GitHub/Token` |
 | `HKCU\Software\Classes\nxm` | yalnızca kullanıcı nxm işleyicisini açarsa (önceki işleyici ayarlarda saklanır) |
 

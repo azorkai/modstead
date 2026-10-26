@@ -31,10 +31,10 @@ export function gamesSetting(ids: Iterable<string>): string[] {
 function Indicator({ active, color }: { active: boolean; color?: string }) {
   return (
     <motion.span
-      className="absolute -left-[14px] top-1/2 w-[4px] -translate-y-1/2 rounded-r-full"
+      className="absolute -left-[14px] top-1/2 w-[3px] -translate-y-1/2 rounded-r-full"
       style={{ background: color ?? "var(--accent)" }}
       initial={false}
-      animate={{ height: active ? 30 : 0, opacity: active ? 1 : 0 }}
+      animate={{ height: active ? 28 : 0, opacity: active ? 1 : 0 }}
       transition={{ type: "spring", stiffness: 500, damping: 34 }}
     />
   );
@@ -44,9 +44,9 @@ function GameTile({ game, active, status, onClick }: { game: GameModule; active:
   const installed = status?.installed ?? true;
   return (
     <Tooltip label={game.name}>
-      <button data-game={game.id} onClick={onClick} className="group relative flex size-12 items-center justify-center" aria-label={game.name}>
+      <button data-game={game.id} onClick={onClick} className="group relative flex size-11 items-center justify-center rounded-[13px]" aria-label={game.name} aria-current={active ? "page" : undefined}>
         <Indicator active={active} />
-        <GameIcon game={game} size={48} active={active} dim={!installed && !active} className={clsx(!active && "group-hover:brightness-110")} />
+        <GameIcon game={game} size={44} active={active} dim={!installed && !active} className={clsx(!active && "group-hover:brightness-110")} />
         {status?.running && <span className="pulse-dot absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-bg-2 bg-ok" />}
       </button>
     </Tooltip>
@@ -63,14 +63,14 @@ export function Rail() {
   const games = visibleGames(settings);
 
   return (
-    <nav data-tauri-drag-region className="relative z-[2] flex w-[76px] shrink-0 flex-col items-center gap-3 border-r border-line bg-bg-2 pb-4 pt-3.5">
+    <nav data-tauri-drag-region className="relative z-[4] flex w-[72px] shrink-0 flex-col items-center gap-3 border-r border-line bg-bg-2 pb-4 pt-3.5">
       <Tooltip label={`Modstead · ${t.nav.home}`}>
-        <button onClick={() => go({ kind: "home" })} className="relative" aria-label={t.nav.home}>
-          <Indicator active={view.kind === "home"} color="var(--brand)" />
-          <LogoTile size={48} />
+        <button onClick={() => go({ kind: "home" })} className="relative rounded-[13px]" aria-label={t.nav.home} aria-current={view.kind === "home" ? "page" : undefined}>
+          <Indicator active={view.kind === "home"} color="var(--mark)" />
+          <LogoTile size={44} />
         </button>
       </Tooltip>
-      <div className="h-px w-8 bg-line-strong" />
+      <div className="h-px w-7 bg-line-strong" />
       {games.map((g) => (
         <GameTile key={g.id} game={g} active={view.kind === "game" && view.game === g.id} status={statuses?.find((s) => s.id === g.id)?.status} onClick={() => openGame(g.id)} />
       ))}
@@ -79,8 +79,9 @@ export function Rail() {
         <button
           onClick={() => go({ kind: "settings" })}
           aria-label={t.nav.settings}
+          aria-current={view.kind === "settings" ? "page" : undefined}
           className={clsx(
-            "relative flex size-11 items-center justify-center rounded-[14px] text-fg-2 transition-colors hover:bg-surface-2 hover:text-fg",
+            "relative flex size-11 items-center justify-center rounded-full text-fg-2 transition-colors hover:bg-surface-2 hover:text-fg",
             view.kind === "settings" && "bg-surface-2 text-fg",
           )}
         >

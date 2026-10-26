@@ -1,0 +1,18 @@
+/* Modstead'in kendi yazı tipleri (SIL Open Font License 1.1; lisanslar: src/assets/fonts/*-OFL.txt).
+   Archivo: başlıklar ve sayılar (genişlik ekseni 100–125 %; büyük harf, geniş başlıklar).
+   Instrument Sans: arayüz metni. İkisi de Türkçe harfleri (ş ğ ı İ ö ü ç) kapsar. */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("../assets/fonts/archivo-var.woff2") format("woff2");
+  font-weight: 500 900;
+  font-stretch: 100% 125%;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("../assets/fonts/instrument-sans-var.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}

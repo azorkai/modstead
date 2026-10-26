@@ -1,7 +1,8 @@
 // Genel ayarlar (tüm oyunlar için ortak). Oyuna özel ayarlar oyunun kendi sayfasında.
 
-import { useState, type ReactNode } from "react";
-import { BadgeCheck, Bug, FolderOpen, Gamepad2, GitBranch, KeyRound, Languages, Link2, MonitorCog, Palette, ShieldCheck, ShieldHalf, Sparkles, Wind } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { BadgeCheck, Bug, CircleArrowUp, FolderOpen, GitBranch, KeyRound, Languages, Link2, MonitorCog, Palette, ShieldCheck, ShieldHalf, Sparkles, Wind } from "lucide-react";
+import clsx from "clsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
@@ -13,6 +14,7 @@ import { GAMES } from "@/games/registry";
 import { notifyError } from "./actions";
 import { GameIcon } from "./GameIcon";
 import { LogoTile } from "./Logo";
+import { UpdateSection } from "./Updater";
 
 function useSet() {
   return async (patch: Partial<SettingsT>) => {
@@ -29,7 +31,7 @@ function KeyInput({ placeholder, onSave, busy }: { placeholder: string; onSave: 
   const [value, setValue] = useState("");
   return (
     <form
-      className="flex w-[340px] items-center gap-2"
+      className="flex w-[360px] items-center gap-2"
       onSubmit={async (e) => {
         e.preventDefault();
         if (!value.trim()) return;
@@ -172,11 +174,41 @@ function NxmRow() {
   );
 }
 
+/** Ayarlar bölümlerinin dizini: tıklayınca bölüme kayar; kaydırırken görünen bölüm vurgulanır. */
+function useSectionSpy(ids: string[]) {
+  const [active, setActive] = useState(ids[0]);
+  useEffect(() => {
+    const els = ids.map((id) => document.getElementById(`settings-${id}`)).filter((e): e is HTMLElement => !!e);
+    const root = els[0]?.closest("main") ?? null;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id.replace("settings-", ""));
+      },
+      { root, rootMargin: "-10% 0px -65% 0px" },
+    );
+    els.forEach((e) => io.observe(e));
+    return () => io.disconnect();
+  }, [ids.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  return [active, setActive] as const;
+}
+
 export function Settings() {
   const t = useT();
   const set = useSet();
   const { data: s } = useSettings();
   const { data: info } = useAppInfo();
+  const sections = [
+    { id: "appearance", label: t.settings.appearance, icon: <Palette className="size-4" /> },
+    { id: "security", label: t.settings.security, icon: <ShieldCheck className="size-4" /> },
+    { id: "accounts", label: t.settings.accounts, icon: <KeyRound className="size-4" /> },
+    { id: "links", label: t.settings.links, icon: <Link2 className="size-4" /> },
+    { id: "games", label: t.settings.games, icon: <MonitorCog className="size-4" /> },
+    { id: "storage", label: t.settings.storage, icon: <FolderOpen className="size-4" /> },
+    { id: "updates", label: t.update.title, icon: <CircleArrowUp className="size-4" /> },
+  ];
+  const [active, setActive] = useSectionSpy(sections.map((x) => x.id));
+  const nav = useRef<HTMLElement>(null);
   if (!s) return null;
   const visible = s.games.length ? s.games : GAMES.map((g) => g.id);
   const toggleGame = (id: string, on: boolean) => {
@@ -184,11 +216,36 @@ export function Settings() {
     if (next.length === 0) return;
     void set({ games: next.length === GAMES.length ? [] : next });
   };
+  const jump = (id: string) => {
+    setActive(id);
+    document.getElementById(`settings-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
-    <div className="mx-auto flex max-w-[880px] flex-col gap-5 pb-10">
-      <PageHeader title={t.settings.title} subtitle={t.settings.subtitle} />
+    <div className="mx-auto max-w-[1120px] pb-10">
+      <PageHeader eyebrow={`Modstead · ${t.settings.version(info?.version ?? "…")}`} title={t.settings.title} subtitle={t.settings.subtitle} />
 
+      <div className="grid grid-cols-[200px_minmax(0,1fr)] items-start gap-10">
+        <nav ref={nav} aria-label={t.settings.title} className="sticky top-0 flex flex-col gap-0.5">
+          {sections.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              onClick={() => jump(x.id)}
+              aria-current={active === x.id ? "true" : undefined}
+              className={clsx(
+                "flex h-10 items-center gap-3 rounded-full px-3.5 text-left text-[13.5px] transition-colors",
+                active === x.id ? "bg-surface-2 font-semibold text-fg" : "text-fg-2 hover:bg-surface-2/60 hover:text-fg",
+              )}
+            >
+              <span className={active === x.id ? "text-accent" : "text-muted"}>{x.icon}</span>
+              {x.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="flex min-w-0 flex-col gap-6">
+      <div id="settings-appearance" className="scroll-mt-2">
       <Section title={t.settings.appearance}>
         <Row icon={<Palette className="size-4" />} title={t.settings.theme}>
           <Segmented
@@ -210,7 +267,9 @@ export function Settings() {
           <Switch checked={s.reduceMotion} onChange={(reduceMotion) => set({ reduceMotion })} label={t.settings.reduceMotion} />
         </Row>
       </Section>
+      </div>
 
+      <div id="settings-security" className="scroll-mt-2">
       <Section title={t.settings.security} description={t.settings.securityHint}>
         <Row
           icon={<Bug className="size-4" />}
@@ -234,17 +293,23 @@ export function Settings() {
           <Switch checked={s.virustotal} onChange={(virustotal) => set({ virustotal })} label={t.settings.virustotal} />
         </Row>
       </Section>
+      </div>
 
+      <div id="settings-accounts" className="scroll-mt-2">
       <Section title={t.settings.accounts} description={t.settings.accountsHint}>
         <NexusRow />
         <SecretRow kind="virustotal" icon={<ShieldCheck className="size-4" />} title={t.settings.vtKey} description={t.settings.virustotalHint} />
         <SecretRow kind="github" icon={<GitBranch className="size-4" />} title={t.settings.githubToken} description={t.settings.githubTokenHint} />
       </Section>
+      </div>
 
+      <div id="settings-links" className="scroll-mt-2">
       <Section title={t.settings.links}>
         <NxmRow />
       </Section>
+      </div>
 
+      <div id="settings-games" className="scroll-mt-2">
       <Section title={t.settings.games} description={t.settings.gamesHint}>
         {GAMES.map((g) => (
           <div key={g.id} data-game={g.id}>
@@ -261,7 +326,9 @@ export function Settings() {
           </div>
         ))}
       </Section>
+      </div>
 
+      <div id="settings-storage" className="scroll-mt-2">
       <Section title={t.settings.storage}>
         <Row icon={<FolderOpen className="size-4" />} title={t.settings.dataFolder} description={<span className="font-mono text-[11px]">{info?.dataDir}</span>}>
           <Button variant="ghost" onClick={() => invoke("open_app_folder", { kind: "data" }).catch(notifyError)}>
@@ -275,16 +342,29 @@ export function Settings() {
         </Row>
       </Section>
 
-      <section className="card flex items-center gap-4 px-5 py-4">
-        <LogoTile size={44} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold text-fg">Modstead</div>
-          <div className="text-[12px] text-fg-2">
-            {t.app.tagline} · {t.settings.version(info?.version ?? "…")}
+      </div>
+
+      <div id="settings-updates" className="scroll-mt-2">
+        <UpdateSection />
+      </div>
+
+      {/* Hakkında: markanın sessiz anı. Koyu ada, ince kobalt ışık çizgileri. */}
+      <section data-theme="dark" className="fluted relative overflow-hidden rounded-2xl border border-line bg-ink px-6 py-6 text-fg">
+        <div className="flex items-center gap-5">
+          <LogoTile size={56} />
+          <div className="min-w-0 flex-1">
+            <div className="headline text-[26px] text-fg">Modstead</div>
+            <div className="mt-1.5 text-[13px] text-fg-2">{t.app.tagline}</div>
+          </div>
+          <div className="text-right">
+            <div className="eyebrow text-muted">{t.settings.about}</div>
+            <div className="num mt-1.5 text-[18px] text-fg">{info?.version ?? "…"}</div>
+            <div className="eyebrow mt-1 text-muted">GPL-3.0</div>
           </div>
         </div>
-        <Gamepad2 className="size-5 text-muted" />
       </section>
+        </div>
+      </div>
     </div>
   );
 }

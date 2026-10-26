@@ -19,6 +19,8 @@ export interface GameRoute {
   Component: ComponentType;
   /** Kenar çubuğunda sayı rozeti (ör. güncelleme sayısı). */
   badge?: (status: GameStatus | undefined) => number | null | undefined;
+  /** Sayfa kenardan kenara çizilir (üstte görsel): üst çubuk görselin üstünde saydam durur, içerik dolgusu sayfanındır. */
+  fullBleed?: boolean;
 }
 
 export interface GameModule {
@@ -40,4 +42,11 @@ export interface GameModule {
   mocks?: Record<string, (args?: Record<string, unknown>) => unknown>;
   /** Taşıma sürerken: önceki uygulama ve buraya gelecek özellikler. */
   porting?: { app: string; path: string; features: Text[] };
+  /** Ana sayfa vitrinine oyunun katkısı (isteğe bağlı). */
+  home?: {
+    /** Vitrindeki "Oyna" düğmesinin yerine (ör. MSFS: her sim için ayrı başlat). Görsel üstünde, koyu zeminde çizilir. */
+    Actions?: ComponentType;
+    /** Vitrinin altında oyuna özel giriş kutucukları (kütüphane, kariyer, keşfet…). */
+    Panel?: ComponentType;
+  };
 }

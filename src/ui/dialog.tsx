@@ -52,13 +52,13 @@ export function Dialog({
           transition={{ duration: 0.15 }}
           data-game={game ?? undefined}
         >
-          <div className="absolute inset-0 backdrop-blur-[6px]" style={{ background: "var(--scrim)" }} onClick={() => dismissable && onClose()} />
+          <div className="absolute inset-0 backdrop-blur-[3px]" style={{ background: "var(--scrim)" }} onClick={() => dismissable && onClose()} />
           <motion.div
             ref={panel}
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            className="card-raised relative flex max-h-[calc(100vh-72px)] w-full flex-col overflow-hidden outline-none"
+            className="card-raised relative flex max-h-[calc(100vh-72px)] w-full flex-col overflow-hidden rounded-[20px] outline-none"
             style={{ maxWidth: width, boxShadow: "var(--shadow-lg)" }}
             initial={{ opacity: 0, y: 14, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -79,10 +79,10 @@ export function Dialog({
 export function DialogHeader({ title, subtitle, icon, media, onClose, plain }: { title: ReactNode; subtitle?: ReactNode; icon?: ReactNode; media?: ReactNode; onClose?: () => void; plain?: boolean }) {
   const t = useT();
   return (
-    <div className="flex items-start gap-3 border-b border-line px-6 pb-4 pt-5">
-      {media ?? (icon && <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-line bg-surface-2 text-accent">{icon}</div>)}
+    <div className="flex items-start gap-3.5 border-b border-line px-6 pb-4 pt-5">
+      {media ?? (icon && <div className="accent-soft mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full">{icon}</div>)}
       <div className="min-w-0 flex-1">
-        <h2 className={clsx("text-[19px] font-semibold leading-tight text-fg", plain ? "tracking-tight" : "text-display")}>{title}</h2>
+        <h2 className={clsx("text-[18px] leading-tight text-fg", plain ? "font-semibold tracking-tight" : "title")}>{title}</h2>
         {subtitle && <div className="mt-1 text-[12.5px] text-fg-2">{subtitle}</div>}
       </div>
       {onClose && (
@@ -99,7 +99,7 @@ export function DialogBody({ children, className }: { children: ReactNode; class
 }
 
 export function DialogFooter({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={clsx("flex items-center justify-end gap-2 border-t border-line bg-surface-2/40 px-6 py-3.5", className)}>{children}</div>;
+  return <div className={clsx("flex items-center justify-end gap-2 border-t border-line bg-surface-2/50 px-6 py-3.5", className)}>{children}</div>;
 }
 
 export function ConfirmDialog({

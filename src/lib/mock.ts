@@ -2,7 +2,7 @@
 // Böylece arayüz `npm run dev` ile http://127.0.0.1:1420 adresinde dosyalara dokunmadan
 // tasarlanıp ekran görüntüsüyle denetlenebilir. Oyunlar kendi örneklerini `mocks` ile ekler.
 
-import type { AppInfo, GameStatus, GameStatusEntry, JobSnapshot, SecurityReport, Settings } from "./types";
+import type { AppInfo, GameStatus, GameStatusEntry, JobSnapshot, SecurityReport, Settings, UpdateStatus } from "./types";
 
 type Handler = (args?: Record<string, unknown>) => unknown;
 
@@ -20,8 +20,18 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
   return h(args) as T;
 }
 
-export function mockListen(_event: string, _handler: (payload: unknown) => void): () => void {
-  return () => {};
+const listeners = new Map<string, Set<(payload: unknown) => void>>();
+
+export function mockListen(event: string, handler: (payload: unknown) => void): () => void {
+  const set = listeners.get(event) ?? new Set();
+  set.add(handler);
+  listeners.set(event, set);
+  return () => set.delete(handler);
+}
+
+/** Önizleme kipinde arka uç olayını taklit eder (ör. güncelleme denetiminin ilerleyişi). */
+export function mockEmit(event: string, payload: unknown) {
+  listeners.get(event)?.forEach((h) => h(payload));
 }
 
 const now = Math.floor(Date.now() / 1000);
@@ -42,6 +52,7 @@ let settings: Settings = {
   onboarded: params.get("onboarding") !== "1",
   games: [],
   lastGame: null,
+  autoUpdate: true,
   resolvedLanguage: params.get("lang") === "en" ? "en" : "tr",
 };
 
@@ -208,6 +219,39 @@ let jobs: JobSnapshot[] = [
   },
 ];
 
+// ?activity=empty : görev listesi boş (ana sayfanın boş durumunu denetlemek için).
+if (params.get("activity") === "empty") jobs = [];
+
+// ?update=ready|busy|downloading|checking|error|never : Modstead güncellemesinin durumu (yoksa güncel, 2 saat önce
+// denetlendi). `busy`: güncelleme hazır ama MSFS kullanımda.
+const updateParam = params.get("update") ?? "";
+const updateFound: UpdateStatus["available"] = {
+  version: "0.2.0",
+  notes: "Modstead now updates itself: new versions download in the background, their signature is checked and they install when you restart.\nCareer: real weather, dispatch and records.",
+  date: now - 2 * 86400,
+  url: "https://github.com/azorkai/modstead/releases/tag/v0.2.0",
+};
+const updatePhases: Record<string, UpdateStatus["phase"]> = { ready: "ready", busy: "ready", downloading: "downloading", checking: "checking", error: "error" };
+let update: UpdateStatus = {
+  current: appInfo.version,
+  phase: updatePhases[updateParam] ?? "idle",
+  available: ["ready", "busy", "downloading"].includes(updateParam) ? updateFound : null,
+  progress: updateParam === "downloading" ? 0.64 : null,
+  checkedAt: updateParam === "never" ? null : now - 2 * 3600,
+  error:
+    updateParam === "error"
+      ? "Güncellemeler denetlenemedi: error sending request for url (https://github.com/azorkai/modstead/releases/latest/download/latest.json)"
+      : null,
+  canInstall: true,
+  currentUrl: `https://github.com/azorkai/modstead/releases/tag/v${appInfo.version}`,
+  busy: { games: updateParam === "busy" ? ["msfs"] : [], jobs: 0 },
+};
+
+function setUpdate(patch: Partial<UpdateStatus>) {
+  update = { ...update, ...patch };
+  mockEmit("modstead://update", { ...update, busy: null });
+}
+
 registerMocks({
   app_info: () => appInfo,
   settings_get: () => settings,
@@ -256,4 +300,26 @@ registerMocks({
   },
   open_url: () => null,
   open_app_folder: () => null,
+  update_status: () => update,
+  update_check: () => {
+    if (update.phase === "ready" || update.phase === "checking" || update.phase === "downloading") return update;
+    setTimeout(() => setUpdate({ phase: "checking", error: null }), 0);
+    setTimeout(() => setUpdate({ phase: "idle", available: null, checkedAt: Math.floor(Date.now() / 1000) }), 1400);
+    return { ...update, phase: "checking", error: null };
+  },
+  update_install: () => {
+    if (update.busy?.games.length) {
+      throw {
+        code: "message",
+        message:
+          settings.resolvedLanguage === "en"
+            ? "Modstead does not restart while Microsoft Flight Simulator is in use. You can install the update once it is closed."
+            : "Microsoft Flight Simulator kullanımdayken Modstead yeniden başlatılmaz. Kapattığında güncellemeyi kurabilirsin.",
+      };
+    }
+    // Uygulamada süreç burada kapanır; önizlemede birkaç saniye sonra "hazır"a döner.
+    setUpdate({ phase: "installing" });
+    setTimeout(() => setUpdate({ phase: "ready" }), 3500);
+    return null;
+  },
 });
