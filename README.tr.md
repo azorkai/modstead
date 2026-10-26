@@ -13,8 +13,20 @@ içi araç çubuğu paneli ve MSFS 2024 ana menüsünde kariyer sayfası.
 
 [Tauri 2](https://tauri.app) (Rust) ve React 19 ile yazıldı. Lisans: GPL-3.0.
 
-> **Durum:** erken geliştirme (v0.1.0). Yalnızca Windows 10/11. Henüz hazır sürüm yok; kaynaktan derleyin
-> (bkz. [Kaynaktan derleme](#kaynaktan-derleme)).
+> **Durum:** erken geliştirme (v0.1.0). Yalnızca Windows 10/11.
+
+## İndir
+
+**[Modstead'i Windows için indir](https://github.com/azorkai/modstead/releases/latest/download/Modstead-setup-x64.exe)**
+(Windows 10/11, x64) · [Tüm sürümler](https://github.com/azorkai/modstead/releases) ·
+[Web sitesi](https://azorkai.github.io/modstead/)
+
+Kurucu, Modstead'i geçerli kullanıcıya kurar ve yönetici izni istemez. Henüz kod imzalı olmadığı için Windows
+SmartScreen uyarı gösterebilir; **Ek bilgi**'ye, ardından **Yine de çalıştır**'a tıklayın. Her sürümde kurucunun
+SHA-256 özeti `SHA256SUMS.txt` dosyasındadır; PowerShell'de
+`(Get-FileHash .\Modstead-setup-x64.exe -Algorithm SHA256).Hash` çıktısıyla karşılaştırabilirsiniz
+([diğer yollar](docs/RELEASING.md#verify-a-download), İngilizce). Kendiniz derlemek için:
+[Kaynaktan derleme](#kaynaktan-derleme).
 
 ## Desteklenen oyunlar
 
@@ -163,6 +175,9 @@ npm run app:build               # NSIS kurucusu
 npm run typecheck && npm run build
 cargo test --workspace          # Rust testleri
 ```
+
+Yayımlanan kurucular geliştirici makinesinde derlenmez; GitHub Actions onları bir sürüm etiketinden derler
+(bkz. [docs/RELEASING.md](docs/RELEASING.md), İngilizce).
 
 Önizleme adres parametreleri: `?view=home|settings|game:<oyun>[:<sayfa>]`, `&theme=dark|light`, `&lang=en`,
 `&onboarding=1` (ilk kurulum), `&installed=<oyun>,<oyun>` ya da `&installed=none` (örnek veride yalnızca bu oyunlar kurulu).

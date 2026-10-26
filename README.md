@@ -14,8 +14,20 @@ aircraft, an in-sim toolbar panel and a career page in the MSFS 2024 main menu.
 
 Built with [Tauri 2](https://tauri.app) (Rust) and React 19. Licensed under GPL-3.0.
 
-> **Status:** early development (v0.1.0). Windows 10/11 only. There are no prebuilt releases yet; build from source
-> (see [Building from source](#building-from-source)).
+> **Status:** early development (v0.1.0). Windows 10/11 only.
+
+## Download
+
+**[Download Modstead for Windows](https://github.com/azorkai/modstead/releases/latest/download/Modstead-setup-x64.exe)**
+(Windows 10/11, x64) · [All releases](https://github.com/azorkai/modstead/releases) ·
+[Website](https://azorkai.github.io/modstead/)
+
+The installer installs Modstead for the current user and needs no administrator rights. It is not code-signed yet, so
+Windows SmartScreen may show "Windows protected your PC"; choose **More info → Run anyway**. Each release lists the
+installer's SHA-256 checksum in `SHA256SUMS.txt`; compare it with the output of
+`(Get-FileHash .\Modstead-setup-x64.exe -Algorithm SHA256).Hash` in PowerShell
+([other ways](docs/RELEASING.md#verify-a-download)). To build Modstead yourself, see
+[Building from source](#building-from-source).
 
 ## Supported games
 
@@ -229,6 +241,9 @@ npm run app:build               # NSIS installer
 npm run typecheck && npm run build
 cargo test --workspace          # Rust tests
 ```
+
+Published installers are not built on a developer machine: GitHub Actions builds them from a version tag
+(see [docs/RELEASING.md](docs/RELEASING.md)).
 
 Preview URL parameters: `?view=home|settings|game:<game>[:<page>]`, `&theme=dark|light`, `&lang=en`,
 `&onboarding=1` (first-run flow), `&installed=<game>,<game>` or `&installed=none` (only these games are installed in the sample data).
