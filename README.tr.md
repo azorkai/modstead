@@ -51,6 +51,11 @@ kesintinin formülü belgelidir.
 - **MSFS 2024 ana menüsünde kariyer sayfası:** simin kendi kutularının yanındaki *Modstead Kariyer* kutusu tam ekran bir
   sayfa açar; simden çıkmadan iş alır, uçağını (gerçek fotoğraflarıyla) seçer ve uçuşu başlatırsın. Fare, klavye ve oyun
   kolu simin kendi sayfalarındaki gibi çalışır.
+- **Öğütmesiz gerçekçilik:** kararlı yaklaşma kapısı, teker koyma noktası ve eksen sapması, kuyruk sürtmesi ve
+  ağırlık sınırları, uçuş kâğıdı (EASA yakıt politikası, ağırlıklar, yedek meydan, pist ve yoğunluk irtifası), gerçek
+  METAR, yolcu konforu ve hassas yük, pilot yeterliliği, sağlık sertifikası ve görev süresi, sigortalı bakım programı,
+  bölgesel yakıt fiyatları ve seyrüsefer ücreti, hava işleri (tur, paraşüt, hava fotoğrafı, arama-kurtarma),
+  başarımlar ve itiraz. Puan yalnızca güvenlik için düşer; prosedürler yalnızca XP bonusu verir.
 - **Ücretsiz ve yerel:** abonelik, hesap ve çevrim içi sunucu yok; çevrim dışı çalışır.
 
 > **Modstead'in içinde çalışır.** Kariyer ayrı bir eklenti değildir; verisi, kuralları ve sim bağlantısı Modstead'dedir

@@ -1,13 +1,20 @@
 // Kariyer komutlarının sarmalayıcıları (games/msfs/src/career/commands.rs). Hepsi `msfs_career_` önekli.
 
 import { invoke } from "@/lib/ipc";
-import type { AircraftClass, AircraftOption, AirportHit, CareerView, CreateRequest, FlightDetail, Job, LedgerEntry, Live, LogEntry, HudStatus, MapAirport, MenuStatus, StartAt } from "./types";
+import type { AircraftClass, AircraftOption, AirportHit, CareerView, CreateRequest, FlightDetail, Job, LedgerEntry, Live, LogEntry, HudStatus, MapAirport, MenuStatus, Metar, StartAt } from "./types";
 
 export const careerApi = {
   state: () => invoke<CareerView>("msfs_career_state"),
   create: (request: CreateRequest) => invoke<CareerView>("msfs_career_create", { request }),
   reset: () => invoke<void>("msfs_career_reset"),
   board: () => invoke<Job[]>("msfs_career_board"),
+  /** Panodaki varışların ve aktif işin METAR'ları (gerekirse aviationweather.gov'dan). */
+  weather: () => invoke<Metar[]>("msfs_career_weather"),
+  medical: () => invoke<number>("msfs_career_medical"),
+  rest: () => invoke<number>("msfs_career_rest"),
+  maintain: (id: string, heavy: boolean) => invoke<number>("msfs_career_maintain", { id, heavy }),
+  insure: (id: string, on: boolean) => invoke<void>("msfs_career_insure", { id, on }),
+  appeal: (id: string, code: string) => invoke<LogEntry>("msfs_career_appeal", { id, code }),
   accept: (id: string) => invoke<void>("msfs_career_accept", { id }),
   cancel: () => invoke<void>("msfs_career_cancel"),
   aircraft: () => invoke<AircraftOption[]>("msfs_career_aircraft"),

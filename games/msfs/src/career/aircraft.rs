@@ -312,6 +312,9 @@ pub struct SimSpecs {
     pub fuel_capacity_gal: f64,
     pub cruise_kt: f64,
     pub payload_stations: u32,
+    /// MSFS 2024'ün `MAX TAKEOFF WEIGHT` ve `MAX LANDING WEIGHT` değerleri (lb; 2020'de yok, 0).
+    pub max_takeoff_lb: f64,
+    pub max_landing_lb: f64,
 }
 
 /// Simden okunan değerlerle sınıf. Belirsizse `None` (ör. planör).

@@ -8,7 +8,8 @@ use std::collections::HashSet;
 
 use super::aircraft::{CLASSES, Class, ClassInfo, info};
 use super::airports::{Airport, AirportDb, Size, Surface, distance_nm};
-use super::economy::{self, contract_quote, plan, wage_pay};
+use super::economy::{self, Costs, care, care_multiplier, contract_quote, fuel_price_at, handling_fee, plan, route_charge, wage_pay};
+use super::missions::{self, Objective};
 use super::model::{Job, Mode, Pilot};
 use super::progression::{can_fly, flight_xp};
 
@@ -94,6 +95,8 @@ fn kinds(p: &Pilot) -> Vec<(&'static str, f64)> {
     let mut v = vec![("cargo", 30.0), ("ferry", 12.0), ("bush", 14.0)];
     if p.has("cpl") {
         v.extend([("passenger", 26.0), ("charter", 14.0), ("medical", 8.0)]);
+        // Hava işleri: panoramik tur, paraşüt atlayışı, hava fotoğrafı, arama-kurtarma.
+        v.extend([("tour", 6.0), ("skydive", 4.0), ("survey", 5.0), ("sar", 3.0)]);
     } else {
         v.push(("training", 8.0));
     }
@@ -106,6 +109,9 @@ fn kinds(p: &Pilot) -> Vec<(&'static str, f64)> {
 /// Bir iş türüne uygun sınıflar.
 fn classes_for(kind: &str) -> &'static [Class] {
     use Class::*;
+    if missions::is_mission(kind) {
+        return missions::classes(kind);
+    }
     match kind {
         "training" => &[LightPiston],
         "bush" => &[LightPiston, TurbopropSingle, Helicopter],
@@ -165,7 +171,22 @@ fn destination_weight(kind: &str, a: &Airport, c: &ClassInfo) -> f64 {
     }
 }
 
-const CARGO_KINDS: &[&str] = &["spare_parts", "mail", "medical_supplies", "electronics", "food", "machinery", "documents", "flowers", "luggage", "tools"];
+const CARGO_KINDS: &[&str] = &[
+    "spare_parts",
+    "mail",
+    "medical_supplies",
+    "electronics",
+    "food",
+    "machinery",
+    "documents",
+    "flowers",
+    "luggage",
+    "tools",
+    "live_animals",
+    "dangerous_goods",
+    "seafood",
+    "fragile_goods",
+];
 const BUSH_KINDS: &[&str] = &["camp_supplies", "fuel_drums", "survey_team", "fishing_party", "food"];
 const CHARTER_KINDS: &[&str] = &["business_team", "family", "film_crew", "sports_team", "vip"];
 const PAX_KINDS: &[&str] = &["tourists", "commuters", "students", "workers"];
@@ -222,51 +243,83 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
         let Some(class) = rng.weighted(&options).copied() else { continue };
         let ci = info(class);
 
-        let list = match candidates.iter().position(|(c, _)| *c == class) {
-            Some(ix) => &candidates[ix].1,
-            None => {
-                let near: Vec<(&Airport, f64)> = input
-                    .db
-                    .within(dep.lat, dep.lon, ci.max_leg_nm as f64)
-                    .into_iter()
-                    .filter(|(a, d)| *d >= ci.min_leg_nm as f64 && a.icao != dep.icao)
-                    .filter(|(a, _)| input.sim_airports.is_none_or(|s| s.contains(&a.icao)))
-                    .collect();
-                candidates.push((class, near));
-                &candidates.last().unwrap().1
-            }
+        // Hava işleri hedef noktalarıyla üretilir (çoğu kalkışa döner); diğerleri bir varış havalimanına gider.
+        let (dest, dist, objectives): (Airport, f64, Vec<Objective>) = if missions::is_mission(kind) {
+            let Some(m) = missions::generate(kind, dep, input.db, class, input.sim_airports, &mut rng) else { continue };
+            (m.to, m.route_nm, m.objectives)
+        } else {
+            let list = match candidates.iter().position(|(c, _)| *c == class) {
+                Some(ix) => &candidates[ix].1,
+                None => {
+                    let near: Vec<(&Airport, f64)> = input
+                        .db
+                        .within(dep.lat, dep.lon, ci.max_leg_nm as f64)
+                        .into_iter()
+                        .filter(|(a, d)| *d >= ci.min_leg_nm as f64 && a.icao != dep.icao)
+                        .filter(|(a, _)| input.sim_airports.is_none_or(|s| s.contains(&a.icao)))
+                        .collect();
+                    candidates.push((class, near));
+                    &candidates.last().unwrap().1
+                }
+            };
+            let (min_nm, max_nm) = match kind {
+                "training" => (15.0, 70.0),
+                "medical" => (ci.min_leg_nm as f64, (ci.max_leg_nm as f64).min(400.0)),
+                _ => (ci.min_leg_nm as f64, ci.max_leg_nm as f64),
+            };
+            let weighted: Vec<(usize, f64)> = list
+                .iter()
+                .enumerate()
+                .filter(|(_, (_, d))| *d >= min_nm && *d <= max_nm)
+                .map(|(ix, (a, _))| (ix, destination_weight(kind, a, ci)))
+                .filter(|(_, w)| *w > 0.0)
+                .collect();
+            let Some(&ix) = rng.weighted(&weighted) else { continue };
+            let (dest, dist) = list[ix];
+            (dest.clone(), dist, Vec::new())
         };
-        let (min_nm, max_nm) = match kind {
-            "training" => (15.0, 70.0),
-            "medical" => (ci.min_leg_nm as f64, (ci.max_leg_nm as f64).min(400.0)),
-            _ => (ci.min_leg_nm as f64, ci.max_leg_nm as f64),
-        };
-        let weighted: Vec<(usize, f64)> = list
-            .iter()
-            .enumerate()
-            .filter(|(_, (_, d))| *d >= min_nm && *d <= max_nm)
-            .map(|(ix, (a, _))| (ix, destination_weight(kind, a, ci)))
-            .filter(|(_, w)| *w > 0.0)
-            .collect();
-        let Some(&ix) = rng.weighted(&weighted) else { continue };
-        let (dest, dist) = list[ix];
 
-        let (pax, cargo_kg, cargo) = payload(kind, ci, &mut rng);
+        let (pax, cargo_kg, mut cargo) = payload(kind, ci, &mut rng);
+        // Tehlikeli madde taşımak ticari lisans ister.
+        if cargo == "dangerous_goods" && !p.has("cpl") {
+            cargo = "spare_parts";
+        }
+        // Sınıfın tipik değerleriyle uçulamayan iş (menzil ya da ağırlık) panoya çıkmaz.
+        if !super::dispatch::feasible(class, dist, pax, cargo_kg) {
+            continue;
+        }
+        let care = care(cargo);
         let pl = plan(class, dist, pax, cargo_kg);
-        let urgent = kind == "medical" || ((kind == "cargo" || kind == "charter") && rng.f() < 0.18);
-        let pay_kind = if urgent && kind != "medical" { "urgent" } else { kind };
+        let urgent = matches!(kind, "medical" | "sar") || ((kind == "cargo" || kind == "charter") && rng.f() < 0.18);
+        let pay_kind = if urgent && !matches!(kind, "medical" | "sar") { "urgent" } else { kind };
         let rentable_here = rentable(dep.size, class) || input.fleet_here.contains(&class);
         let mode = if contracts_open && rentable_here && !matches!(kind, "training" | "ferry") && rng.f() < 0.5 { Mode::Contract } else { Mode::Employee };
         let load = if ci.seats > 0 && pax > 0 { pax as f64 / ci.seats as f64 } else { cargo_kg as f64 / ci.cargo_kg.max(1) as f64 };
+        let care_mult = care_multiplier(care);
         let (pay, quote) = match mode {
-            Mode::Employee => (wage_pay(ci, &pl, pay_kind, p.reputation, p.difficulty), None),
+            Mode::Employee => (round10(wage_pay(ci, &pl, pay_kind, p.reputation, p.difficulty) as f64 * care_mult), None),
             Mode::Contract => {
-                let q = contract_quote(ci, &pl, pay_kind, load, dest.size, p.reputation, p.difficulty);
+                let costs = Costs {
+                    fuel_price_kg: fuel_price_at(ci.fuel, dep.lat, dep.lon, input.now),
+                    nav: route_charge(class, (dep.lat, dep.lon), (dest.lat, dest.lon), dist, p.difficulty),
+                    handling: handling_fee(dest.size, pax, cargo_kg, p.difficulty),
+                };
+                let mut q = contract_quote(ci, &pl, pay_kind, load, dest.size, p.reputation, p.difficulty, costs);
+                // Özel yükün primi gelire eklenir (masraflar aynı).
+                q.revenue = round10(q.revenue as f64 + (q.revenue - q.est_rent - q.est_fuel - q.est_fees) as f64 * (care_mult - 1.0) * 2.0);
+                q.est_profit = q.revenue - q.est_rent - q.est_fuel - q.est_fees;
                 (q.revenue, Some(q))
             }
         };
         let block_h = pl.block_min / 60.0;
-        let deadline_h = if urgent { (block_h * 1.6 + 1.0).ceil() } else { (block_h * 3.0 + 24.0).ceil() };
+        let deadline_h = if urgent {
+            (block_h * 1.6 + 1.0).ceil()
+        } else if care == "perishable" {
+            // Bozulabilir yük: dar teslim süresi.
+            (block_h * 2.0 + 4.0).ceil()
+        } else {
+            (block_h * 3.0 + 24.0).ceil()
+        };
         let id = format!("{}-{}-{}", dep.icao, slot, i);
         if input.taken.contains(&id) {
             continue;
@@ -282,6 +335,7 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
             pax,
             cargo_kg,
             cargo: cargo.to_string(),
+            care: care.to_string(),
             client: if kind == "training" { "Modstead Flight School".into() } else { rng.pick(CLIENTS).copied().unwrap_or("Atlas Lojistik").to_string() },
             pay,
             quote,
@@ -291,10 +345,16 @@ pub fn board(input: &BoardInput) -> Vec<Job> {
             expires_at: (slot + 1) * SLOT_SECS,
             xp_estimate: flight_xp(90, block_h, dist, class, false),
             checkride: None,
+            objectives,
+            ..Default::default()
         });
     }
     out.sort_by(|a, b| b.urgent.cmp(&a.urgent).then(a.distance_nm.total_cmp(&b.distance_nm)));
     out
+}
+
+fn round10(v: f64) -> i64 {
+    ((v / 10.0).round() * 10.0) as i64
 }
 
 fn payload(kind: &str, c: &ClassInfo, rng: &mut Rng) -> (u32, u32, &'static str) {
@@ -302,6 +362,10 @@ fn payload(kind: &str, c: &ClassInfo, rng: &mut Rng) -> (u32, u32, &'static str)
     let cargo = c.cargo_kg as f64;
     match kind {
         "training" | "ferry" => (0, 0, if kind == "ferry" { "aircraft_delivery" } else { "training_flight" }),
+        "tour" => (rng.range(1.0, seats.min(4.0)).round().max(1.0) as u32, 0, "sightseeing"),
+        "skydive" => ((seats * rng.range(0.6, 1.0)).round().max(1.0) as u32, 0, "skydivers"),
+        "survey" => (1, (cargo * 0.1).round() as u32, "survey_equipment"),
+        "sar" => (0, 0, "rescue"),
         "passenger" | "airline" => ((seats * rng.range(0.45, 1.0)).round().max(1.0) as u32, 0, rng.pick(PAX_KINDS).copied().unwrap_or("tourists")),
         "charter" => ((rng.range(1.0, seats.min(8.0))).round() as u32, 0, rng.pick(CHARTER_KINDS).copied().unwrap_or("vip")),
         "medical" => (rng.range(1.0, 2.99) as u32, (cargo * rng.range(0.05, 0.2)).round() as u32, rng.pick(MEDICAL_KINDS).copied().unwrap_or("patient_transfer")),

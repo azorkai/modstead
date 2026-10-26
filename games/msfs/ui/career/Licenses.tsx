@@ -9,6 +9,7 @@ import { notifyError } from "@/shell/actions";
 import { Badge, Button, Progress } from "@/ui";
 import { careerApi } from "./api";
 import { className as clsName, hours, money } from "./format";
+import { Achievements } from "./Achievements";
 import { useCareerT } from "./i18n";
 import { invalidateCareer } from "./queries";
 import { useCareerUi } from "./store";
@@ -56,6 +57,7 @@ export function Licenses({ view }: { view: CareerView }) {
           <LicenseCard key={l.id} l={l} view={view} />
         ))}
       </div>
+      <Achievements view={view} />
     </div>
   );
 }

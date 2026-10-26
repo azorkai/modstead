@@ -26,6 +26,7 @@ and every rule, fee and penalty is documented on this page.
 - [In-sim toolbar panel](#in-sim-toolbar-panel-msfs-2020-and-2024)
 - [Career page in the MSFS 2024 main menu](#career-page-in-the-msfs-2024-main-menu)
 - [Rules and formulas](#rules-and-formulas)
+- [Realism](#realism)
 - [Research: how other career add-ons work](#research-how-other-msfs-career-add-ons-work)
 - [Architecture](#architecture)
 - [Data sources](#data-sources)
@@ -384,9 +385,18 @@ even if you fail.
 | Pitch > 25° / < −15° | 3 | 9 |
 | G > 2.5 or < −1 | 5 | 10 |
 | > 265 kt below 10,000 ft (turbine) | 5 | 10 |
-| Taxi > 30 kt off the runway | 2 | 6 |
+| Bank > 30° close to the ground (below 1,000 ft) | 3 | 6 |
+| Taxi > 30 kt off the runway for more than 3 s | 2 | 6 |
 | Bounce | 4 | 12 |
-| Landing with little fuel (< 30 min) | 5 | 5 |
+| Landing below final reserve (piston 45, turbine 30, helicopter 20 min) | 5 | 5 |
+| Landing from an unstable approach (below) | 5 | 5 |
+| Tail strike (jet airliners: regional 10.5°, narrowbody 11°, widebody 10°) | 10 | 10 |
+| Touchdown before the threshold | 8 | 8 |
+| Long landing (beyond the touchdown zone + 150 m) | 3 | 3 |
+| Off the centreline (half the runway width − 4 m) | 2 | 2 |
+| Maximum takeoff / landing weight exceeded | 5 + 5 | 5 + 5 |
+| Cloud or low visibility for more than 30 s without a current instrument rating | 10 | 10 |
+| Unpressurised cabin above 12,500 ft for more than 30 min, or above 15,000 ft (FAA 91.211) | 5 | 10 |
 | Landing rate (scaled by class; light aircraft: < 200 fpm 0 · 200–300: 3 · 300–400: 8 · 400–500: 15 · ≥ 500: 25) | | |
 | Landing G > 1.5: 5 · > 2.0: 10; bank > 6°: 5 · > 10°: 10 | | |
 
@@ -415,6 +425,171 @@ late delivery, damage, fuel and rent.
   Rental excess: inspection 0.5 hours of rent, structural 3, crash 20.
 - Loan (with a CPL): limit `20,000 × level² × (0.5 + reputation/100) + half the fleet value`; an arrangement fee of 10%
   (Easy 5, Realistic 15) is added to the loan; no time-based interest; 25% of every profitable flight goes to the loan.
+
+## Realism
+
+The clearest lesson from the research: users hate hidden, zero-tolerance penalties, grind, real-time lockouts and
+nonsensical jobs (criticism of the MSFS 2024 career; OnAir, NeoFly and A Pilot's Life forums). So: **the score only
+drops for safety, procedures only give bonuses, rules apply with short tolerances, nothing the sim cannot read is
+counted, and every deduction can be appealed within 7 days.**
+
+### What is read from the sim
+
+Besides the telemetry, a second data definition once a second (`env.rs`): `LIGHT BEACON/LANDING/NAV/STROBE/TAXI ON`,
+`AMBIENT WIND VELOCITY/DIRECTION`, `AMBIENT VISIBILITY`, `AMBIENT IN CLOUD`, `AMBIENT PRECIP STATE`,
+`AMBIENT TEMPERATURE`, `SEA LEVEL PRESSURE`, `STRUCTURAL ICE PCT`, `ZULU TIME/DAY OF YEAR/YEAR`, `IS GEAR RETRACTABLE`,
+`CABIN SEATBELTS ALERT SWITCH`, `PRESSURIZATION CABIN ALTITUDE`, `AUTOPILOT MASTER`, `TRANSPONDER STATE:1`; and, in the
+aircraft data, MSFS 2024's `MAX TAKEOFF WEIGHT` and `MAX LANDING WEIGHT`. A variable the sim does not know (in 2020 the
+transponder and maximum weights) is skipped. The destination runways (position, heading, length, **width**) are
+requested from the sim once tracking is armed.
+
+### Stabilised approach gate (Flight Safety Foundation)
+
+At 1,000 ft (instrument conditions) or 500 ft (visual) above the destination, within 12 nm of it:
+- sink rate no faster than 1,100 fpm (1,000 + 10% tolerance),
+- bank no more than 20°,
+- gear down (if retractable),
+- speed inside the class approach band (typical Vref −15 / +35 kt; none for helicopters).
+
+Below the gate it is watched down to 100 ft: more than 1,300 fpm sink, more than 25° bank, or gear up below 300 ft make
+the approach unstable. Landing from an unstable approach costs **5 points**; climbing back 300 ft above the gate (a
+go-around) costs nothing and earns a "good decision" bonus (+3% XP). A stable approach earns +5% XP.
+
+### Touchdown point
+
+With the destination runways from the sim, the touchdown is measured against the runway threshold: distance from the
+threshold, offset from the centreline, and the touchdown zone (first 900 m or first third of the runway). The wind is
+split into head/tailwind and crosswind components for the runway.
+
+### Procedures and XP bonuses (bonus only)
+
+| Item | Checked |
+|---|---|
+| Beacon | When the engines run and the aircraft starts moving |
+| Navigation lights | At night, when the aircraft starts moving |
+| Strobes and landing lights | On the takeoff roll (above 40 kt) |
+| Landing lights and seat-belt sign | At the approach gate |
+| Transponder on (3 or 4) | In flight, above 1,500 ft AGL |
+
+If the aircraft never turned on any light, the light items are not counted; the same goes for the seat-belt sign and the
+transponder (the aircraft may not expose them through the sim's standard variables). Each passed item +1%; stable
+approach +5%; go-around from an unstable approach +3%; night landing +3%; landing in instrument conditions +5%; landing
+in a crosswind above 15 kt +3%; passenger comfort 90+ +3%. At most **+20% XP** in total.
+
+### Passenger comfort and sensitive cargo
+
+On passenger jobs comfort starts at 100: bank above 30° (−2 every 5 s, at most −20), below 0.6 G or above 1.5 G (−3;
+−6 with the seat-belt sign off; at most −30), steep descent in an unpressurised aircraft (above 3,000 fpm for jets,
+1,500 fpm for others; −3), cabin altitude above 10,000 ft in a pressurised cabin (−5), fast taxi (−2), bounce (−5), hard
+landing (firm −5, hard −15, damaging −25). **It sets the tip, not the score:** 90+ earns 8% of the pay, 75+ 3%; below 50
+the passengers complain (−1 reputation).
+
+Cargo types (`economy::care`): fragile goods and electronics (fragile), live animals, medical supplies and organs
+(medical), flowers, food and seafood (perishable), dangerous goods. Fragile, live and medical cargo is damaged by more
+than 1.8 G or less than 0.4 G (10%) and by hard landings (10–45%); **claim = pay × damage × 0.6**, and damage above 30%
+costs 1 reputation. Perishable cargo has a tight deadline (block × 2 + 4 hours) and late delivery costs twice as much.
+Dangerous goods need a commercial licence. Premiums: dangerous 30%, live animals 20%, medical 15%, fragile and
+perishable 10%.
+
+### Dispatch release (`dispatch.rs`)
+
+With the chosen aircraft's values on the active job (empty weight, MTOW, MLW and fuel capacity from the sim once the
+aircraft is known; otherwise the class's typical values, marked as an estimate):
+- **Fuel** (EASA CAT.OP.MPA.181, FAA 91.151/91.167): taxi + trip + contingency (IFR: 5% of trip, at least 5 minutes)
+  + alternate + final reserve (IFR turbine 30, piston 45 min; VFR day 30, night 45 min; helicopter VFR 20 min). Under
+  IFR the alternate is the nearest suitable airport 15–150 nm from the destination (medium/large first); without one,
+  15 minutes of holding fuel is added. If no fuel is sold at the destination (unpaved strips and seaplane bases; small
+  airports sell avgas only), return fuel is suggested.
+- **Weights:** empty + payload = zero fuel weight; + block fuel − taxi = takeoff; − trip = landing. MTOW and MLW excess
+  and fuel above capacity are flagged; once the aircraft is known to the sim they block the flight.
+- **Runways:** the required runway grows with density altitude (piston and turboprop 7% per 1,000 ft, jets 5%; 4% for
+  landing); a wet runway adds 15% to the landing distance. A night arrival on an unlit runway blocks the flight.
+- Typical values: light piston 770 kg empty, 1,160 kg MTOW, 145 kg fuel … widebody 150 t empty, 330 t MTOW, 140 t fuel
+  (`dispatch::typical`). The job board never offers a job the class could not fly with typical values.
+
+### Real weather (`weather.rs`)
+
+METARs from the aviationweather.gov Data API (HTTPS, free, no key; added to `GameInfo.hosts`). While the career page is
+open they are requested at most every 30 minutes for the job board destinations and the active job's departure,
+destination and alternate; at most 40 airports per request. Offline, the weather is simply unknown. The flight category
+follows the FAA definition (VFR; MVFR: ceiling ≤ 3,000 ft or visibility ≤ 5 miles; IFR: < 1,000 ft or < 3 miles; LIFR:
+< 500 ft or < 1 mile).
+- A job whose destination is IFR/LIFR needs a current instrument rating; rated pilots earn a bad-weather bonus (IFR
+  15%, LIFR 25%).
+- In the dispatch release, temperature and QNH feed the density altitude and precipitation means a wet runway.
+- The career's `.FLT` turns on the sim's live weather, which also comes from real observations, so both are close.
+
+### Pilot records (`records.rs`)
+
+- **Passenger currency** (FAA 61.57, EASA FCL.060): 3 landings in the last 90 days in the same category (touch-and-goes
+  count); 3 night landings for a passenger job that ends at night. Night: sun below −6° (civil twilight), from the
+  sim's UTC time.
+- **Instrument currency:** 6 instrument approaches in the last 6 months (landing at the destination in instrument
+  conditions or on an IFR flight). If it lapses, the instrument rating is ignored: flying in cloud costs points and jobs
+  to IFR destinations close.
+- **Medical certificate** (FAA 61.23, EASA MED.A.045): class 1 with a CPL/ATPL (12 months; 6 months at 60+), class 2
+  otherwise (60 months under 40, 24 months at 40–49, 12 months at 50+). The birth year is asked at sign-up (age 30 if
+  left empty). A class 1 medical costs $250, class 2 $120; renewal is immediate.
+- **Flight duty** (simplified from EASA ORO.FTL): duty starts 1 hour before the first block-off and ends 30 minutes
+  after the last block-on; maximum duty 13 hours, 30 minutes less for each sector after the second (at least 9). A
+  10-hour break ends the duty; "Rest" ends it at once (a hotel away from base: large airport $180, medium $120, small
+  $70). 100 flight hours in 28 days, 1,000 in 12 months. No real-time waiting: resting is a button.
+- **Difficulty:** on Easy the records are information only; on Normal the medical and currency apply and duty is a
+  warning; on Realistic the duty and flight time limits apply too. Commercial and airline starts begin current; older
+  careers migrate as current.
+- **Logbook columns:** night, instrument conditions, multi-engine and cross-country (≥ 50 nm) hours; night landings,
+  instrument approaches, stabilised approaches.
+
+### Maintenance and insurance (`maintenance.rs`)
+
+| Class | Inspection | Heavy maintenance |
+|---|---|---|
+| Light piston, helicopter | 100 hours or 12 months ($1,200 / $2,500) | engine overhaul at 2,000 / 3,000 hours |
+| Piston twin | 100 hours or 12 months ($2,500) | engine overhaul at 1,800 hours ($45,000) |
+| Single / twin turboprop | phase inspection at 200 hours or 12 months | engine overhaul at 3,600 hours |
+| Business jet | 300 hours or 12 months | heavy check at 3,500 hours or 48 months |
+| Regional turboprop, jets | A-check at 500–800 hours or 4 months | C-check at 5,000–8,000 hours or 24 months |
+
+An aircraft past its inspection cannot fly; the hour limit may be exceeded by 10% (the allowance in FAA 91.409, to fly
+the aircraft to maintenance). Heavy maintenance is only possible at medium and large airports. On Easy it is a warning
+only, and an overdue aircraft wears twice as fast. An inspection restores condition to at least 80, heavy maintenance to
+100. **Hull insurance** is optional: the premium is 0.0025% of the aircraft's value per flight hour (each crash adds
+25%); the insurer pays for repairs and the pilot pays the deductible (5% of the value).
+
+### Economy
+
+- **Regional fuel prices** (`economy::region`, from the position): North America 1; Europe avgas ×1.45, jet ×1.12;
+  Middle East avgas ×1.3, jet ×0.92; Africa, Asia, South America and Oceania in between. ±6% from week to week (same
+  week, same price). Own-account flights use the price at the departure airport.
+- **Navigation charges** (Eurocontrol formula): unit rate × km/100 × √(MTOW t / 50); exempt below 2 tonnes, none within
+  North America, $80 in Europe, $45 elsewhere.
+- **Handling:** $8 per passenger and 6 cents per kg of cargo at large airports; half that at medium ones.
+- These costs are part of own-account quotes (typical cost + 10%); on operator jobs they are the operator's.
+
+### Aerial work (`missions.rs`, with a CPL)
+
+| Type | Objective | Condition |
+|---|---|---|
+| Sightseeing tour | 1–2 nearby towns (10–35 nm), back to the departure airport | within 1.5 nm, below 3,000 ft AGL |
+| Skydiving | Over the departure airport | within 3 nm, above 10,000 ft AGL, ≤ 95 kt, 20 s without a break |
+| Aerial survey | 3 points 5 nm apart, 12–30 nm away | within 1 nm, target altitude ± 300 ft, ≤ 140 kt (twin turboprop 170) |
+| Search and rescue | Last known position 15–50 nm away; then the nearest medium/large airport | within 3 nm, below 2,000 ft AGL, 3 minutes without a break |
+
+The objectives go into the flight plan as user waypoints (the GPS shows them in order). Pay is proportional to the
+objectives done: all of them pays in full, some pays partly ("partly done"), none fails the job. Pay factors: search
+and rescue 1.5 (urgent), aerial survey 1.3, tour 1.2, skydiving 1.15.
+
+### Achievements and appeals
+
+24 achievements are computed from the career data (not stored): first flight, 100/500 landings, 10/100/1,000 hours,
+10,000 nm, a 3,000 nm job, 10 butter landings, a 100-point flight, 50 stabilised approaches, 25 night landings, 50 hours
+in instrument conditions, a 20 kt crosswind landing, licences, a five-aircraft fleet, $1,000,000 earned, 5 tours, 5
+skydiving loads, 3 search and rescue missions, 10 countries.
+
+**Appeals:** in the flight details a rule deduction can be removed within 7 days (a sim or add-on bug). Money does not
+change (the score does not affect money); score, grade, XP and reputation are recalculated; a checkride that now reaches
+the pass mark grants the licence; the flight is marked "appealed". Invalidated flights (crash, teleport, slew) cannot be
+appealed.
 
 ## Research: how other MSFS career add-ons work
 
@@ -476,6 +651,13 @@ games/msfs/src/career/
   menu.rs         MSFS 2024 main menu tile: package built from the sim's own component, update guard
   families.rs     aircraft families: real aircraft type and photo for a sim title
   journal.rs      career journal: detailed log of the sim link, flight starts and tracking
+  env.rs          environment: sun elevation (night), wind components, VMC/IMC, flight category, density altitude
+  dispatch.rs     dispatch release: fuel plan, weights, alternate, runway length
+  weather.rs      real weather: METAR (aviationweather.gov), parsing, cache
+  records.rs      pilot records: currency, medical certificate, flight duty
+  maintenance.rs  fleet maintenance programme and insurance
+  missions.rs     aerial work: tour, skydiving, survey, search and rescue objectives
+  achievements.rs achievements
   flt.rs          parking spot choice, .FLT/.PLN writing (2020 and 2024 formats), SimBrief link
   model.rs        persistent data; mod.rs: Career (operations, end-of-flight settlement); commands.rs: msfs_career_* commands
 games/msfs/ui/career/   Career page (Dashboard, Job board, Logbook, Licences, Hangar & finance); aircraft/ photos and families
@@ -544,6 +726,12 @@ node scripts/dev.mjs msfs --preview   # http://127.0.0.1:1421/?view=game:msfs:ca
   in-sim page will send it through the Planned Route API.
 - **The toolbar panel 0.3.0** has not been flown with in the real sim yet
   ([see above](#in-sim-toolbar-panel-msfs-2020-and-2024)). The main menu tile and page were tried.
+- **The realism layer** ([Realism](#realism)) is verified against a fake SimConnect server and unit tests; the new
+  environment variables (lights, transponder, seat-belt sign, cabin altitude, maximum weights) have not been tried in
+  the real sim across different aircraft yet. A variable that cannot be read is skipped and its item is not counted.
+- **Failures** are not triggered in the sim: whether 2024's `TOGGLE_*_FAILURE` events work on new-generation aircraft,
+  and whether `ExecuteAction("FailureAction")` works from an external client, is unverified. MSFS 2024's wear variables
+  (`WEAR AND TEAR *`) can be read; tying them to the maintenance economy is the next step.
 - **Next:** rich text in the in-sim panel through 2024 CommBus, resuming an interrupted flight by moving to its last
   position, reputation per customer and region, A/B/C checks and failure risk, multi-leg jobs and airline contracts,
   hired pilots and a company, fuel and payload from the SimBrief OFP, and weather-driven jobs (that require an IR).

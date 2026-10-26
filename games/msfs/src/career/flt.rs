@@ -34,6 +34,8 @@ pub struct Runway {
     pub alt_m: f64,
     pub heading: f32,
     pub length_m: f32,
+    /// Genişlik (m); eski önbellekte 0.
+    pub width_m: f32,
     pub primary_number: i32,
     pub primary_designator: i32,
     pub secondary_number: i32,
@@ -688,6 +690,23 @@ fn lla(a: &Airport) -> String {
 
 /// Doğrudan (GPS) VFR/IFR planı. EFB'ye "PLN yükle" ile ya da `SimConnect_FlightPlanLoad` ile verilir.
 pub fn write_pln(from: &Airport, to: &Airport, cruise_alt_ft: u32, ifr: bool) -> String {
+    write_pln_route(from, to, cruise_alt_ft, ifr, &[])
+}
+
+/// Hava işinin hedefleri ara noktalar (kullanıcı noktası) olarak plana girer; GPS sırayla gösterir.
+pub fn write_pln_route(from: &Airport, to: &Airport, cruise_alt_ft: u32, ifr: bool, points: &[super::missions::Objective]) -> String {
+    let user = |i: usize, o: &super::missions::Objective| {
+        let id: String = format!("{}{}", o.name.chars().filter(|c| c.is_ascii_alphanumeric()).take(4).collect::<String>().to_ascii_uppercase(), i + 1);
+        let alt = o.min_ft.or(o.max_ft).unwrap_or(cruise_alt_ft as f64);
+        format!(
+            "    <ATCWaypoint id=\"{id}\">\n      <ATCWaypointType>User</ATCWaypointType>\n      <WorldPosition>{},{},{}</WorldPosition>\n    </ATCWaypoint>\n",
+            dms(o.lat, true),
+            dms(o.lon, false),
+            alt_str(alt),
+            id = xml_escape(&id)
+        )
+    };
+    let middle: String = points.iter().enumerate().map(|(i, o)| user(i, o)).collect();
     let wp = |a: &Airport| {
         format!(
             "    <ATCWaypoint id=\"{id}\">\n      <ATCWaypointType>Airport</ATCWaypointType>\n      <WorldPosition>{pos}</WorldPosition>\n      <ICAO>\n        <ICAOIdent>{id}</ICAOIdent>\n      </ICAO>\n    </ATCWaypoint>\n",
@@ -705,7 +724,7 @@ pub fn write_pln(from: &Airport, to: &Airport, cruise_alt_ft: u32, ifr: bool) ->
         alla = lla(to),
         fname = xml_escape(&from.name),
         tname = xml_escape(&to.name),
-        w1 = wp(from),
+        w1 = wp(from) + &middle,
         w2 = wp(to),
     )
 }
@@ -818,6 +837,10 @@ mod tests {
         }
         assert!(to_ansi(&flt).contains(&0xB0));
         let pln = write_pln(a, b, 4500, false);
+        let pts = [crate::career::missions::Objective { name: "Silivri".into(), lat: 41.07, lon: 28.25, max_ft: Some(3000.0), ..Default::default() }];
+        let tour = write_pln_route(a, a, 2500, false, &pts);
+        assert!(tour.contains("<ATCWaypointType>User</ATCWaypointType>") && tour.contains("ATCWaypoint id=\"SILI1\""), "{tour}");
+        assert_eq!(tour.matches("<ATCWaypoint ").count(), 3);
         assert!(pln.contains("<DepartureID>LTBA</DepartureID>") && pln.contains("<FPType>VFR</FPType>") && pln.contains("ATCWaypoint id=\"LTBU\""));
         assert!(roxmltree::Document::parse(&pln).is_ok());
 
@@ -837,7 +860,7 @@ mod tests {
         // LTFJ, simin kendi verisi: tek pist 24R/06L, 3120 m.
         let d = AirportDetail {
             icao: "LTFJ".into(),
-            runways: vec![Runway { lat: 40.89855, lon: 29.30923, alt_m: 94.0, heading: 244.1, length_m: 3120.0, primary_number: 24, primary_designator: 2, secondary_number: 6, secondary_designator: 1, surface: 4 }],
+            runways: vec![Runway { lat: 40.89855, lon: 29.30923, alt_m: 94.0, heading: 244.1, length_m: 3120.0, width_m: 45.0, primary_number: 24, primary_designator: 2, secondary_number: 6, secondary_designator: 1, surface: 4 }],
             ..Default::default()
         };
         let ends = runway_ends_of(&d);

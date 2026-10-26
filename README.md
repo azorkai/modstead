@@ -62,6 +62,11 @@ and penalty is documented.
 - **Career page in the MSFS 2024 main menu:** a *Modstead Career* tile next to the sim's own tiles opens a full-screen
   page where you take a job, pick an aircraft (with real photos) and start the flight without leaving the sim. Mouse,
   keyboard and controller work as on the sim's own pages.
+- **Realism without the grind:** stabilised-approach gate, touchdown point and centreline, tail strike and weight
+  limits, a dispatch release (EASA fuel policy, weights, alternate, runway and density altitude), real METAR weather,
+  passenger comfort and sensitive cargo, pilot currency, medical and flight duty, a maintenance programme with
+  insurance, regional fuel prices and navigation charges, aerial work (tours, skydiving, survey, search and rescue),
+  achievements and appeals. The score only drops for safety; procedures only add bonus XP.
 - **Free and local:** no subscription, no account and no online server; works offline. SimBrief is one click away.
 
 > **It runs inside Modstead.** The career is not a separate add-on: its data, rules and sim connection live in the

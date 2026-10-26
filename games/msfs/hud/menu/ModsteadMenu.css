@@ -1439,6 +1439,30 @@
 	font-weight: 700;
 }
 
+.msm-note.is-bad,
+.msm-note.is-ok {
+	padding: calc(var(--k) * 10px) calc(var(--k) * 14px);
+	border-left: calc(var(--k) * 4px) solid #e5484d;
+	background-color: rgba(229, 72, 77, 0.12);
+	color: #ffffff;
+}
+
+.msm-note.is-ok {
+	border-left-color: #1d9650;
+	background-color: rgba(29, 150, 80, 0.14);
+}
+
+.msm-note b {
+	font-weight: 700;
+	color: #ffffff;
+}
+
+.msm-note-list {
+	margin: calc(var(--k) * 4px) 0 0;
+	padding: 0;
+	list-style: none;
+}
+
 .msm-steps {
 	display: flex;
 	margin-top: calc(var(--k) * 14px);

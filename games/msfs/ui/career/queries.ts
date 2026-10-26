@@ -16,6 +16,7 @@ export const ck = {
   aircraft: ["msfs", "career", "aircraft"] as const,
   ledger: ["msfs", "career", "ledger"] as const,
   live: ["msfs", "career", "live"] as const,
+  weather: ["msfs", "career", "weather"] as const,
   flight: (id: string) => ["msfs", "career", "flight", id] as const,
 };
 
@@ -58,6 +59,11 @@ export function useLedger() {
 
 export function useFlight(id: string | null) {
   return useQuery({ queryKey: ck.flight(id ?? ""), queryFn: () => careerApi.flight(id!), enabled: !!id, staleTime: Infinity });
+}
+
+/** Gerçek hava: panodaki varışlar ve aktif iş (30 dakika önbellek; sunucuya en çok 30 dakikada bir). */
+export function useWeather(enabled = true) {
+  return useQuery({ queryKey: ck.weather, queryFn: careerApi.weather, enabled, staleTime: 10 * 60_000, refetchInterval: 15 * 60_000 });
 }
 
 export function useLive() {

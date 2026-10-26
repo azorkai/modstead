@@ -11,7 +11,7 @@ fn career() -> Arc<Career> {
 }
 
 fn create(c: &Career, start: &str) {
-    c.create(CreateRequest { name: "Oyuncu".into(), callsign: "tc-mod".into(), home: "LTBA".into(), difficulty: Difficulty::Normal, start: start.into() }).unwrap();
+    c.create(CreateRequest { name: "Oyuncu".into(), callsign: "tc-mod".into(), home: "LTBA".into(), difficulty: Difficulty::Normal, start: start.into(), birth_year: None }).unwrap();
 }
 
 /// Aktif işin takipçisine kalkış → seyir → iniş → park uçuşu oynatır.
@@ -173,7 +173,8 @@ fn contract_flight_pays_costs_and_rental() {
     fly_active(&c, 2.0);
     let e = c.finish().unwrap();
     assert!(e.settlement.rent > 0 && e.settlement.fuel > 0, "{:?}", e.settlement);
-    assert_eq!(e.settlement.net, e.settlement.pay - e.settlement.rent - e.settlement.fuel - e.settlement.fees - e.settlement.late_penalty - e.settlement.damage - e.settlement.maintenance);
+    let st = &e.settlement;
+    assert_eq!(st.net, st.pay + st.tip - st.rent - st.fuel - st.fees - st.nav_fees - st.handling - st.late_penalty - st.cargo_claim - st.damage - st.maintenance - st.insurance);
 }
 
 #[test]
@@ -196,13 +197,27 @@ fn travel_fleet_and_reset() {
     let v = c.view();
     assert_eq!(v.pilot.as_ref().unwrap().pilot.loan, owed);
     assert_eq!(v.fleet.len(), 1);
-    assert!(v.fleet[0].registration.starts_with("TC-"));
-    assert_eq!(v.fleet[0].location, "LTAI");
+    assert!(v.fleet[0].aircraft.registration.starts_with("TC-"));
+    assert_eq!(v.fleet[0].aircraft.location, "LTAI");
     assert!(c.buy(Class::Widebody, "Boeing 787").is_err(), "lisans yok");
-    let id = v.fleet[0].id.clone();
+    let id = v.fleet[0].aircraft.id.clone();
     let back = c.sell(&id).unwrap();
-    assert!(back > 0 && back < v.fleet[0].price_paid);
+    assert!(back > 0 && back < v.fleet[0].aircraft.price_paid);
     assert!(c.view().fleet.is_empty());
+    // Bakım ve sigorta: yeni uçak bakımlı; muayene ücretli; sigorta açılıp kapanır.
+    c.lock_data().pilot.as_mut().unwrap().money += 100_000;
+    c.buy(Class::LightPiston, "Cessna Skyhawk G1000 Asobo").unwrap();
+    let f = c.view().fleet[0].clone();
+    assert!(!f.due.grounded && f.due.inspection_left_h == 100.0 && f.premium_h > 0);
+    c.insure(&f.aircraft.id, true).unwrap();
+    assert!(c.view().fleet[0].aircraft.insured);
+    let money = c.view().pilot.unwrap().pilot.money;
+    let cost = c.maintain(&f.aircraft.id, false).unwrap();
+    assert_eq!(c.view().pilot.unwrap().pilot.money, money - cost);
+    c.lock_data().fleet[0].since_inspection_h = 130.0;
+    assert!(c.view().fleet[0].due.grounded);
+    c.sell(&f.aircraft.id).unwrap();
+    c.lock_data().pilot.as_mut().unwrap().money -= 100_000;
     let paid = c.repay(10_000).unwrap();
     assert_eq!(c.view().pilot.unwrap().pilot.loan, owed - paid);
 
@@ -220,4 +235,79 @@ fn abandoning_before_start_is_a_cancel() {
     c.accept(&job.id).unwrap();
     assert!(c.abandon().unwrap().is_none());
     assert!(c.view().active.is_none());
+}
+
+#[test]
+fn records_bonuses_appeal_and_achievements_after_a_flight() {
+    let c = career();
+    create(&c, "commercial");
+    let p = c.view().pilot.unwrap();
+    // Ticari başlangıç: sağlık sertifikası ve yeterlilik tam.
+    assert!(p.status.medical_valid && p.status.passenger_current && p.status.ifr_current, "{:?}", p.status);
+    // Panoda hafif uçakla yapılacak sıradan bir iş bulunana kadar başka havalimanlarına bak.
+    let job = ["LTBA", "LTFJ", "LTBU", "LTBJ", "LTFE", "LTAI", "LTBS", "LTBR", "LTBQ", "LTAC"]
+        .iter()
+        .find_map(|icao| {
+            c.lock_data().pilot.as_mut().unwrap().location = icao.to_string();
+            c.board().unwrap().into_iter().find(|j| j.class == Some(Class::LightPiston) && j.objectives.is_empty())
+        })
+        .expect("hafif uçak işi");
+    c.accept(&job.id).unwrap();
+    c.pick_aircraft("Cessna Skyhawk G1000 Asobo", "", None).unwrap();
+    // Uçuş kâğıdı: hafif uçak VFR, yakıt ve ağırlıklar hesaplı.
+    let disp = c.view().active.unwrap().dispatch.expect("uçuş kâğıdı");
+    assert!(disp.fuel.block_kg > disp.fuel.trip_kg && disp.weights.tow_kg > disp.weights.zfw_kg);
+    fly_active(&c, 2.0);
+    // Uçuşa bir kural kesintisi ekle (itiraz için).
+    {
+        let mut d = c.lock_data();
+        let tr = d.active.as_mut().unwrap().tracker.as_mut().unwrap();
+        tr.events.push(tracker::FlightEvent { code: "taxi_speed".into(), penalty: 2, severity: tracker::Severity::Minor, ..Default::default() });
+    }
+    let e = c.finish().unwrap();
+    assert!(e.deductions.iter().any(|(k, _)| k == "taxi_speed"));
+    let v = c.view();
+    let st = &v.pilot.as_ref().unwrap().status;
+    assert!(st.landings_90d >= 4, "uçuşun inişi sicile işlendi: {st:?}");
+    assert!(st.on_duty && st.duty_sectors == 1);
+    // İtiraz: kesinti kalkar, puan ve XP artar, para değişmez.
+    let money = v.pilot.as_ref().unwrap().pilot.money;
+    let xp = v.pilot.as_ref().unwrap().pilot.xp;
+    let a = c.appeal(&e.id, "taxi_speed").unwrap_or_else(|err| panic!("{err} · {:?} · {:?}", e.summary.invalid, e.deductions));
+    assert_eq!(a.summary.score, (e.summary.score + 2).min(100));
+    assert!(a.appealed.contains(&"taxi_speed".to_string()));
+    let v = c.view();
+    assert_eq!(v.pilot.as_ref().unwrap().pilot.money, money);
+    assert!(v.pilot.as_ref().unwrap().pilot.xp >= xp);
+    assert!(c.appeal(&e.id, "taxi_speed").is_err(), "aynı kesintiye ikinci itiraz yok");
+    // Başarımlar: ilk uçuş tamam.
+    assert!(v.achievements.iter().any(|x| x.id == "first_flight" && x.done));
+    // Dinlenme görevi bitirir; evden uzaktaysa otel ücreti.
+    c.rest().unwrap();
+    assert!(!c.view().pilot.unwrap().status.on_duty);
+    // Sağlık muayenesi ücretlidir.
+    let before = c.view().pilot.unwrap().pilot.money;
+    let fee = c.renew_medical().unwrap();
+    assert!(fee > 0 && c.view().pilot.unwrap().pilot.money == before - fee);
+}
+
+#[test]
+fn medical_and_currency_block_jobs() {
+    let c = career();
+    create(&c, "commercial");
+    // Sağlık sertifikası dolmuş: iş alınamaz.
+    c.lock_data().pilot.as_mut().unwrap().records.medical_until = 1;
+    let job = c.board().unwrap().into_iter().next().unwrap();
+    let err = c.accept(&job.id).unwrap_err().to_string();
+    assert!(err.contains("ağlık") || err.contains("edical"), "{err}");
+    c.renew_medical().unwrap();
+    // Yolcu yeterliliği yok: yolculu iş alınamaz, yolcusuz iş alınır.
+    c.lock_data().pilot.as_mut().unwrap().records.landings.clear();
+    let board = c.board().unwrap();
+    if let Some(pj) = board.iter().find(|j| carries_passengers(j)) {
+        assert!(c.accept(&pj.id).is_err());
+    }
+    if let Some(cj) = board.iter().find(|j| !carries_passengers(j)) {
+        c.accept(&cj.id).unwrap();
+    }
 }

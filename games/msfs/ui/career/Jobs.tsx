@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { Clock, MapPinned, Package, Plane, RefreshCw, Sparkles, Users } from "lucide-react";
+import { Clock, Lock, MapPinned, Package, Plane, RefreshCw, Sparkles, Users } from "lucide-react";
 import { notifyError } from "@/shell/actions";
 import { Badge, Button, Dialog, DialogBody, DialogHeader, EmptyState, Segmented, Skeleton } from "@/ui";
 import { careerApi } from "./api";
 import { className as clsName, duration, kg, money, num } from "./format";
 import { useCareerT } from "./i18n";
 import { AirportLine, AirportSearch, Fact, KindIcon, Route } from "./parts";
-import { invalidateCareer, useBoard } from "./queries";
+import { CareChip, WxChip, objectiveLabel } from "./Dispatch";
+import { invalidateCareer, useBoard, useWeather } from "./queries";
+import { useRealT } from "./real-i18n";
 import { RouteMap } from "./RouteMap";
 import { useCareerUi } from "./store";
 import type { AirportHit, CareerView, Job } from "./types";
@@ -83,6 +85,7 @@ export function Jobs({ view }: { view: CareerView }) {
 
 function JobCard({ job, view, selected, onClick }: { job: Job; view: CareerView; selected: boolean; onClick: () => void }) {
   const t = useCareerT();
+  const r = useRealT();
   return (
     <button
       type="button"
@@ -100,6 +103,14 @@ function JobCard({ job, view, selected, onClick }: { job: Job; view: CareerView;
           <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{t.kinds[job.kind]}</span>
           {job.urgent && <Badge tone="danger">{t.jobs.urgent}</Badge>}
           {job.mode === "contract" && <Badge tone="info">{t.mode.contract}</Badge>}
+          <CareChip care={job.care} />
+          <WxChip category={job.weather} />
+          {job.irRequired && (
+            <Badge tone="danger" icon={<Lock className="size-3" />}>
+              {r.wx.irRequired}
+            </Badge>
+          )}
+          {job.weatherBonus > 0 && <Badge tone="accent">+%{job.weatherBonus}</Badge>}
         </div>
         <Route from={job.from} to={job.to} className="mt-0.5 text-fg" />
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-fg-2">
@@ -139,6 +150,9 @@ function JobCard({ job, view, selected, onClick }: { job: Job; view: CareerView;
 
 function JobDetail({ job, view }: { job: Job; view: CareerView }) {
   const t = useCareerT();
+  const r = useRealT();
+  const { data: metars } = useWeather();
+  const destWx = metars?.find((m) => m.icao === job.to) ?? null;
   const [busy, setBusy] = useState(false);
   const [names, setNames] = useState<{ from: AirportHit | null; to: AirportHit | null }>({ from: null, to: null });
   const setTab = useCareerUi((s) => s.setTab);
@@ -211,19 +225,60 @@ function JobDetail({ job, view }: { job: Job; view: CareerView }) {
                 <Line label={t.jobs.rent} value={money(-q.estRent)} />
                 <Line label={t.jobs.fuelCost} value={money(-q.estFuel)} />
                 <Line label={t.jobs.fees} value={money(-q.estFees)} />
+                {(q.estNav ?? 0) > 0 && <Line label={`  ${r.settlement.navFees}`} value={money(-q.estNav)} />}
+                {(q.estHandling ?? 0) > 0 && <Line label={`  ${r.settlement.handling}`} value={money(-q.estHandling)} />}
                 <div className="my-1 h-px bg-line" />
                 <Line label={t.jobs.profit} value={money(q.estProfit, true)} strong tone={q.estProfit > 0 ? "ok" : "danger"} />
               </>
             )}
           </dl>
         </div>
+        {job.care && (
+          <p className="flex items-start gap-2 rounded-xl bg-info/10 px-3 py-2 text-[11.5px] text-info">
+            <Package className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              <b className="font-semibold">{r.care[job.care]}:</b> {r.careHint[job.care]}
+            </span>
+          </p>
+        )}
+        {job.objectives.length > 0 && (
+          <div className="well px-3 py-2">
+            <div className="text-[11.5px] font-semibold text-fg">{r.flight.objectives}</div>
+            <p className="mt-0.5 text-[11.5px] text-fg-2">{r.missionHint[job.kind]}</p>
+            <ul className="mt-1 flex flex-col gap-0.5 text-[11.5px] text-fg-2">
+              {job.objectives.map((o, i) => (
+                <li key={i}>
+                  {i + 1}. {objectiveLabel(r, o)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {destWx && (
+          <div className="well px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[11.5px] font-semibold text-fg">{r.wx.title}</span>
+              <span className="font-mono text-[11.5px] text-fg-2">{job.to}</span>
+              <WxChip category={destWx.category} />
+              {destWx.wet && <Badge tone="info">{r.wx.wet}</Badge>}
+            </div>
+            <div className="tabular mt-0.5 text-[11.5px] text-fg-2">
+              {r.wx.wind(destWx.windDir, destWx.windKt, destWx.gustKt)} · {destWx.visibilitySm !== null ? r.wx.vis(destWx.visibilitySm) : "—"} · {r.wx.ceiling(destWx.ceilingFt)}
+            </div>
+            <div className="mt-0.5 truncate font-mono text-[10.5px] text-muted" title={destWx.raw}>
+              {destWx.raw}
+            </div>
+            {job.weatherBonus > 0 && <div className="mt-1 text-[11.5px] font-medium text-accent">{r.wx.bonus(job.weatherBonus)}</div>}
+            {job.irRequired && <div className="mt-1 text-[11.5px] font-medium text-danger">{r.dispatch.issues.imc_without_ir("")}</div>}
+          </div>
+        )}
         {job.urgent && (
           <p className="flex items-center gap-2 text-[11.5px] text-danger">
             <Sparkles className="size-3.5" />
             {t.jobs.urgent} · {t.jobs.deadline(job.deadlineH)}
           </p>
         )}
-        <Button variant="primary" size="lg" className="w-full" loading={busy} disabled={!!view.active} onClick={accept}>
+        <Button variant="primary" size="lg" className="w-full" loading={busy} disabled={!!view.active || job.irRequired} onClick={accept}>
           {view.active ? t.jobs.busy : t.jobs.accept}
         </Button>
       </div>

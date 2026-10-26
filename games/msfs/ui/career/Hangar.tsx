@@ -10,8 +10,9 @@ import { Badge, Button, ConfirmDialog, Dialog, DialogBody, DialogFooter, DialogH
 import { careerApi } from "./api";
 import { className as clsName, dateTime, hours, money, moneyShort, num } from "./format";
 import { useCareerT } from "./i18n";
+import { MaintenanceBlock } from "./Maintenance";
 import { invalidateCareer, useAircraftOptions, useLedger } from "./queries";
-import type { AircraftClass, CareerView, ClassInfo, FleetAircraft } from "./types";
+import type { AircraftClass, CareerView, ClassInfo, FleetView } from "./types";
 
 export function Hangar({ view }: { view: CareerView }) {
   const t = useCareerT();
@@ -51,7 +52,7 @@ function Card({ title, icon, aside, children }: { title: string; icon: React.Rea
 
 function Fleet({ view }: { view: CareerView }) {
   const t = useCareerT();
-  const [sell, setSell] = useState<FleetAircraft | null>(null);
+  const [sell, setSell] = useState<FleetView | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const run = async (id: string, f: () => Promise<number>, ok: (v: string) => string) => {
     setBusy(id);
@@ -72,7 +73,7 @@ function Fleet({ view }: { view: CareerView }) {
       ) : (
         <div className="grid grid-cols-2 gap-3 p-4">
           {view.fleet.map((f) => {
-            const grounded = f.condition < 40;
+            const grounded = f.condition < 40 || f.due.grounded;
             return (
               <div key={f.id} className="rounded-[14px] border border-line bg-surface-2/40 p-3.5">
                 <div className="flex items-start gap-3">
@@ -97,6 +98,7 @@ function Fleet({ view }: { view: CareerView }) {
                   </div>
                   <Progress value={f.condition / 100} tone={grounded ? "danger" : f.condition < 70 ? "accent" : "ok"} />
                 </div>
+                <MaintenanceBlock f={f} />
                 <div className="mt-3 flex gap-2">
                   <Button size="sm" variant="secondary" icon={<Wrench className="size-3.5" />} disabled={f.condition >= 99.5} loading={busy === `r-${f.id}`} onClick={() => run(`r-${f.id}`, () => careerApi.repair(f.id), t.hangar.repaired)}>
                     {t.hangar.repair}

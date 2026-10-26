@@ -55,7 +55,8 @@ pub static INFO: GameInfo = GameInfo {
     // DOĞRULANMALI: alan adı doğru, sayısal kimlik henüz Nexus'tan teyit edilmedi (GraphQL sorgularında kullanılır).
     nexus: &[NexusGame { domain: "microsoftflightsimulator", id: 3407 }],
     steam_app_ids: &[sims::STEAM_APP_2024, sims::STEAM_APP_2020],
-    hosts: GameHosts { download: &[], download_suffix: &[], media: &[] },
+    // Kariyerin gerçek havası (METAR, `career::weather`).
+    hosts: GameHosts { download: &["aviationweather.gov"], download_suffix: &[], media: &[] },
     // MSFS paketlerinde DLL/EXE olmaz; WASM modülleri simin korumalı alanında çalışır.
     content: ContentPolicy { expected_code: &[], info_ext: &["wasm"] },
     trusted_sources: &[
@@ -408,6 +409,12 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         career::commands::msfs_career_create,
         career::commands::msfs_career_reset,
         career::commands::msfs_career_board,
+        career::commands::msfs_career_weather,
+        career::commands::msfs_career_medical,
+        career::commands::msfs_career_rest,
+        career::commands::msfs_career_maintain,
+        career::commands::msfs_career_insure,
+        career::commands::msfs_career_appeal,
         career::commands::msfs_career_accept,
         career::commands::msfs_career_cancel,
         career::commands::msfs_career_aircraft,

@@ -44,6 +44,55 @@ pub async fn msfs_career_reset(game: G<'_>) -> AppResult<()> {
     .await
 }
 
+/// Gerçek hava: panodaki varışların ve aktif işin METAR'ları (önbellekte olmayanlar aviationweather.gov'dan).
+#[tauri::command]
+pub async fn msfs_career_weather(game: G<'_>) -> AppResult<Vec<super::weather::Metar>> {
+    let career = game.career();
+    let targets = career.weather_targets();
+    let want = career.weather_wanted(&targets);
+    if !want.is_empty() {
+        let url = game.services.http.ensure_allowed(&super::weather::url(&want))?;
+        match game.services.http.client.get(url).send().await {
+            Ok(r) if r.status().is_success() => {
+                let body = r.text().await.unwrap_or_default();
+                let items = super::weather::parse_json(&body, modstead_core::fsx::now_ts());
+                career.note("hava", format!("METAR: {} istendi, {} geldi", want.len(), items.len()));
+                career.weather_store(items);
+                career.changed();
+            }
+            Ok(r) => career.note("hava", format!("METAR alınamadı: HTTP {}", r.status())),
+            Err(e) => career.note("hava", format!("METAR alınamadı: {e}")),
+        }
+    }
+    let refs: Vec<&str> = targets.iter().map(|s| s.as_str()).collect();
+    Ok(career.weather_for(&refs).into_iter().flatten().collect())
+}
+
+#[tauri::command]
+pub async fn msfs_career_maintain(game: G<'_>, id: String, heavy: bool) -> AppResult<i64> {
+    run(&game, move |c| c.maintain(&id, heavy)).await
+}
+
+#[tauri::command]
+pub async fn msfs_career_insure(game: G<'_>, id: String, on: bool) -> AppResult<()> {
+    run(&game, move |c| c.insure(&id, on)).await
+}
+
+#[tauri::command]
+pub async fn msfs_career_appeal(game: G<'_>, id: String, code: String) -> AppResult<LogEntry> {
+    run(&game, move |c| c.appeal(&id, &code)).await
+}
+
+#[tauri::command]
+pub async fn msfs_career_medical(game: G<'_>) -> AppResult<i64> {
+    game.career().renew_medical()
+}
+
+#[tauri::command]
+pub async fn msfs_career_rest(game: G<'_>) -> AppResult<i64> {
+    game.career().rest()
+}
+
 #[tauri::command]
 pub async fn msfs_career_board(game: G<'_>) -> AppResult<Vec<Job>> {
     run(&game, |c| c.board()).await

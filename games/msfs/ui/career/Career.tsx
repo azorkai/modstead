@@ -17,7 +17,7 @@ import { Licenses } from "./Licenses";
 import { Logbook } from "./Logbook";
 import { Onboarding } from "./Onboarding";
 import { LinkPill, TabBar } from "./parts";
-import { useCareer, useCareerEvents } from "./queries";
+import { useCareer, useCareerEvents, useWeather } from "./queries";
 import { type CareerTab, useCareerUi } from "./store";
 import type { CareerView } from "./types";
 
@@ -25,6 +25,8 @@ export default function Career() {
   useCareerEvents();
   const t = useCareerT();
   const { data: view, isLoading } = useCareer();
+  // Gerçek hava: pilot varsa panodaki varışlar ve aktif iş için (arka uç önbellekler, 30 dakikada bir sorar).
+  useWeather(!!view?.pilot);
   const tab = useCareerUi((s) => s.tab);
   const setTab = useCareerUi((s) => s.setTab);
 

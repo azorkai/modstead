@@ -5,11 +5,13 @@ import { ArrowRight, Award, Briefcase, CircleCheck, Feather, Plane, Route as Rou
 import { useLang } from "@/lib/i18n";
 import { Badge, Button, EmptyState, Progress } from "@/ui";
 import { ActiveJob } from "./ActiveJob";
+import { DispatchCard } from "./Dispatch";
 import { HudCard, MenuCard } from "./Hud";
 import { JournalCard } from "./Journal";
 import { TONE_BG, TONE_TEXT, gradeTone, hours, landingTone, money, num } from "./format";
 import { useCareerT } from "./i18n";
 import { Route } from "./parts";
+import { RecordsCard } from "./Records";
 import { useCareerUi } from "./store";
 import type { CareerView, LicenseView, LogEntry } from "./types";
 
@@ -20,7 +22,10 @@ export function Dashboard({ view }: { view: CareerView }) {
     <div className="grid grid-cols-[1.55fr_1fr] items-start gap-5">
       <div className="flex min-w-0 flex-col gap-5">
         {view.active ? (
-          <ActiveJob view={view} active={view.active} />
+          <>
+            <ActiveJob view={view} active={view.active} />
+            <DispatchCard active={view.active} />
+          </>
         ) : (
           <section className="card overflow-hidden">
             <EmptyState
@@ -39,6 +44,7 @@ export function Dashboard({ view }: { view: CareerView }) {
         <JournalCard />
       </div>
       <div className="flex min-w-0 flex-col gap-5">
+        <RecordsCard view={view} />
         <NextGoal view={view} />
         <Summary view={view} />
         <Recent view={view} />

@@ -6,14 +6,17 @@ import { Badge, Dialog, DialogBody, DialogHeader, ScoreRing, Skeleton } from "@/
 import { Events } from "./ActiveJob";
 import { TONE_TEXT, className as clsName, dateTime, duration, landingTone, money, num } from "./format";
 import { useCareerT } from "./i18n";
+import { DeductionRow, FlightExtras } from "./FlightExtras";
 import { Fact, Route } from "./parts";
 import { useFlight } from "./queries";
+import { useRealT } from "./real-i18n";
 import { RouteMap } from "./RouteMap";
 import { useCareerUi } from "./store";
 import type { CareerView } from "./types";
 
 export function FlightDialog({ view }: { view: CareerView }) {
   const t = useCareerT();
+  const r = useRealT();
   const id = useCareerUi((s) => s.flightId);
   const close = () => useCareerUi.getState().openFlight(null);
   const { data } = useFlight(id);
@@ -45,7 +48,8 @@ export function FlightDialog({ view }: { view: CareerView }) {
               <div className="well flex flex-col items-center justify-center gap-2 px-3 py-4">
                 <ScoreRing score={e.summary.score} size={104} label={t.logbook.score} />
                 <div className="font-mono text-[20px] font-bold text-fg">{e.summary.grade}</div>
-                <Badge tone={e.result === "completed" ? "ok" : e.result === "late" ? "warn" : "danger"}>{t.results[e.result]}</Badge>
+                <Badge tone={e.result === "completed" ? "ok" : e.result === "late" || e.result === "partial" ? "warn" : "danger"}>{t.results[e.result]}</Badge>
+                {(e.appealed?.length ?? 0) > 0 && <Badge tone="info">{r.flight.appealed}</Badge>}
                 {e.checkridePassed !== null && (
                   <span className={clsx("flex items-center gap-1 text-[12px] font-semibold", e.checkridePassed ? "text-ok" : "text-danger")}>
                     {e.checkridePassed ? <CircleCheck className="size-4" /> : <CircleX className="size-4" />}
@@ -62,6 +66,8 @@ export function FlightDialog({ view }: { view: CareerView }) {
               <Fact label={t.logbook.fuelUsed} value={`${num(e.summary.fuelUsedLb)} lb`} hint={`${num(e.summary.fuelLeftLb)} lb`} />
               <Fact label={t.logbook.xp} value={`+${num(e.xp)}`} hint={`${t.logbook.rep} ${e.reputationDelta >= 0 ? "+" : ""}${num(e.reputationDelta, 1)}`} />
             </div>
+
+            <FlightExtras e={e} />
 
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-3">
@@ -87,10 +93,7 @@ export function FlightDialog({ view }: { view: CareerView }) {
                   ) : (
                     <ul className="flex flex-col gap-1 text-[12.5px]">
                       {e.deductions.map(([code, v]) => (
-                        <li key={code} className="flex justify-between">
-                          <span className="text-fg-2">{t.events[code] ?? code}</span>
-                          <span className="tabular font-semibold text-warn">−{v}</span>
-                        </li>
+                        <DeductionRow key={code} e={e} code={code} value={v} label={t.events[code] ?? code} />
                       ))}
                     </ul>
                   )}
@@ -105,11 +108,16 @@ export function FlightDialog({ view }: { view: CareerView }) {
                   <div className="mb-2 text-[13px] font-semibold text-fg">{t.logbook.settlement}</div>
                   <dl className="flex flex-col gap-1 text-[12.5px]">
                     <Line label={t.logbook.pay} value={e.settlement.pay} />
+                    <Line label={r.settlement.tip} value={e.settlement.tip ?? 0} />
                     <Line label={t.logbook.latePenalty} value={-e.settlement.latePenalty} />
+                    <Line label={r.settlement.cargoClaim} value={-(e.settlement.cargoClaim ?? 0)} />
                     <Line label={t.logbook.rent} value={-e.settlement.rent} />
                     <Line label={t.logbook.fuel} value={-e.settlement.fuel} />
                     <Line label={t.logbook.fees} value={-e.settlement.fees} />
+                    <Line label={r.settlement.navFees} value={-(e.settlement.navFees ?? 0)} />
+                    <Line label={r.settlement.handling} value={-(e.settlement.handling ?? 0)} />
                     <Line label={t.logbook.maintenance} value={-e.settlement.maintenance} />
+                    <Line label={r.settlement.insurance} value={-(e.settlement.insurance ?? 0)} />
                     <Line label={t.logbook.damage} value={-e.settlement.damage} />
                     <div className="my-1 h-px bg-line" />
                     <div className="flex justify-between text-[13.5px] font-semibold">

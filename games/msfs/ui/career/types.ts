@@ -13,7 +13,10 @@ export type AircraftClass =
   | "helicopter";
 
 export type Difficulty = "easy" | "normal" | "realistic";
-export type JobKind = "training" | "cargo" | "passenger" | "charter" | "ferry" | "bush" | "medical" | "airline" | "checkride";
+export type JobKind = "training" | "cargo" | "passenger" | "charter" | "ferry" | "bush" | "medical" | "airline" | "checkride" | "tour" | "skydive" | "survey" | "sar";
+export type FlightCategory = "VFR" | "MVFR" | "IFR" | "LIFR";
+/** Yükün özel durumu (boş: sıradan). */
+export type Care = "" | "fragile" | "livestock" | "medical" | "perishable" | "dangerous";
 export type Mode = "employee" | "contract";
 export type Stage = "accepted" | "launching" | "ready" | "flying" | "interrupted";
 export type Phase = "preflight" | "taxi_out" | "takeoff" | "climb" | "cruise" | "descent" | "approach" | "rollout" | "taxi_in" | "parked";
@@ -107,6 +110,38 @@ export interface Stats {
   crashes: number;
   scores: number[];
   classHours: Partial<Record<AircraftClass, number>>;
+  nightHours: number;
+  instrumentHours: number;
+  multiEngineHours: number;
+  crossCountryHours: number;
+  nightLandings: number;
+  instrumentApproaches: number;
+  stableApproaches: number;
+}
+
+/** Pilot sicili: yeterlilik, sağlık sertifikası, görev süresi (`records::Status`). */
+export interface RecordsStatus {
+  landings90d: number;
+  nightLandings90d: number;
+  heliLandings90d: number;
+  passengerCurrent: boolean;
+  nightCurrent: boolean;
+  heliCurrent: boolean;
+  approaches6m: number;
+  ifrCurrent: boolean;
+  medicalRequired: number;
+  medicalClass: number;
+  medicalUntil: number;
+  medicalValid: boolean;
+  onDuty: boolean;
+  dutyStart: number;
+  dutySectors: number;
+  dutyMaxH: number;
+  dutyLeftH: number;
+  hours28d: number;
+  hours12m: number;
+  enforceCurrency: boolean;
+  enforceDuty: boolean;
 }
 
 export interface Pilot {
@@ -123,6 +158,7 @@ export interface Pilot {
   start: string;
   createdAt: string;
   stats: Stats;
+  birthYear: number;
 }
 
 export interface PilotView extends Pilot {
@@ -133,6 +169,9 @@ export interface PilotView extends Pilot {
   rating: number | null;
   canContract: boolean;
   creditLimit: number;
+  status: RecordsStatus;
+  medicalFee: number;
+  restCost: number;
 }
 
 export interface Plan {
@@ -149,7 +188,24 @@ export interface Quote {
   estRent: number;
   estFuel: number;
   estFees: number;
+  estNav: number;
+  estHandling: number;
   estProfit: number;
+  fuelPrice: number;
+}
+
+/** Hava işinin hedefi (`missions::Objective`). */
+export interface Objective {
+  kind: "overfly" | "drop" | "line" | "search";
+  name: string;
+  lat: number;
+  lon: number;
+  radiusNm: number;
+  minFt: number | null;
+  maxFt: number | null;
+  agl: boolean;
+  maxKt: number | null;
+  holdS: number;
 }
 
 export interface Job {
@@ -172,6 +228,11 @@ export interface Job {
   expiresAt: number;
   xpEstimate: number;
   checkride: string | null;
+  care: Care;
+  weather: FlightCategory | null;
+  weatherBonus: number;
+  irRequired: boolean;
+  objectives: Objective[];
 }
 
 export interface AircraftPick {
@@ -193,6 +254,59 @@ export interface ActiveView {
   launchNote: string | null;
   from: Airport | null;
   to: Airport | null;
+  dispatch: Dispatch | null;
+}
+
+/** Uçuş kâğıdı (`dispatch::Dispatch`). */
+export interface Dispatch {
+  ifr: boolean;
+  nightArrival: boolean;
+  fuel: {
+    rule: "ifr" | "vfr_day" | "vfr_night" | "heli_vfr";
+    taxiKg: number;
+    tripKg: number;
+    contingencyKg: number;
+    alternateKg: number;
+    finalReserveKg: number;
+    extraKg: number;
+    minimumKg: number;
+    blockKg: number;
+    reserveMin: number;
+    enduranceMin: number;
+  };
+  weights: { emptyKg: number; payloadKg: number; zfwKg: number; towKg: number; lwKg: number; mtowKg: number; mlwKg: number; fuelCapacityKg: number; fromSim: boolean };
+  alternate: { icao: string; name: string; distanceNm: number } | null;
+  departure: RunwayInfo;
+  arrival: RunwayInfo;
+  issues: { code: string; blocking: boolean; value: number }[];
+}
+
+export interface RunwayInfo {
+  icao: string;
+  availableFt: number;
+  requiredFt: number;
+  densityAltFt: number;
+  lighted: boolean;
+  fuel: "both" | "avgas" | "none";
+}
+
+/** METAR (`weather::Metar`). */
+export interface Metar {
+  icao: string;
+  raw: string;
+  observed: number;
+  windDir: number | null;
+  windKt: number;
+  gustKt: number | null;
+  visibilitySm: number | null;
+  ceilingFt: number | null;
+  tempC: number | null;
+  dewpointC: number | null;
+  qnhHpa: number | null;
+  wet: boolean;
+  thunderstorm: boolean;
+  category: FlightCategory;
+  fetchedAt: number;
 }
 
 /** Uçuşun simde başlayacağı yer: park yerinde soğuk ya da pist başında motorlar çalışır. */
@@ -212,6 +326,29 @@ export interface FleetAircraft {
   condition: number;
   pricePaid: number;
   boughtAt: string;
+  sinceInspectionH: number;
+  inspectedAt: number;
+  sinceHeavyH: number;
+  heavyAt: number;
+  cycles: number;
+  insured: boolean;
+}
+
+/** Filodaki uçak, bakım durumu ve sigorta primiyle. */
+export interface FleetView extends FleetAircraft {
+  due: {
+    inspectionLeftH: number;
+    inspectionLeftDays: number;
+    heavyLeftH: number;
+    heavyLeftDays: number | null;
+    inTolerance: boolean;
+    grounded: boolean;
+    inspectionCost: number;
+    heavyCost: number;
+  };
+  value: number;
+  premiumH: number;
+  heavyHere: boolean;
 }
 
 export interface LicenseView {
@@ -244,6 +381,26 @@ export interface Landing {
   lon: number;
   onRunway: boolean;
   label: "butter" | "smooth" | "good" | "firm" | "hard" | "very_hard";
+  night?: boolean;
+  imc?: boolean;
+  windKt?: number;
+  windDir?: number;
+  crosswindKt?: number;
+  headwindKt?: number;
+  visibilityM?: number;
+  weightLb?: number;
+  overweight?: boolean;
+  runway?: { runway: string; heading: number; distanceM: number; centerlineM: number; lengthM: number; widthM: number; tdzM: number } | null;
+}
+
+export interface ApproachGate {
+  gateFt: number;
+  evaluated: boolean;
+  stable: boolean;
+  reasons: ("sink" | "bank" | "gear" | "speed_high" | "speed_low")[];
+  vsFpm: number;
+  iasKt: number;
+  bank: number;
 }
 
 export interface FlightEvent {
@@ -270,20 +427,37 @@ export interface Summary {
   invalid: string | null;
   crashed: boolean;
   simRateMax: number;
+  nightS?: number;
+  imcS?: number;
+  stableApproach?: boolean | null;
+  approach?: ApproachGate | null;
+  instrumentApproaches?: number;
+  procedures?: { code: string; ok: boolean | null }[];
+  comfort?: number | null;
+  cargoDamage?: number;
+  bonuses?: [string, number][];
+  bonusPct?: number;
+  objectivesDone?: number;
+  objectivesTotal?: number;
 }
 
 export interface Settlement {
   pay: number;
+  tip?: number;
   latePenalty: number;
+  cargoClaim?: number;
   rent: number;
   fuel: number;
   fees: number;
+  navFees?: number;
+  handling?: number;
   maintenance: number;
+  insurance?: number;
   damage: number;
   net: number;
 }
 
-export type FlightResult = "completed" | "late" | "diverted" | "failed" | "crashed" | "invalid" | "abandoned";
+export type FlightResult = "completed" | "late" | "diverted" | "failed" | "crashed" | "invalid" | "abandoned" | "partial";
 
 export interface LogEntry {
   id: string;
@@ -303,6 +477,7 @@ export interface LogEntry {
   reputationDelta: number;
   creditedHours: number;
   checkridePassed: boolean | null;
+  appealed?: string[];
 }
 
 /** [enlem, boylam, irtifa ft, yer hızı kt] */
@@ -326,11 +501,39 @@ export interface CareerView {
   pilot: PilotView | null;
   location: Airport | null;
   active: ActiveView | null;
-  fleet: FleetAircraft[];
+  fleet: FleetView[];
   licenses: LicenseView[];
   recent: LogEntry[];
   classes: ClassInfo[];
   link: LinkView;
+  achievements: Achievement[];
+}
+
+export interface Achievement {
+  id: string;
+  group: "flying" | "skill" | "career" | "world";
+  progress: number;
+  target: number;
+  done: boolean;
+}
+
+/** Simden saniyede bir gelen ortam (`env::Env`). */
+export interface Env {
+  lightBeacon: boolean;
+  lightLanding: boolean;
+  lightNav: boolean;
+  lightStrobe: boolean;
+  lightTaxi: boolean;
+  windKt: number;
+  windDir: number;
+  visibilityM: number;
+  inCloud: boolean;
+  precip: number;
+  temperatureC: number;
+  qnhHpa: number;
+  seatbeltSign: boolean;
+  cabinAltFt: number;
+  transponder: number;
 }
 
 export interface AircraftOption {
@@ -397,6 +600,7 @@ export interface Live {
   flight: FlightLive | null;
   /** Simin CAMERA STATE değeri: 2 kokpit, 16 açılış sineması ("Uçuşa hazır" bekleniyor). */
   camera?: number | null;
+  env?: Env | null;
 }
 
 export interface LedgerEntry {
@@ -413,4 +617,5 @@ export interface CreateRequest {
   home: string;
   difficulty: Difficulty;
   start: "student" | "commercial" | "airline";
+  birthYear?: number | null;
 }

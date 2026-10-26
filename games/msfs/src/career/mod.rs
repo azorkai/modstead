@@ -11,23 +11,30 @@
 //! - `hud`: sim içi panelin verisi ve paketi,
 //! - bu dosya: kalıcı durum ve arayüzün çağırdığı işlemler.
 
+pub mod achievements;
 pub mod aircraft;
 pub mod airports;
 pub mod commands;
+pub mod dispatch;
 pub mod economy;
 pub mod families;
 mod engine;
+pub mod env;
 pub mod flt;
 pub mod hud;
 pub mod hud_server;
 pub mod jobs;
 pub mod journal;
 pub mod link;
+pub mod maintenance;
 pub mod menu;
+pub mod missions;
 pub mod model;
 pub mod progression;
+pub mod records;
 pub mod simconnect;
 pub mod tracker;
+pub mod weather;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -127,6 +134,8 @@ pub struct Live {
     pub flight: Option<FlightLive>,
     /// Simin `CAMERA STATE` değeri (2 kokpit, 16 açılış sineması…).
     pub camera: Option<u32>,
+    /// Ortam: ışıklar, hava, saat, kabin (saniyede bir).
+    pub env: Option<env::Env>,
     #[serde(skip)]
     pub last_data: Option<Instant>,
     #[serde(skip)]
@@ -139,6 +148,8 @@ pub struct Caches {
     pub installed: Installed,
     pub sim_airports: Option<HashSet<String>>,
     pub details: HashMap<String, AirportDetail>,
+    /// Gerçek hava (METAR) önbelleği.
+    pub metar: weather::Cache,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -171,6 +182,12 @@ pub struct PilotView {
     pub can_contract: bool,
     /// Bankadan çekilebilecek en yüksek toplam borç.
     pub credit_limit: i64,
+    /// Yeterlilik, sağlık sertifikası ve görev süresinin anlık durumu.
+    pub status: records::Status,
+    /// Sağlık muayenesinin ücreti (gereken sınıf için).
+    pub medical_fee: i64,
+    /// Evden uzakta dinlenmenin (otel) ücreti; evdeyse 0.
+    pub rest_cost: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -196,6 +213,21 @@ pub struct ActiveView {
     pub launch_note: Option<String>,
     pub from: Option<Airport>,
     pub to: Option<Airport>,
+    /// Uçuş kâğıdı: yakıt planı, ağırlıklar, yedek meydan, pistler.
+    pub dispatch: Option<dispatch::Dispatch>,
+}
+
+/// Filodaki uçak: bakım durumu, değeri ve sigorta primiyle.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FleetView {
+    #[serde(flatten)]
+    pub aircraft: FleetAircraft,
+    pub due: maintenance::Due,
+    pub value: i64,
+    pub premium_h: i64,
+    /// Ağır bakım burada yapılabilir mi (orta ya da büyük havalimanı)?
+    pub heavy_here: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -204,11 +236,12 @@ pub struct CareerView {
     pub pilot: Option<PilotView>,
     pub location: Option<Airport>,
     pub active: Option<ActiveView>,
-    pub fleet: Vec<FleetAircraft>,
+    pub fleet: Vec<FleetView>,
     pub licenses: Vec<LicenseView>,
     pub recent: Vec<LogEntry>,
     pub classes: Vec<&'static aircraft::ClassInfo>,
     pub link: LinkView,
+    pub achievements: Vec<achievements::Achievement>,
 }
 
 /// Yüklü uçak seçeneği.
@@ -232,6 +265,9 @@ pub struct CreateRequest {
     pub home: String,
     pub difficulty: Difficulty,
     pub start: String,
+    /// Doğum yılı (sağlık sertifikasının süresi yaşa bağlı); verilmezse 30 yaş sayılır.
+    #[serde(default)]
+    pub birth_year: Option<i32>,
 }
 
 // ---------- Kariyer ----------
@@ -267,7 +303,10 @@ impl Career {
             installed,
             sim_airports: (!sim_airports.idents.is_empty()).then(|| sim_airports.idents.into_iter().collect()),
             details: HashMap::new(),
+            metar: weather::Cache::default(),
         };
+        let mut data = data;
+        migrate(&mut data);
         let journal = journal::Journal::new(&cache_dir.join("logs"));
         journal.write("uygulama", &format!("kariyer açıldı (Modstead {})", env!("CARGO_PKG_VERSION")));
         Arc::new(Career {
@@ -354,7 +393,7 @@ impl Career {
         let d = self.lock_data().clone();
         let link = self.live.lock().unwrap().link.clone();
         let recent: Vec<LogEntry> = self.log.lock().unwrap().iter().rev().take(6).map(light_entry).collect();
-        let pilot = d.pilot.as_ref().map(|p| pilot_view(p, fleet_value(&d)));
+        let pilot = d.pilot.as_ref().map(|p| pilot_view(p, fleet_value(&d), now()));
         let licenses = match &d.pilot {
             Some(p) => {
                 let level = level_for_xp(p.xp);
@@ -378,13 +417,15 @@ impl Career {
                 launch_note: a.launch_note.clone(),
                 from: db().get(&a.job.from).cloned(),
                 to: db().get(&a.job.to).cloned(),
+                dispatch: d.pilot.as_ref().and_then(|p| self.dispatch_for(&d, p, a)),
             }),
             pilot,
-            fleet: d.fleet.clone(),
+            fleet: d.fleet.iter().map(|f| fleet_view(&d, f)).collect(),
             licenses,
             recent,
             classes: aircraft::CLASSES.iter().collect(),
             link,
+            achievements: achievements::list(&d, &self.log.lock().unwrap()),
         }
     }
 
@@ -407,7 +448,11 @@ impl Career {
             Difficulty::Realistic => 0.7,
         };
         let money = (money as f64 * money_mult).round() as i64;
+        let birth_year = req.birth_year.filter(|y| (1930..=2012).contains(y)).unwrap_or(0);
+        let held: Vec<String> = licenses.iter().map(|s| s.to_string()).collect();
         let pilot = Pilot {
+            birth_year,
+            records: records::Records::new_pilot(&held, matches!(req.start.as_str(), "commercial" | "airline"), birth_year, now()),
             name: name.to_string(),
             callsign: req.callsign.trim().chars().take(12).collect::<String>().to_uppercase(),
             home: home.icao.clone(),
@@ -459,9 +504,75 @@ impl Career {
         let d = self.lock_data();
         let p = d.pilot.as_ref().ok_or_else(no_pilot)?;
         let here = db().get(&p.location).ok_or_else(|| AppError::msg(tr!("Bulunduğunuz havalimanı veritabanında yok.", "Your current airport is not in the database.")))?;
-        let fleet_here: Vec<Class> = d.fleet.iter().filter(|f| f.location == p.location && f.condition >= economy::GROUNDED_BELOW).filter_map(|f| f.class).collect();
+        let fleet_here: Vec<Class> = d.fleet.iter().filter(|f| f.location == p.location && airworthy(f, p.difficulty).is_ok()).filter_map(|f| f.class).collect();
         let caches = self.caches.lock().unwrap();
-        Ok(jobs::board(&jobs::BoardInput { db: db(), pilot: p, airport: here, now: now(), sim_airports: caches.sim_airports.as_ref(), fleet_here: &fleet_here, taken: &d.taken }))
+        let mut list = jobs::board(&jobs::BoardInput { db: db(), pilot: p, airport: here, now: now(), sim_airports: caches.sim_airports.as_ref(), fleet_here: &fleet_here, taken: &d.taken });
+        // Gerçek hava: varışı IFR/LIFR olan iş aletli yetki (ve yeterlilik) ister; yetkili pilota kötü hava primi.
+        let t = now();
+        let status = p.records.status(&p.licenses, p.difficulty, t);
+        let ir = p.has("ir") && (status.ifr_current || !status.enforce_currency);
+        for j in list.iter_mut() {
+            let Some(m) = caches.metar.get(&j.to, t) else { continue };
+            j.weather = Some(m.category);
+            let bonus = weather::bad_weather_bonus(m.category);
+            if bonus == 0 {
+                continue;
+            }
+            if ir {
+                j.weather_bonus = bonus;
+                let k = 1.0 + bonus as f64 / 100.0;
+                j.pay = ((j.pay as f64 * k / 10.0).round() * 10.0) as i64;
+                if let Some(q) = j.quote.as_mut() {
+                    q.revenue = j.pay;
+                    q.est_profit = q.revenue - q.est_rent - q.est_fuel - q.est_fees;
+                }
+            } else {
+                j.ir_required = true;
+            }
+        }
+        Ok(list)
+    }
+
+    /// Önbellekteki METAR'lar (taze olanlar), verilen sırayla.
+    pub fn weather_for(&self, icaos: &[&str]) -> Vec<Option<weather::Metar>> {
+        let c = self.caches.lock().unwrap();
+        let t = now();
+        icaos.iter().map(|i| c.metar.get(i, t)).collect()
+    }
+
+    /// İstenmesi gereken METAR'lar (önbellekte taze değil, son 30 dakikada sorulmamış); sorulmuş olarak işaretler.
+    pub fn weather_wanted(&self, icaos: &[String]) -> Vec<String> {
+        let mut c = self.caches.lock().unwrap();
+        let t = now();
+        let want = c.metar.missing(icaos, t);
+        for i in &want {
+            c.metar.asked.insert(i.clone(), t);
+        }
+        want
+    }
+
+    pub fn weather_store(&self, items: Vec<weather::Metar>) {
+        let mut c = self.caches.lock().unwrap();
+        for m in items {
+            c.metar.items.insert(m.icao.clone(), m);
+        }
+    }
+
+    /// Hava sorulacak havalimanları: panodaki varışlar, aktif işin kalkış, varış ve yedek meydanı.
+    pub fn weather_targets(&self) -> Vec<String> {
+        let mut v: Vec<String> = self.board().map(|b| b.into_iter().map(|j| j.to).collect()).unwrap_or_default();
+        let d = self.lock_data();
+        if let Some(p) = &d.pilot {
+            v.push(p.location.clone());
+            if let Some(a) = &d.active {
+                v.push(a.job.from.clone());
+                v.push(a.job.to.clone());
+                if let Some(alt) = self.dispatch_for(&d, p, a).and_then(|x| x.alternate) {
+                    v.push(alt.icao);
+                }
+            }
+        }
+        v
     }
 
     pub fn accept(&self, job_id: &str) -> AppResult<()> {
@@ -469,6 +580,15 @@ impl Career {
         let mut d = self.lock_data();
         if d.active.is_some() {
             return Err(AppError::msg(tr!("Önce elinizdeki işi bitirin ya da bırakın.", "Finish or drop your current job first.")));
+        }
+        if let Some(p) = &d.pilot {
+            check_records(p, &job)?;
+        }
+        if job.ir_required {
+            return Err(AppError::msg(tr!(
+                "Varışta hava aletli uçuş koşullarında (IFR): bu iş geçerli bir aletli uçuş yetkisi ve yeterliliği ister.",
+                "The destination weather is IFR: this job needs a current instrument rating."
+            )));
         }
         d.taken.push(job.id.clone());
         prune_taken(&mut d.taken);
@@ -621,9 +741,7 @@ impl Career {
             if f.location != a.job.from {
                 return Err(AppError::msg(tr!(format!("Bu uçak {} havalimanında duruyor.", f.location), format!("This aircraft is parked at {}.", f.location))));
             }
-            if f.condition < economy::GROUNDED_BELOW {
-                return Err(AppError::msg(tr!("Uçağın bakımı gerekiyor; uçuşa elverişli değil.", "The aircraft needs maintenance; it is not airworthy.")));
-            }
+            airworthy(f, p.difficulty)?;
             if a.job.mode != Mode::Contract {
                 return Err(AppError::msg(tr!("Operatör adına işlerde operatörün uçağı kullanılır.", "Operator jobs use the operator's aircraft.")));
             }
@@ -757,6 +875,11 @@ impl Career {
             "invalid".into()
         } else if !tracker.airborne_ever() {
             "abandoned".into()
+        } else if s.arrived_at_destination && s.objectives_total > 0 && s.objectives_done == 0 {
+            // Hava işi: hiçbir hedef yapılmadı.
+            "failed".into()
+        } else if s.arrived_at_destination && s.objectives_done < s.objectives_total {
+            "partial".into()
         } else if s.arrived_at_destination {
             if late { "late".into() } else { "completed".into() }
         } else if landed_somewhere {
@@ -764,7 +887,9 @@ impl Career {
         } else {
             "abandoned".into()
         };
-        let ok = matches!(result.as_str(), "completed" | "late");
+        let ok = matches!(result.as_str(), "completed" | "late" | "partial");
+        // Hava işinde ücret yapılan hedeflerle orantılı (kısmi ücret).
+        let pay_full = if s.objectives_total > 0 { (job.pay as f64 * s.objectives_done as f64 / s.objectives_total as f64).round() as i64 } else { job.pay };
 
         // Nereye vardık?
         let last = tracker.last.clone().unwrap_or_default();
@@ -778,32 +903,71 @@ impl Career {
         // Hesap.
         let block_h = s.block_s / 3600.0;
         let owned = pick.fleet_id.as_ref().and_then(|id| d.fleet.iter().position(|f| &f.id == id));
+        let tail_strike = tracker.events.iter().any(|e| e.code == "tail_strike");
         let damage = if s.crashed {
             Damage::Crash
         } else {
-            s.landing.as_ref().map(|l| economy::landing_damage(class, l.fpm, l.g)).unwrap_or(Damage::None)
+            let mut dmg = s.landing.as_ref().map(|l| economy::landing_damage(class, l.fpm, l.g)).unwrap_or(Damage::None);
+            // Kuyruk sürtmesi yapısal muayene ister; aşırı ağırlıkla 360 fpm üstü iniş de muayene (CS 25.473).
+            if tail_strike {
+                dmg = Damage::Structural;
+            } else if dmg == Damage::None && s.landing.as_ref().is_some_and(|l| l.overweight && l.fpm > 360.0) {
+                dmg = Damage::Inspection;
+            }
+            dmg
         };
         let mut st = Settlement::default();
         if ok {
-            st.pay = job.pay;
+            st.pay = pay_full;
             if late {
-                st.late_penalty = economy::late_penalty(job.pay, (t_now - active.deadline_at) as f64 / 60.0);
+                let mut lp = economy::late_penalty(pay_full, (t_now - active.deadline_at) as f64 / 60.0);
+                // Bozulabilir yük geç kalınca iki kat kesinti (en çok ücretin tamamı).
+                if job.care == "perishable" {
+                    lp = (lp * 2).min(pay_full);
+                }
+                st.late_penalty = lp;
             }
+            if let Some(c) = s.comfort {
+                st.tip = (pay_full as f64 * economy::tip_rate(c)).round() as i64;
+            }
+            st.cargo_claim = economy::cargo_claim(pay_full, s.cargo_damage);
         }
         if job.mode == Mode::Contract && tracker.started() {
             let diff = pilot.difficulty;
-            st.fuel = (s.fuel_used_lb / economy::LB_PER_KG * economy::fuel_price_kg(ci.fuel) * diff.costs()).round() as i64;
+            let price = job.quote.as_ref().map(|q| q.fuel_price).filter(|p| *p > 0.0).unwrap_or_else(|| economy::fuel_price_kg(ci.fuel));
+            st.fuel = (s.fuel_used_lb / economy::LB_PER_KG * price * diff.costs()).round() as i64;
             if landed_somewhere {
                 st.fees = economy::landing_fee(class, arrived_size, diff);
+                st.nav_fees = job.quote.as_ref().map(|q| q.est_nav).unwrap_or(0);
+                if ok {
+                    st.handling = job.quote.as_ref().map(|q| q.est_handling).unwrap_or(0);
+                }
             }
-            let (dmg_cost, cond_loss) = economy::damage_cost(class, damage, owned.is_some(), diff);
+            let (dmg_cost, mut cond_loss) = economy::damage_cost(class, damage, owned.is_some(), diff);
             st.damage = dmg_cost;
+            let crashes = pilot.stats.crashes;
             match owned {
                 Some(ix) => {
                     st.maintenance = (block_h * ci.maint_h as f64 * diff.costs()).round() as i64;
+                    let value = economy::resale_value(class, d.fleet[ix].condition, diff);
+                    if d.fleet[ix].insured {
+                        st.insurance = (maintenance::premium_per_hour(value, crashes, diff) as f64 * block_h).round() as i64;
+                        // Hasarı sigorta onarır; pilot muafiyeti öder.
+                        if cond_loss > 0.0 {
+                            let repair = (cond_loss * economy::repair_cost_per_point(class, diff) as f64).round() as i64;
+                            st.damage += maintenance::deductible(value, repair);
+                            cond_loss = 0.0;
+                        }
+                    }
                     let f = &mut d.fleet[ix];
+                    // Bakımı geçmiş uçak (yalnızca Kolay'da uçabilir) iki kat yıpranır.
+                    let overdue = maintenance::due(class, f.since_inspection_h, f.inspected_at, f.since_heavy_h, f.heavy_at, diff, t_now);
+                    let wear = if overdue.inspection_left_h < 0.0 || overdue.heavy_left_h < 0.0 { 2.0 } else { 1.0 };
                     f.hours += block_h;
-                    f.condition = (f.condition - block_h * economy::WEAR_PER_HOUR - cond_loss).clamp(0.0, 100.0);
+                    f.since_inspection_h += block_h;
+                    f.since_heavy_h += block_h;
+                    f.cycles += tracker.landings.len() as u32;
+                    f.condition = (f.condition - block_h * economy::WEAR_PER_HOUR * wear - cond_loss).clamp(0.0, 100.0);
                     f.location = arrived.clone();
                 }
                 None => st.rent = (block_h.max(0.25) * ci.rent_h as f64 * diff.costs()).round() as i64,
@@ -818,15 +982,29 @@ impl Career {
 
         let valid = s.invalid.is_none() && !s.crashed && tracker.airborne_ever();
         let xp = if valid && result != "abandoned" {
-            progression::flight_xp(s.score, block_h, job.distance_nm.min(s.flown_nm.max(job.distance_nm * 0.5)), class, checkride_passed == Some(true))
+            let base = progression::flight_xp(s.score, block_h, job.distance_nm.min(s.flown_nm.max(job.distance_nm * 0.5)), class, checkride_passed == Some(true));
+            (base as f64 * (1.0 + s.bonus_pct as f64 / 100.0)).round() as u32
         } else {
             0
         };
-        let rep = match job.kind.as_str() {
+        let mut rep = match job.kind.as_str() {
             "training" | "checkride" => 0.0,
             _ => progression::reputation_delta(s.score, result == "late", !ok, s.crashed),
         };
+        // Rahatsız yolcu şikâyet eder; hasarlı yük de itibarı düşürür.
+        if ok && s.comfort.is_some_and(|c| c < 50) {
+            rep -= 1.0;
+        }
+        if ok && s.cargo_damage >= 30.0 {
+            rep -= 1.0;
+        }
         let credited = if valid { (s.block_s / 3600.0).min(s.real_s / 3600.0 * 1.5) } else { 0.0 };
+        // Sicil ve uçuş defteri sütunları: gece, aletli, çok motor, yol uçuşu süreleri (geçerli uçuşta).
+        let ratio = if s.block_s > 0.0 { credited / (s.block_s / 3600.0) } else { 0.0 };
+        let night_h = s.night_s / 3600.0 * ratio;
+        let imc_h = s.imc_s / 3600.0 * ratio;
+        let heli = class == Class::Helicopter;
+        let landings: Vec<(bool, bool)> = if valid { tracker.landings.iter().map(|l| (l.night, heli)).collect() } else { Vec::new() };
 
         let id = format!("{}-{}", t_now, fsx::short_id());
         if let Some(p) = d.pilot.as_mut() {
@@ -840,6 +1018,22 @@ impl Career {
             ps.sim_hours += s.block_s / 3600.0;
             ps.distance_nm += s.flown_nm;
             *ps.class_hours.entry(class).or_default() += credited;
+            ps.night_hours += night_h;
+            ps.instrument_hours += imc_h;
+            if !matches!(class, Class::LightPiston | Class::TurbopropSingle | Class::Helicopter) {
+                ps.multi_engine_hours += credited;
+            }
+            if job.distance_nm >= 50.0 {
+                ps.cross_country_hours += credited;
+            }
+            ps.night_landings += landings.iter().filter(|(n, _)| *n).count() as u32;
+            ps.instrument_approaches += s.instrument_approaches;
+            if s.stable_approach == Some(true) {
+                ps.stable_approaches += 1;
+            }
+            if tracker.started() {
+                p.records.add_flight((tracker.real_start_ms / 1000).max(active.accepted_at), t_now, credited, &landings, s.instrument_approaches, t_now);
+            }
             if let Some(l) = &s.landing {
                 ps.landings += 1;
                 if l.label == "butter" {
@@ -906,6 +1100,7 @@ impl Career {
             reputation_delta: rep,
             credited_hours: (credited * 100.0).round() / 100.0,
             checkride_passed,
+            appealed: Vec::new(),
         };
         self.save(d);
         let tracks = self.dir.join("tracks");
@@ -916,6 +1111,72 @@ impl Career {
         let _ = std::fs::remove_file(self.cache_path("active-flight.json"));
         self.live.lock().unwrap().launch_state = None;
         entry
+    }
+
+    /// Kesintiye itiraz (uçuştan sonra 7 gün içinde): sim ya da eklenti hatasından doğan bir kural kesintisi
+    /// kaldırılır. Para değişmez (puan parayı etkilemez); puan, not, XP ve itibar yeniden hesaplanır, uçuş
+    /// "itirazlı" olarak işaretlenir. Geçersiz sayılan uçuşa (kaza, ışınlanma…) itiraz edilemez.
+    pub fn appeal(&self, id: &str, code: &str) -> AppResult<LogEntry> {
+        let mut d = self.lock_data();
+        let mut log = self.log.lock().unwrap();
+        let e = log.iter_mut().find(|e| e.id == id).ok_or_else(|| AppError::NotFound(id.to_string()))?;
+        if now() - e.ended_at > 7 * 86400 {
+            return Err(AppError::msg(tr!("İtiraz süresi (7 gün) geçti.", "The appeal window (7 days) has passed.")));
+        }
+        if e.summary.invalid.is_some() {
+            return Err(AppError::msg(tr!("Geçersiz sayılan uçuşa itiraz edilemez.", "An invalidated flight cannot be appealed.")));
+        }
+        let pos = e.deductions.iter().position(|(c, _)| c == code).ok_or_else(|| AppError::NotFound(code.to_string()))?;
+        let (_, pts) = e.deductions.remove(pos);
+        let old = e.summary.score;
+        let new = (old as u32 + pts).min(100) as u8;
+        e.summary.score = new;
+        e.summary.grade = tracker::grade(new).to_string();
+        e.appealed.push(code.to_string());
+        let class = e.aircraft.class.or(e.job.class).unwrap_or(Class::LightPiston);
+        let block_h = e.summary.block_s / 3600.0;
+        let dist = e.job.distance_nm.min(e.summary.flown_nm.max(e.job.distance_nm * 0.5));
+        let ok = matches!(e.result.as_str(), "completed" | "late" | "partial");
+        // Sınav: kesinti kalkınca geçme puanına ulaşıldıysa lisans verilir.
+        let p = d.pilot.clone().ok_or_else(no_pilot)?;
+        let mut grant = None;
+        if e.checkride_passed == Some(false) && ok && new >= p.difficulty.pass_score() && e.landing.as_ref().is_some_and(|l| !matches!(l.label.as_str(), "hard" | "very_hard")) {
+            e.checkride_passed = Some(true);
+            grant = e.job.checkride.clone();
+        }
+        let new_xp = if e.xp > 0 || grant.is_some() {
+            (progression::flight_xp(new, block_h, dist, class, e.checkride_passed == Some(true)) as f64 * (1.0 + e.summary.bonus_pct as f64 / 100.0)).round() as u32
+        } else {
+            0
+        };
+        let dxp = new_xp as i64 - e.xp as i64;
+        e.xp = new_xp;
+        let drep = if matches!(e.job.kind.as_str(), "training" | "checkride") {
+            0.0
+        } else {
+            progression::reputation_delta(new, e.result == "late", !ok, e.summary.crashed) - progression::reputation_delta(old, e.result == "late", !ok, e.summary.crashed)
+        };
+        e.reputation_delta += drep;
+        let entry = e.clone();
+        drop(log);
+        if let Some(pm) = d.pilot.as_mut() {
+            pm.xp = (pm.xp as i64 + dxp).max(0) as u64;
+            pm.reputation = (pm.reputation + drep).clamp(0.0, 100.0);
+            if let Some(ix) = pm.stats.scores.iter().rposition(|s| *s == old) {
+                pm.stats.scores[ix] = new;
+            }
+            if let Some(l) = grant {
+                if !pm.licenses.contains(&l) {
+                    pm.licenses.push(l);
+                }
+            }
+        }
+        self.save(&d);
+        drop(d);
+        self.save_log();
+        self.note("komut", format!("itiraz: {id} {code} (+{pts} puan)"));
+        self.changed();
+        Ok(entry)
     }
 
     // ----- Lisans, seyahat, filo -----
@@ -1004,6 +1265,9 @@ impl Career {
             condition: 100.0,
             price_paid: price,
             bought_at: crate::store::now_iso(),
+            inspected_at: now(),
+            heavy_at: now(),
+            ..Default::default()
         });
         push_ledger(&mut d, -price, "aircraft_buy", &reg);
         self.save(&d);
@@ -1098,6 +1362,132 @@ impl Career {
         Ok(pay)
     }
 
+    /// Sağlık muayenesi: gereken sınıfta yeni sertifika (ücretli).
+    pub fn renew_medical(&self) -> AppResult<i64> {
+        let mut d = self.lock_data();
+        let p = d.pilot.clone().ok_or_else(no_pilot)?;
+        let class = records::medical_required(&p.licenses);
+        let fee = records::medical_fee(class, p.difficulty);
+        if p.money < fee {
+            return Err(AppError::msg(tr!("Muayene için yeterli paranız yok.", "You do not have enough money for the medical.")));
+        }
+        if let Some(pm) = d.pilot.as_mut() {
+            pm.money -= fee;
+            pm.stats.spent += fee;
+            pm.records.renew_medical(class, pm.birth_year, now());
+        }
+        push_ledger(&mut d, -fee, "medical", &format!("{class}"));
+        self.save(&d);
+        drop(d);
+        self.note("komut", format!("sağlık muayenesi ({class}. sınıf)"));
+        self.changed();
+        Ok(fee)
+    }
+
+    /// Dinlenme: görev süresi sıfırlanır; evden uzaktaysa otel ücreti ödenir.
+    pub fn rest(&self) -> AppResult<i64> {
+        let mut d = self.lock_data();
+        if d.active.as_ref().and_then(|a| a.tracker.as_ref()).is_some_and(|t| t.started()) {
+            return Err(AppError::msg(tr!("Uçuş sürerken dinlenemezsiniz.", "You cannot rest during a flight.")));
+        }
+        let p = d.pilot.clone().ok_or_else(no_pilot)?;
+        let cost = rest_cost(&p);
+        if p.money < cost {
+            return Err(AppError::msg(tr!("Otel için yeterli paranız yok.", "You do not have enough money for a hotel.")));
+        }
+        if let Some(pm) = d.pilot.as_mut() {
+            pm.money -= cost;
+            pm.stats.spent += cost;
+            pm.records.rest();
+        }
+        if cost > 0 {
+            push_ledger(&mut d, -cost, "hotel", &p.location);
+        }
+        self.save(&d);
+        drop(d);
+        self.changed();
+        Ok(cost)
+    }
+
+    /// Aktif işin uçuş kâğıdı (seçilen uçağın simden okunan değerleriyle; yoksa sınıfın tipik değerleriyle).
+    pub(crate) fn dispatch_for(&self, d: &CareerData, p: &Pilot, a: &ActiveJob) -> Option<dispatch::Dispatch> {
+        let class = a.aircraft.as_ref().and_then(|x| x.class).or(a.job.class)?;
+        let (from, to) = (db().get(&a.job.from)?, db().get(&a.job.to)?);
+        let specs = a.aircraft.as_ref().and_then(|x| d.known_aircraft.get(&x.title)).map(|k| k.specs.clone());
+        let wx = self.weather_for(&[&a.job.from, &a.job.to]);
+        let dep_wx = wx.first().cloned().flatten();
+        let dest_wx = wx.get(1).cloned().flatten();
+        let arrival = now() as f64 + a.job.plan.block_min * 60.0;
+        Some(dispatch::dispatch(&dispatch::DispatchInput {
+            db: db(),
+            class,
+            from,
+            to,
+            distance_nm: a.job.distance_nm,
+            air_min: a.job.plan.air_min,
+            pax: a.job.pax,
+            cargo_kg: a.job.cargo_kg,
+            specs: specs.as_ref(),
+            dest_category: dest_wx.as_ref().map(|m| m.category),
+            dep_weather: dep_wx.as_ref().and_then(|m| m.temp_qnh()),
+            dest_weather: dest_wx.as_ref().and_then(|m| m.temp_qnh()),
+            dest_wet: dest_wx.as_ref().is_some_and(|m| m.wet),
+            night_arrival: env::is_night(to.lat, to.lon, arrival),
+            pilot_ir: p.has("ir"),
+        }))
+    }
+
+    /// Planlı bakım: muayene (A bakımı, 100 saat…) ya da ağır bakım (motor revizyonu, C bakımı).
+    pub fn maintain(&self, id: &str, heavy: bool) -> AppResult<i64> {
+        let mut d = self.lock_data();
+        if d.active.as_ref().and_then(|a| a.aircraft.as_ref()).and_then(|p| p.fleet_id.as_deref()) == Some(id) && d.active.as_ref().and_then(|a| a.tracker.as_ref()).is_some_and(|t| t.started()) {
+            return Err(AppError::msg(tr!("Bu uçak şu an uçuşta.", "This aircraft is flying right now.")));
+        }
+        let p = d.pilot.clone().ok_or_else(no_pilot)?;
+        let f = d.fleet.iter().find(|f| f.id == id).cloned().ok_or_else(|| AppError::NotFound(id.to_string()))?;
+        let class = f.class.unwrap_or(Class::LightPiston);
+        let due = maintenance::due(class, f.since_inspection_h, f.inspected_at, f.since_heavy_h, f.heavy_at, p.difficulty, now());
+        if heavy && !heavy_possible(&f.location) {
+            return Err(AppError::msg(tr!("Ağır bakım yalnızca orta ya da büyük bir havalimanında yapılabilir.", "Heavy maintenance is only possible at a medium or large airport.")));
+        }
+        let cost = if heavy { due.heavy_cost } else { due.inspection_cost };
+        if p.money < cost {
+            return Err(AppError::msg(tr!("Bakım için yeterli paranız yok.", "You do not have enough money for maintenance.")));
+        }
+        let t = now();
+        if let Some(f) = d.fleet.iter_mut().find(|f| f.id == id) {
+            f.since_inspection_h = 0.0;
+            f.inspected_at = t;
+            if heavy {
+                f.since_heavy_h = 0.0;
+                f.heavy_at = t;
+                f.condition = 100.0;
+            } else {
+                f.condition = f.condition.max(80.0);
+            }
+        }
+        if let Some(pm) = d.pilot.as_mut() {
+            pm.money -= cost;
+            pm.stats.spent += cost;
+        }
+        push_ledger(&mut d, -cost, if heavy { "heavy_maintenance" } else { "inspection" }, &f.registration);
+        self.save(&d);
+        drop(d);
+        self.changed();
+        Ok(cost)
+    }
+
+    /// Gövde sigortasını açar ya da kapatır.
+    pub fn insure(&self, id: &str, on: bool) -> AppResult<()> {
+        let mut d = self.lock_data();
+        let f = d.fleet.iter_mut().find(|f| f.id == id).ok_or_else(|| AppError::NotFound(id.to_string()))?;
+        f.insured = on;
+        self.save(&d);
+        drop(d);
+        self.changed();
+        Ok(())
+    }
+
     pub fn ledger(&self) -> Vec<LedgerEntry> {
         self.lock_data().ledger.iter().rev().cloned().collect()
     }
@@ -1114,7 +1504,7 @@ impl Career {
         let dir = self.flights_dir().join(fsx::sanitize_name(&job.id));
         std::fs::create_dir_all(&dir)?;
         let ifr = matches!(job.class, Some(c) if !matches!(c, Class::LightPiston | Class::Helicopter));
-        fsx::atomic_write(&dir.join(format!("{}_{}.pln", job.from, job.to)), flt::write_pln(from, to, job.plan.cruise_alt_ft, ifr).as_bytes())?;
+        fsx::atomic_write(&dir.join(format!("{}_{}.pln", job.from, job.to)), flt::write_pln_route(from, to, job.plan.cruise_alt_ft, ifr, &job.objectives).as_bytes())?;
         Ok(dir)
     }
 
@@ -1123,6 +1513,20 @@ impl Career {
         let a = d.active.as_ref()?;
         let model = a.aircraft.as_ref().and_then(|p| d.known_aircraft.get(&p.title)).map(|k| k.atc_model.clone()).unwrap_or_default();
         Some(flt::simbrief_url(&a.job.from, &a.job.to, flt::icao_type(&model).as_deref()))
+    }
+}
+
+/// Eski kariyer verisini yeni sürüme taşır: sicili olmayan pilotun yeterliliği ve sağlık sertifikası tam sayılır.
+fn migrate(d: &mut CareerData) {
+    if let Some(p) = d.pilot.as_mut() {
+        if p.records.medical_class == 0 {
+            p.records = records::Records::new_pilot(&p.licenses, true, p.birth_year, now());
+        }
+    }
+    // Bakım sayacı olmayan eski filo: bakımı yeni yapılmış sayılır.
+    for f in d.fleet.iter_mut().filter(|f| f.inspected_at == 0) {
+        f.inspected_at = now();
+        f.heavy_at = now();
     }
 }
 
@@ -1151,15 +1555,49 @@ pub(crate) fn push_ledger(d: &mut CareerData, amount: i64, kind: &str, detail: &
     }
 }
 
+/// Filodaki uçak uçuşa elverişli mi: durum 40'ın üstünde ve bakımı geçmemiş.
+fn airworthy(f: &FleetAircraft, d: Difficulty) -> AppResult<()> {
+    if f.condition < economy::GROUNDED_BELOW {
+        return Err(AppError::msg(tr!("Uçağın onarımı gerekiyor; uçuşa elverişli değil.", "The aircraft needs repairs; it is not airworthy.")));
+    }
+    let due = maintenance::due(f.class.unwrap_or(Class::LightPiston), f.since_inspection_h, f.inspected_at, f.since_heavy_h, f.heavy_at, d, now());
+    if due.grounded {
+        return Err(AppError::msg(tr!("Uçağın planlı bakımı geçti; bakım yapılmadan uçamaz.", "The aircraft's scheduled maintenance is overdue; it cannot fly until it is done.")));
+    }
+    Ok(())
+}
+
+fn heavy_possible(icao: &str) -> bool {
+    db().get(icao).is_some_and(|a| matches!(a.size, airports::Size::Large | airports::Size::Medium))
+}
+
+fn fleet_view(d: &CareerData, f: &FleetAircraft) -> FleetView {
+    let diff = d.pilot.as_ref().map(|p| p.difficulty).unwrap_or_default();
+    let crashes = d.pilot.as_ref().map(|p| p.stats.crashes).unwrap_or(0);
+    let class = f.class.unwrap_or(Class::LightPiston);
+    let value = economy::resale_value(class, f.condition, diff);
+    FleetView {
+        due: maintenance::due(class, f.since_inspection_h, f.inspected_at, f.since_heavy_h, f.heavy_at, diff, now()),
+        value,
+        premium_h: maintenance::premium_per_hour(value, crashes, diff),
+        heavy_here: heavy_possible(&f.location),
+        aircraft: f.clone(),
+    }
+}
+
 fn fleet_value(d: &CareerData) -> i64 {
     let diff = d.pilot.as_ref().map(|p| p.difficulty).unwrap_or_default();
     d.fleet.iter().map(|f| economy::resale_value(f.class.unwrap_or(Class::LightPiston), f.condition, diff)).sum()
 }
 
-fn pilot_view(p: &Pilot, fleet_value: i64) -> PilotView {
+fn pilot_view(p: &Pilot, fleet_value: i64, now: i64) -> PilotView {
     let level = level_for_xp(p.xp);
     let (tr_t, en_t) = progression::title(&p.licenses);
+    let status = p.records.status(&p.licenses, p.difficulty, now);
     PilotView {
+        medical_fee: records::medical_fee(status.medical_required, p.difficulty),
+        rest_cost: rest_cost(p),
+        status,
         level,
         level_xp: xp_for_level(level),
         next_level_xp: xp_for_level(level + 1),
@@ -1168,6 +1606,74 @@ fn pilot_view(p: &Pilot, fleet_value: i64) -> PilotView {
         can_contract: p.has("cpl"),
         credit_limit: if p.has("cpl") { economy::credit_limit(level, p.reputation, fleet_value) } else { 0 },
         pilot: p.clone(),
+    }
+}
+
+/// Evden uzakta dinlenmenin otel ücreti (havalimanının büyüklüğüne göre); ana üste ücretsiz.
+fn rest_cost(p: &Pilot) -> i64 {
+    if p.location == p.home {
+        return 0;
+    }
+    let base = match db().get(&p.location).map(|a| a.size) {
+        Some(airports::Size::Large) => 180.0,
+        Some(airports::Size::Medium) => 120.0,
+        _ => 70.0,
+    };
+    (base * p.difficulty.costs()).round() as i64
+}
+
+/// Bu iş yolcu taşıyor mu (yolcu yeterliliği ve konfor için)?
+pub(crate) fn carries_passengers(job: &Job) -> bool {
+    job.pax > 0 && !matches!(job.kind.as_str(), "training" | "checkride" | "skydive" | "survey" | "sar")
+}
+
+/// İşi kabul etmenin önündeki sicil engeli: sağlık, yolcu yeterliliği, (Gerçekçi'de) görev süresi.
+pub(crate) fn check_records(p: &Pilot, job: &Job) -> AppResult<()> {
+    let t = now();
+    let status = p.records.status(&p.licenses, p.difficulty, t);
+    let block_h = job.plan.block_min / 60.0;
+    let arrival = t as f64 + job.plan.block_min * 60.0;
+    let night = db().get(&job.to).is_some_and(|a| env::is_night(a.lat, a.lon, arrival));
+    let heli = job.class == Some(Class::Helicopter);
+    match records::blocker(&status, carries_passengers(job), heli, night, block_h) {
+        None => Ok(()),
+        Some("medical") => Err(AppError::msg(tr!(
+            "Sağlık sertifikanızın süresi dolmuş ya da lisansınız için yetmiyor. Pilot sekmesinden muayeneye gidin.",
+            "Your medical certificate has expired or is not enough for your licence. Renew it from the Pilot tab."
+        ))),
+        Some("passenger_currency") => Err(AppError::msg(tr!(
+            "Yolcu taşımak için son 90 günde 3 iniş gerekir. Önce yolcusuz bir uçuş yapın (pist turları da sayılır).",
+            "Carrying passengers needs 3 landings in the last 90 days. Fly without passengers first (touch-and-goes count)."
+        ))),
+        Some("night_currency") => Err(AppError::msg(tr!(
+            "Bu uçuş gece biter: gece yolcu taşımak için son 90 günde 3 gece inişi gerekir.",
+            "This flight ends at night: carrying passengers at night needs 3 night landings in the last 90 days."
+        ))),
+        Some("duty") => Err(AppError::msg(tr!(
+            "Bu iş görev sürenizi aşar (EASA görev süresi sınırı). Önce dinlenin.",
+            "This job would exceed your flight duty period (EASA limit). Rest first."
+        ))),
+        Some(_) => Err(AppError::msg(tr!(
+            "Uçuş saati sınırına ulaştınız (28 günde 100, 12 ayda 1000 saat).",
+            "You have reached the flight time limit (100 h in 28 days, 1,000 h in 12 months)."
+        ))),
+    }
+}
+
+/// Takip kurulurken uçuşa özgü kurallar: aletli yetki ve yeterlilik, yolcu, yükün durumu, azami ağırlıklar.
+pub(crate) fn flight_rules(p: &Pilot, job: &Job, class: Option<Class>, specs: Option<&aircraft::SimSpecs>, dest: &Airport) -> tracker::FlightRules {
+    let status = p.records.status(&p.licenses, p.difficulty, now());
+    let (mtow_lb, mlw_lb) = class.map(|c| dispatch::limits_lb(c, specs)).unwrap_or((0.0, 0.0));
+    tracker::FlightRules {
+        // Aletli yeterliliği düşmüş pilot (Kolay hariç) bulutta yetkisiz sayılır.
+        ir: p.has("ir") && (status.ifr_current || !status.enforce_currency),
+        ifr: class.is_some_and(|c| dispatch::is_ifr(c, None)),
+        passengers: carries_passengers(job),
+        care: if job.care.is_empty() { economy::care(&job.cargo).to_string() } else { job.care.clone() },
+        mtow_lb,
+        mlw_lb,
+        dest_elev_ft: dest.elevation_ft as f64,
+        objectives: job.objectives.clone(),
     }
 }
 

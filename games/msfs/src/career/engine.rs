@@ -31,6 +31,7 @@ const DEF_INIT: u32 = 3;
 const DEF_PAYLOAD: u32 = 4;
 const DEF_HUD: u32 = 5;
 const DEF_CAM: u32 = 6;
+const DEF_ENV: u32 = 7;
 const DEF_FAC: u32 = 10;
 
 const REQ_TEL: u32 = 1;
@@ -39,6 +40,7 @@ const REQ_LIV_A: u32 = 3;
 const REQ_LIV_H: u32 = 4;
 const REQ_AIRPORTS: u32 = 5;
 const REQ_CAM: u32 = 6;
+const REQ_ENV: u32 = 7;
 const REQ_FAC_BASE: u32 = 1000;
 
 const EV_SIMSTART: u32 = 1;
@@ -98,6 +100,33 @@ const AC: &[(&str, &str, DataType)] = &[
     ("FUEL TOTAL CAPACITY", "gallons", DataType::Float64),
     ("DESIGN SPEED VC", "knots", DataType::Float64),
     ("PAYLOAD STATION COUNT", "number", DataType::Float64),
+    ("MAX TAKEOFF WEIGHT", "pounds", DataType::Float64),
+    ("MAX LANDING WEIGHT", "pounds", DataType::Float64),
+];
+
+/// Ortam ve kokpit alanları (saniyede bir; sıra = `parse_env`). Simin tanımadığı alan atlanır.
+const ENV: &[(&str, &str)] = &[
+    ("LIGHT BEACON ON", "bool"),
+    ("LIGHT LANDING ON", "bool"),
+    ("LIGHT NAV ON", "bool"),
+    ("LIGHT STROBE ON", "bool"),
+    ("LIGHT TAXI ON", "bool"),
+    ("AMBIENT WIND VELOCITY", "knots"),
+    ("AMBIENT WIND DIRECTION", "degrees"),
+    ("AMBIENT VISIBILITY", "meters"),
+    ("AMBIENT IN CLOUD", "bool"),
+    ("AMBIENT PRECIP STATE", "mask"),
+    ("AMBIENT TEMPERATURE", "celsius"),
+    ("SEA LEVEL PRESSURE", "millibars"),
+    ("STRUCTURAL ICE PCT", "percent over 100"),
+    ("ZULU TIME", "seconds"),
+    ("ZULU DAY OF YEAR", "number"),
+    ("ZULU YEAR", "number"),
+    ("IS GEAR RETRACTABLE", "bool"),
+    ("CABIN SEATBELTS ALERT SWITCH", "bool"),
+    ("PRESSURIZATION CABIN ALTITUDE", "feet"),
+    ("AUTOPILOT MASTER", "bool"),
+    ("TRANSPONDER STATE:1", "number"),
 ];
 
 /// Havalimanı ayrıntısı tanımı (alanların sırası `on_facility` ile aynı olmalı).
@@ -122,6 +151,7 @@ const FAC: &[&str] = &[
     "ALTITUDE",
     "HEADING",
     "LENGTH",
+    "WIDTH",
     "PRIMARY_NUMBER",
     "PRIMARY_DESIGNATOR",
     "SECONDARY_NUMBER",
@@ -203,6 +233,10 @@ pub struct Engine {
     tel_missing: HashSet<usize>,
     ac_sent: HashMap<u32, usize>,
     ac_missing: HashSet<usize>,
+    env_sent: HashMap<u32, usize>,
+    env_missing: HashSet<usize>,
+    /// Varış pistleri istenen iş (bir kez).
+    dest_requested: Option<String>,
     flight_load_sent: Option<u32>,
     liveries: Vec<(String, String)>,
     liveries_pending: u8,
@@ -238,6 +272,9 @@ impl Engine {
             tel_missing: HashSet::new(),
             ac_sent: HashMap::new(),
             ac_missing: HashSet::new(),
+            env_sent: HashMap::new(),
+            env_missing: HashSet::new(),
+            dest_requested: None,
             flight_load_sent: None,
             liveries: Vec::new(),
             liveries_pending: 0,
@@ -273,6 +310,7 @@ impl Engine {
         out.send(Request::RequestDataOnSimObject { request: REQ_TEL, define: DEF_TEL, object: OBJECT_USER, period: Period::SimFrame, flags: 0, interval: 6 });
         out.send(Request::RequestDataOnSimObject { request: REQ_AC, define: DEF_AC, object: OBJECT_USER, period: Period::Second, flags: super::simconnect::DATA_FLAG_CHANGED, interval: 0 });
         out.send(Request::RequestDataOnSimObject { request: REQ_CAM, define: DEF_CAM, object: OBJECT_USER, period: Period::Second, flags: super::simconnect::DATA_FLAG_CHANGED, interval: 0 });
+        out.send(Request::RequestDataOnSimObject { request: REQ_ENV, define: DEF_ENV, object: OBJECT_USER, period: Period::Second, flags: 0, interval: 0 });
     }
 
     fn request_detail(&mut self, out: &mut Outbox, icao: &str) {
@@ -314,6 +352,7 @@ impl Engine {
                 alt_m: r.f64(),
                 heading: r.f32(),
                 length_m: r.f32(),
+                width_m: r.f32(),
                 primary_number: r.i32(),
                 primary_designator: r.i32(),
                 secondary_number: r.i32(),
@@ -440,7 +479,7 @@ impl Engine {
         std::fs::create_dir_all(&dir)?;
         let pln_name = format!("{}_{}", job.from, job.to);
         let ifr = matches!(job.class, Some(c) if !matches!(c, super::aircraft::Class::LightPiston | super::aircraft::Class::Helicopter));
-        fsx::atomic_write(&dir.join(format!("{pln_name}.pln")), flt::write_pln(from, to, job.plan.cruise_alt_ft, ifr).as_bytes())?;
+        fsx::atomic_write(&dir.join(format!("{pln_name}.pln")), flt::write_pln_route(from, to, job.plan.cruise_alt_ft, ifr, &job.objectives).as_bytes())?;
         let title = format!("Modstead: {} - {}", job.from, job.to);
         let setup = flt::FlightSetup {
             title: &title,
@@ -721,6 +760,44 @@ impl Engine {
         }
     }
 
+    /// Ortam alanları: simin tanımadıkları atlanmıştır (0 kalır).
+    fn parse_env(&self, data: &[u8]) -> super::env::Env {
+        let mut r = Reader::new(data);
+        let mut v = [0.0f64; 24];
+        for (i, slot) in v.iter_mut().enumerate().take(ENV.len()) {
+            if !self.env_missing.contains(&i) {
+                *slot = r.f64();
+            }
+        }
+        let b = |x: f64| x != 0.0;
+        let precip = v[9] as u32;
+        super::env::Env {
+            light_beacon: b(v[0]),
+            light_landing: b(v[1]),
+            light_nav: b(v[2]),
+            light_strobe: b(v[3]),
+            light_taxi: b(v[4]),
+            wind_kt: v[5],
+            wind_dir: v[6],
+            visibility_m: v[7],
+            in_cloud: b(v[8]),
+            precip: if precip & 8 != 0 { 2 } else if precip & 4 != 0 { 1 } else { 0 },
+            temperature_c: v[10],
+            qnh_hpa: v[11],
+            structural_ice: v[12],
+            zulu_s: v[13],
+            zulu_day: v[14] as u32,
+            zulu_year: v[15] as i32,
+            gear_retractable: b(v[16]),
+            seatbelt_sign: b(v[17]),
+            cabin_alt_ft: v[18],
+            autopilot: b(v[19]),
+            transponder: v[20].clamp(0.0, 9.0) as u8,
+            pressurized: false,
+            lights_seen: b(v[0]) || b(v[1]) || b(v[2]) || b(v[3]) || b(v[4]),
+        }
+    }
+
     fn on_aircraft(&mut self, data: &[u8]) {
         let mut r = Reader::new(data);
         let mut strs: Vec<String> = Vec::new();
@@ -745,6 +822,8 @@ impl Engine {
             fuel_capacity_gal: nums[4],
             cruise_kt: nums[5],
             payload_stations: nums[6] as u32,
+            max_takeoff_lb: nums[7],
+            max_landing_lb: nums[8],
         };
         let learned = classify_specs(&specs).or_else(|| classify_name(&title, &model));
         let mut d = self.career.lock_data();
@@ -820,6 +899,13 @@ impl Engine {
                             now_ms,
                         );
                         tr.grace_until = self.grace_abs.max(t.abs_time + 10.0);
+                        tr.rules = super::flight_rules(&p, &a.job, class, aircraft.as_ref().map(|ac| &ac.specs), &dest);
+                        if let Some(det) = self.career.cached_detail(&dest.icao) {
+                            tr.dest_runways = det.runways;
+                        }
+                        if let Some(e) = self.career.live.lock().unwrap().env.clone() {
+                            tr.set_env(e);
+                        }
                         a.tracker = Some(tr);
                         self.note("takip", format!("kontrol kapısı tamam: takip kuruldu ({}, {:.5}, {:.5})", aircraft.as_ref().map(|a| a.title.as_str()).unwrap_or("?"), t.lat, t.lon));
                         if matches!(a.stage, Stage::Accepted | Stage::Launching) {
@@ -981,6 +1067,30 @@ impl Engine {
         out.send(Request::SetDataOnSimObject { define: DEF_HUD, object: OBJECT_USER, data });
     }
 
+    /// Takip kurulunca varışın pistleri simden istenir (iniş noktası ve eksen sapması için); gelince takipçiye verilir.
+    fn feed_destination(&mut self, out: &mut Outbox) {
+        if !self.connected {
+            return;
+        }
+        let want = {
+            let d = self.career.lock_data();
+            d.active.as_ref().filter(|a| a.tracker.as_ref().is_some_and(|t| t.dest_runways.is_empty())).map(|a| (a.job.id.clone(), a.job.to.clone()))
+        };
+        let Some((job, icao)) = want else { return };
+        if let Some(det) = self.career.cached_detail(&icao) {
+            let mut d = self.career.lock_data();
+            if let Some(tr) = d.active.as_mut().and_then(|a| a.tracker.as_mut()) {
+                tr.dest_runways = det.runways;
+            }
+            return;
+        }
+        if self.dest_requested.as_deref() != Some(job.as_str()) {
+            self.dest_requested = Some(job);
+            self.note("takip", format!("varış pistleri isteniyor: {icao}"));
+            self.request_detail(out, &icao);
+        }
+    }
+
     fn refresh_sims(&mut self) {
         if self.sims_at.is_none_or(|t| t.elapsed() > Duration::from_secs(30)) {
             self.sims = self.career.sims();
@@ -1090,6 +1200,8 @@ impl Handler for Engine {
         self.tel_missing.clear();
         self.ac_sent.clear();
         self.ac_missing.clear();
+        self.env_sent.clear();
+        self.env_missing.clear();
         self.facility.clear();
         self.liveries.clear();
         self.airports.clear();
@@ -1101,6 +1213,11 @@ impl Handler for Engine {
         for (i, (name, units, dt)) in AC.iter().enumerate() {
             if let Some(id) = out.send(Request::AddToDataDefinition { define: DEF_AC, name: name.to_string(), units: units.to_string(), datatype: *dt, epsilon: 0.0 }) {
                 self.ac_sent.insert(id, i);
+            }
+        }
+        for (i, (name, units)) in ENV.iter().enumerate() {
+            if let Some(id) = out.send(Request::AddToDataDefinition { define: DEF_ENV, name: name.to_string(), units: units.to_string(), datatype: DataType::Float64, epsilon: 0.0 }) {
+                self.env_sent.insert(id, i);
             }
         }
         out.send(Request::AddToDataDefinition { define: DEF_INIT, name: "Initial Position".into(), units: String::new(), datatype: DataType::InitPosition, epsilon: 0.0 });
@@ -1142,6 +1259,9 @@ impl Handler for Engine {
                 } else if let Some(i) = self.ac_sent.get(&send_id) {
                     log::info!("SimConnect bu simde '{}' değişkenini tanımıyor; atlanıyor", AC[*i].0);
                     self.ac_missing.insert(*i);
+                } else if let Some(i) = self.env_sent.get(&send_id) {
+                    log::info!("SimConnect bu simde '{}' değişkenini tanımıyor; atlanıyor", ENV[*i].0);
+                    self.env_missing.insert(*i);
                 } else if self.hud.defs.contains(&send_id) {
                     if self.hud.ok {
                         log::info!("SimConnect L: değişkenlerini kabul etmedi; sim içi panel bu oturumda beslenmeyecek");
@@ -1170,6 +1290,14 @@ impl Handler for Engine {
                 self.on_telemetry(t);
             }
             Recv::SimObjectData { request: REQ_AC, data, .. } => self.on_aircraft(&data),
+            Recv::SimObjectData { request: REQ_ENV, data, .. } => {
+                let env = self.parse_env(&data);
+                self.career.live.lock().unwrap().env = Some(env.clone());
+                let mut d = self.career.lock_data();
+                if let Some(tr) = d.active.as_mut().and_then(|a| a.tracker.as_mut()) {
+                    tr.set_env(env);
+                }
+            }
             Recv::SimObjectData { request: REQ_CAM, data, .. } => {
                 let v = Reader::new(&data).f64();
                 let cam = (v >= 0.0 && v < 1000.0).then_some(v as u32);
@@ -1289,6 +1417,7 @@ impl Handler for Engine {
 
     fn tick(&mut self, out: &mut Outbox) {
         self.advance_launch(out);
+        self.feed_destination(out);
         self.feed_hud(out);
         if self.last_emit.elapsed() >= Duration::from_secs(2) {
             self.emit_live();
@@ -1524,7 +1653,7 @@ mod tests {
     fn full_flight_against_fake_simconnect() {
         let career = Career::open(modstead_core::Services::for_tests(), Arc::new(Vec::new));
         career
-            .create(CreateRequest { name: "Oyuncu".into(), callsign: String::new(), home: "LTBA".into(), difficulty: Difficulty::Normal, start: "student".into() })
+            .create(CreateRequest { name: "Oyuncu".into(), callsign: String::new(), home: "LTBA".into(), difficulty: Difficulty::Normal, start: "student".into(), birth_year: None })
             .unwrap();
         let job = career.board().unwrap().remove(0);
         career.accept(&job.id).unwrap();
@@ -1564,7 +1693,7 @@ mod tests {
         use crate::career::hud::{FIELDS, icao_code, var_name};
         let career = Career::open(modstead_core::Services::for_tests(), Arc::new(Vec::new));
         career
-            .create(CreateRequest { name: "Oyuncu".into(), callsign: String::new(), home: "LTBA".into(), difficulty: Difficulty::Normal, start: "student".into() })
+            .create(CreateRequest { name: "Oyuncu".into(), callsign: String::new(), home: "LTBA".into(), difficulty: Difficulty::Normal, start: "student".into(), birth_year: None })
             .unwrap();
         let mut e = Engine::new(career.clone());
         let mut out = Outbox::new(PROTO_SUNRISE);

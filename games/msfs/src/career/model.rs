@@ -31,6 +31,14 @@ pub struct Stats {
     pub scores: Vec<u8>,
     /// Sınıf → saat.
     pub class_hours: HashMap<Class, f64>,
+    /// Uçuş defteri sütunları: gece, aletli (bulutta/düşük görüş), çok motor ve yol uçuşu (≥ 50 nm) saatleri.
+    pub night_hours: f64,
+    pub instrument_hours: f64,
+    pub multi_engine_hours: f64,
+    pub cross_country_hours: f64,
+    pub night_landings: u32,
+    pub instrument_approaches: u32,
+    pub stable_approaches: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -52,6 +60,10 @@ pub struct Pilot {
     pub start: String,
     pub created_at: String,
     pub stats: Stats,
+    /// Doğum yılı (0 = bilinmiyor, 30 yaş sayılır).
+    pub birth_year: i32,
+    /// Yeterlilik, sağlık sertifikası, görev süresi (`records`).
+    pub records: super::records::Records,
 }
 
 impl Pilot {
@@ -85,6 +97,8 @@ pub struct Job {
     pub cargo_kg: u32,
     /// Yükün kısa tanımı (anahtar: arayüz sözlüğünde çevrilir).
     pub cargo: String,
+    /// Yükün özel durumu (`economy::care`): "" | "fragile" | "livestock" | "medical" | "perishable" | "dangerous".
+    pub care: String,
     pub client: String,
     /// Operatör adına ücret ya da kendi hesabına gelir.
     pub pay: i64,
@@ -98,6 +112,12 @@ pub struct Job {
     pub xp_estimate: u32,
     /// Sınav uçuşuysa hangi lisans için.
     pub checkride: Option<String>,
+    /// Varıştaki uçuş kategorisi (METAR önbellekte varsa), kötü hava primi (%) ve aletli yetki gereği.
+    pub weather: Option<super::env::FlightCategory>,
+    pub weather_bonus: u8,
+    pub ir_required: bool,
+    /// Hava işinin hedefleri (tur, atlayış, fotoğraf, arama-kurtarma); boşsa sıradan iş.
+    pub objectives: Vec<super::missions::Objective>,
 }
 
 /// Uçuşa kullanılan uçak.
@@ -165,6 +185,15 @@ pub struct FleetAircraft {
     pub condition: f64,
     pub price_paid: i64,
     pub bought_at: String,
+    /// Bakım sayaçları (`maintenance`): son muayeneden ve ağır bakımdan bu yana saat, zamanları (unix sn).
+    pub since_inspection_h: f64,
+    pub inspected_at: i64,
+    pub since_heavy_h: f64,
+    pub heavy_at: i64,
+    /// İniş sayısı (döngü).
+    pub cycles: u32,
+    /// Gövde sigortası.
+    pub insured: bool,
 }
 
 /// Simden öğrenilen uçak (başlık → değerler).
@@ -227,4 +256,6 @@ pub struct LogEntry {
     pub credited_hours: f64,
     /// Sınav uçuşuysa sonuç.
     pub checkride_passed: Option<bool>,
+    /// İtiraz edilip kaldırılan kesintiler (kural kodları).
+    pub appealed: Vec<String>,
 }

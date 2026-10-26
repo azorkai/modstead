@@ -126,7 +126,11 @@
 				bush: "Arazi uçuşu",
 				medical: "Ambulans",
 				airline: "Tarifeli sefer",
-				checkride: "Sınav uçuşu"
+				checkride: "Sınav uçuşu",
+				tour: "Panoramik tur",
+				skydive: "Paraşüt atlayışı",
+				survey: "Hava fotoğrafı",
+				sar: "Arama-kurtarma"
 			},
 			cargo: {
 				spare_parts: "Yedek parça", mail: "Posta", medical_supplies: "Tıbbi malzeme", electronics: "Elektronik",
@@ -136,9 +140,34 @@
 				sports_team: "Spor takımı", vip: "VIP yolcu", tourists: "Turist grubu", commuters: "İş yolcuları",
 				students: "Öğrenci grubu", workers: "Saha ekibi", patient_transfer: "Hasta nakli", organ: "Organ nakli",
 				medical_team: "Sağlık ekibi", aircraft_delivery: "Uçağı teslim et", training_flight: "Eğitmenle uçuş",
-				examiner: "Denetçiyle sınav"
+				examiner: "Denetçiyle sınav", live_animals: "Canlı hayvan", dangerous_goods: "Tehlikeli madde",
+				seafood: "Taze deniz ürünü", fragile_goods: "Kırılacak eşya", sightseeing: "Tur yolcuları", skydivers: "Paraşütçüler",
+				survey_equipment: "Kamera ve ölçüm ekibi", rescue: "Kayıp kişi araması"
 			},
 			mode: { employee: "Operatör adına", contract: "Kendi hesabına" },
+			real: {
+				care: { fragile: "Kırılacak", livestock: "Canlı hayvan", medical: "Tıbbi", perishable: "Bozulabilir", dangerous: "Tehlikeli madde" },
+				careHint: {
+					fragile: "Sert iniş ve ani G yükü hasar verir; hasar ücretten düşer.",
+					livestock: "Sert manevra ve sert iniş hayvanları yaralar; hasar ücretten düşer.",
+					medical: "Hassas yük: sert iniş ve ani G yükü hasar verir.",
+					perishable: "Dar teslim süresi; geç kalınca kesinti iki kat.",
+					dangerous: "Ticari lisans ister; prim yüzde 30."
+				},
+				irRequired: "Aletli yetki gerekir",
+				irBody: "Varışta hava aletli uçuş koşullarında (IFR): geçerli aletli uçuş yetkisi ve yeterliliği gerekir.",
+				bonus: function (n) { return "Kötü hava primi +%" + n; },
+				weather: "Varış havası",
+				block: "Blok yakıt",
+				minimum: function (v) { return "yasal en az " + v; },
+				objectives: "Görev hedefleri",
+				objective: {
+					overfly: function (n) { return n + " üstünden geç (yerden 3000 ft altında)"; },
+					drop: function () { return "Atlayış: yerden 10.000 ft üstünde, 95 kt altında, 20 sn"; },
+					line: function (n) { return "Fotoğraf noktası " + n + " (± 300 ft)"; },
+					search: function () { return "Son bilinen konumda 3 dakika ara"; }
+				}
+			},
 			modeHint: {
 				employee: "Uçak, yakıt ve harçlar operatörün; sen saatlik ücret alırsın.",
 				contract: "İşi doğrudan sen alırsın: kira (ya da bakım), yakıt ve iniş harcı senden. Verimli uçarsan daha çok kazanırsın."
@@ -357,7 +386,11 @@
 				bush: "Bush flight",
 				medical: "Air ambulance",
 				airline: "Scheduled flight",
-				checkride: "Checkride"
+				checkride: "Checkride",
+				tour: "Sightseeing tour",
+				skydive: "Skydiving",
+				survey: "Aerial survey",
+				sar: "Search and rescue"
 			},
 			cargo: {
 				spare_parts: "Spare parts", mail: "Mail", medical_supplies: "Medical supplies", electronics: "Electronics",
@@ -367,9 +400,34 @@
 				sports_team: "Sports team", vip: "VIP passengers", tourists: "Tour group", commuters: "Commuters",
 				students: "Student group", workers: "Field crew", patient_transfer: "Patient transfer", organ: "Organ transport",
 				medical_team: "Medical team", aircraft_delivery: "Deliver the aircraft", training_flight: "Flight with instructor",
-				examiner: "Exam with examiner"
+				examiner: "Exam with examiner", live_animals: "Live animals", dangerous_goods: "Dangerous goods",
+				seafood: "Fresh seafood", fragile_goods: "Fragile goods", sightseeing: "Sightseeing passengers", skydivers: "Skydivers",
+				survey_equipment: "Camera and survey crew", rescue: "Search for a missing person"
 			},
 			mode: { employee: "For an operator", contract: "On your own account" },
+			real: {
+				care: { fragile: "Fragile", livestock: "Live animals", medical: "Medical", perishable: "Perishable", dangerous: "Dangerous goods" },
+				careHint: {
+					fragile: "Hard landings and sudden G loads damage it; damage is deducted from the pay.",
+					livestock: "Rough handling and hard landings hurt the animals; the claim is deducted from the pay.",
+					medical: "Sensitive cargo: hard landings and sudden G loads damage it.",
+					perishable: "Tight deadline; late delivery costs twice as much.",
+					dangerous: "Needs a commercial licence; 30 percent premium."
+				},
+				irRequired: "Needs an instrument rating",
+				irBody: "The destination weather is IFR: a current instrument rating is required.",
+				bonus: function (n) { return "Bad weather bonus +" + n + "%"; },
+				weather: "Destination weather",
+				block: "Block fuel",
+				minimum: function (v) { return "legal minimum " + v; },
+				objectives: "Mission objectives",
+				objective: {
+					overfly: function (n) { return "Fly over " + n + " (below 3,000 ft AGL)"; },
+					drop: function () { return "Jump run: above 10,000 ft AGL, below 95 kt, 20 s"; },
+					line: function (n) { return "Photo point " + n + " (± 300 ft)"; },
+					search: function () { return "Search the last known position for 3 minutes"; }
+				}
+			},
 			modeHint: {
 				employee: "The aircraft, fuel and fees are the operator's; you earn an hourly wage.",
 				contract: "You take the job directly: rent (or maintenance), fuel and landing fees are yours. Fly efficiently to earn more."
@@ -526,8 +584,41 @@
 
 	var KIND_ICON = {
 		training: "cap", cargo: "box", passenger: "users", charter: "star", ferry: "plane",
-		bush: "mountain", medical: "cross", airline: "plane", checkride: "badge"
+		bush: "mountain", medical: "cross", airline: "plane", checkride: "badge",
+		tour: "pin", skydive: "user", survey: "card", sar: "warn"
 	};
+
+	// Uçuş kategorisinin etiket sınıfı: VFR yeşil, MVFR mavi, IFR ve LIFR kırmızı.
+	function wxTag(c) {
+		if (!c) return "";
+		return tag(c, c === "VFR" ? "msm-tag-ok" : c === "MVFR" ? "msm-tag-blue" : "msm-tag-red");
+	}
+
+	// Özel yük, hava ve aletli yetki etiketleri (ilan satırı ve ayrıntısı).
+	function jobTags(job) {
+		var r = T().real;
+		return (job.care ? tag(r.care[job.care] || job.care, "msm-tag-blue") : "") + wxTag(job.weather) +
+			(job.irRequired ? tag(r.irRequired, "msm-tag-red") : "") + (job.weatherBonus ? tag("+%" + job.weatherBonus, "msm-tag-ok") : "");
+	}
+
+	// Hava işinin hedefleri ve özel yükün açıklaması (ilan ayrıntısı ve aktif iş).
+	function realNotes(job) {
+		var r = T().real;
+		var out = "";
+		if (job.care && r.careHint[job.care]) out += '<div class="msm-note">' + esc((r.care[job.care] || "") + ": " + r.careHint[job.care]) + "</div>";
+		if (job.irRequired) out += '<div class="msm-note is-bad">' + esc(r.irBody) + "</div>";
+		else if (job.weatherBonus) out += '<div class="msm-note is-ok">' + esc(r.bonus(job.weatherBonus)) + "</div>";
+		var obj = job.objectives || [];
+		if (obj.length) {
+			var items = "";
+			for (var i = 0; i < obj.length; i++) {
+				var f = r.objective[obj[i].kind];
+				items += "<li>" + esc((i + 1) + ". " + (f ? f(obj[i].name) : obj[i].name)) + "</li>";
+			}
+			out += '<div class="msm-note"><b>' + esc(r.objectives) + '</b><ul class="msm-note-list">' + items + "</ul></div>";
+		}
+		return out;
+	}
 
 	var LAUNCH_STEPS = ["waiting_sim", "fetching_airport", "loading", "positioning", "done"];
 
@@ -1550,7 +1641,8 @@
 		var toNext = pilot && pilot.nextLevelXp > pilot.xp ? pilot.nextLevelXp - pilot.xp : 0;
 		var facts = '<div class="msm-facts msm-facts-3">' +
 			fact(t.payload, payloadText(job), cargoText(job)) +
-			fact(t.fuel, unit(plan.fuelKg, "kg"), unit(plan.fuelKg ? plan.fuelKg * 2.20462 : null, "lb")) +
+			(a.dispatch && a.dispatch.fuel ? fact(T().real.block, unit(a.dispatch.fuel.blockKg, "kg"), T().real.minimum(unit(a.dispatch.fuel.minimumKg, "kg"))) :
+				fact(t.fuel, unit(plan.fuelKg, "kg"), unit(plan.fuelKg ? plan.fuelKg * 2.20462 : null, "lb"))) +
 			fact(t.cruise, unit(plan.cruiseAltFt, "ft"), clsName(job["class"])) +
 			"</div>" +
 			'<div class="msm-facts msm-facts-3 msm-facts-low">' +
@@ -1633,7 +1725,7 @@
 		}
 
 		return errorHtml() + '<div class="msm-split">' +
-			'<div class="msm-split-main">' + hero + stripHtml(job, a.from, a.to) + facts + "</div>" +
+			'<div class="msm-split-main">' + hero + stripHtml(job, a.from, a.to) + facts + realNotes(job) + "</div>" +
 			'<div class="msm-split-side' + (foot ? "" : " is-nofoot") + '">' + scrollHtml("active-side", side, "msm-side-scroll") +
 				(foot ? '<div class="msm-side-foot">' + foot + "</div>" : "") + "</div>" +
 			"</div>";
@@ -1918,7 +2010,7 @@
 			'<div class="msm-row-ico">' + icon(KIND_ICON[job.kind] || "plane") + "</div>" +
 			'<div class="msm-row-main">' +
 				'<div class="msm-row-top"><span class="msm-row-kind">' + esc(t.kinds[job.kind] || job.kind) + "</span>" +
-					(job.urgent ? tag(t.board.urgent, "msm-tag-red") : "") + (job.mode === "contract" ? tag(t.mode.contract, "msm-tag-blue") : "") + "</div>" +
+					(job.urgent ? tag(t.board.urgent, "msm-tag-red") : "") + (job.mode === "contract" ? tag(t.mode.contract, "msm-tag-blue") : "") + jobTags(job) + "</div>" +
 				routeHtml(job.from, job.to, "msm-route-row") +
 				'<div class="msm-row-meta">' + esc(meta.join("  ·  ")) + "</div>" +
 			"</div>" +
@@ -1939,7 +2031,7 @@
 				'<div class="msm-money-line is-strong is-total' + (q.estProfit > 0 ? " is-ok" : " is-bad") + '"><span>' + esc(t.board.profit) + "</span><span>" + esc(signedMoney(q.estProfit)) + "</span></div>";
 		}
 		var detail = '<div class="msm-detail-head"><div class="msm-detail-kind">' + icon(KIND_ICON[job.kind] || "plane") + "<span>" + esc(t.kinds[job.kind] || job.kind) + "</span>" +
-				(job.urgent ? tag(t.board.urgent, "msm-tag-red") : "") + "</div>" +
+				(job.urgent ? tag(t.board.urgent, "msm-tag-red") : "") + jobTags(job) + "</div>" +
 				routeHtml(job.from, job.to, "msm-route-detail") +
 				'<div class="msm-detail-client">' + esc(job.client || "") + "</div></div>" +
 			'<div class="msm-facts msm-facts-2">' +
@@ -1949,8 +2041,8 @@
 				fact(t.deadline, t.within(job.deadlineH), t.xp(job.xpEstimate)) +
 			"</div>" +
 			'<div class="msm-money"><div class="msm-money-mode">' + tag(t.mode[job.mode] || job.mode, job.mode === "contract" ? "msm-tag-blue" : "") + "</div>" +
-				'<div class="msm-money-hint">' + esc(t.modeHint[job.mode] || "") + "</div>" + lines + "</div>";
-		var cta = '<div class="msm-btn msm-btn-primary msm-btn-cta' + (busy || S.busy ? " is-disabled" : "") + '" data-act="accept:' + esc(job.id) + '" data-nav="1"><div class="msm-fx"></div>' + icon("check") +
+				'<div class="msm-money-hint">' + esc(t.modeHint[job.mode] || "") + "</div>" + lines + "</div>" + realNotes(job);
+		var cta = '<div class="msm-btn msm-btn-primary msm-btn-cta' + (busy || S.busy || job.irRequired ? " is-disabled" : "") + '" data-act="accept:' + esc(job.id) + '" data-nav="1"><div class="msm-fx"></div>' + icon("check") +
 			"<span>" + esc(busy ? t.board.busy : S.busy === "accept" ? t.working : t.board.accept) + '</span><div class="msm-corner"></div></div>';
 		return scrollHtml("job-detail", '<div class="msm-detail">' + detail + "</div>", "msm-side-scroll") + '<div class="msm-side-foot">' + cta + "</div>";
 	}

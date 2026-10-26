@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { motion } from "motion/react";
-import { Ambulance, Briefcase, ClipboardCheck, GraduationCap, MapPin, Mountain, Package, Plane, Search, Send, Users } from "lucide-react";
+import { Ambulance, Briefcase, Camera, ClipboardCheck, GraduationCap, LifeBuoy, MapPin, Mountain, Package, Plane, Search, Umbrella, Send, Telescope, Users } from "lucide-react";
 import { notifyError } from "@/shell/actions";
 import { Input, Spinner } from "@/ui";
 import { careerApi } from "./api";
@@ -21,6 +21,10 @@ export const KIND_ICON: Record<JobKind, typeof Plane> = {
   medical: Ambulance,
   airline: Plane,
   checkride: ClipboardCheck,
+  tour: Telescope,
+  skydive: Umbrella,
+  survey: Camera,
+  sar: LifeBuoy,
 };
 
 export function KindIcon({ kind, className }: { kind: JobKind; className?: string }) {

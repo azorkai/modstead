@@ -22,6 +22,7 @@ export function Onboarding({ view }: { view: CareerView }) {
   const art = useArt("msfs", "hero");
   const [name, setName] = useState("");
   const [callsign, setCallsign] = useState("");
+  const [birthYear, setBirthYear] = useState("");
   const [home, setHome] = useState<AirportHit | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [start, setStart] = useState<Start>("student");
@@ -31,7 +32,8 @@ export function Onboarding({ view }: { view: CareerView }) {
     if (!home) return;
     setBusy(true);
     try {
-      await careerApi.create({ name, callsign, home: home.icao, difficulty, start });
+      const y = Number.parseInt(birthYear, 10);
+      await careerApi.create({ name, callsign, home: home.icao, difficulty, start, birthYear: Number.isFinite(y) ? y : null });
       invalidateCareer();
       toast.success(t.title);
     } catch (e) {
@@ -82,9 +84,14 @@ export function Onboarding({ view }: { view: CareerView }) {
             <Field label={t.onboarding.name}>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.onboarding.namePh} maxLength={40} autoFocus />
             </Field>
-            <Field label={t.onboarding.callsign}>
-              <Input value={callsign} onChange={(e) => setCallsign(e.target.value.toUpperCase())} placeholder={t.onboarding.callsignPh} maxLength={12} inputClassName="font-mono" />
-            </Field>
+            <div className="grid grid-cols-[1fr_120px] gap-3">
+              <Field label={t.onboarding.callsign}>
+                <Input value={callsign} onChange={(e) => setCallsign(e.target.value.toUpperCase())} placeholder={t.onboarding.callsignPh} maxLength={12} inputClassName="font-mono" />
+              </Field>
+              <Field label={t.onboarding.birthYear}>
+                <Input value={birthYear} onChange={(e) => setBirthYear(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} placeholder="1995" inputMode="numeric" inputClassName="tabular" title={t.onboarding.birthYearHint} />
+              </Field>
+            </div>
             <Field label={t.onboarding.home}>
               {home ? (
                 <div className="flex h-9 items-center gap-2 rounded-[10px] border border-line-strong bg-surface-2/70 px-3">
