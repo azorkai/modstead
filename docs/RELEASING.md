@@ -122,9 +122,15 @@ public static class CredBackup {
   }
 }
 '@
-[CredBackup]::Read('Modstead/Release/UpdaterKey') | gh secret set TAURI_SIGNING_PRIVATE_KEY --repo azorkai/modstead
-[CredBackup]::Read('Modstead/Release/UpdaterKeyPassword') | gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo azorkai/modstead
+# Windows PowerShell may start piped text with a UTF-8 byte order mark, which breaks the secret ("failed to decode
+# base64 secret key: Invalid symbol 239, offset 0" in the release build). Pipe without one:
+$OutputEncoding = New-Object System.Text.UTF8Encoding $false
+[CredBackup]::Read('Modstead/Release/UpdaterKey') | gh secret set TAURI_SIGNING_PRIVATE_KEY --repo azorkai/modstead --app actions
+[CredBackup]::Read('Modstead/Release/UpdaterKeyPassword') | gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo azorkai/modstead --app actions
 ```
+
+Do not feed the values to `gh` through a .NET `Process` with redirected standard input either: its writer can add the
+same byte order mark.
 
 **Rotating the key** (planned, for example when a maintainer with access leaves). Installed copies accept only updates
 signed with the key whose public half they carry, so a rotation takes two releases:
