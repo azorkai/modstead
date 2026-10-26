@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://azorkai.github.io/modstead/</loc>
+    <lastmod>2026-10-26</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://azorkai.github.io/modstead/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://azorkai.github.io/modstead/tr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://azorkai.github.io/modstead/"/>
+  </url>
+  <url>
+    <loc>https://azorkai.github.io/modstead/tr/</loc>
+    <lastmod>2026-10-26</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://azorkai.github.io/modstead/"/>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://azorkai.github.io/modstead/tr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://azorkai.github.io/modstead/"/>
+  </url>
+</urlset>
