@@ -70,6 +70,37 @@ pub async fn msfs_career_reset(game: G<'_>) -> AppResult<()> {
     .await
 }
 
+/// Geliştirici aracı: lisansları elle ayarlar (yalnızca hata ayıklama derlemesi; bkz. `Career::debug_set_licenses`).
+#[tauri::command]
+pub async fn msfs_career_debug_licenses(game: G<'_>, licenses: Vec<String>) -> AppResult<CareerView> {
+    debug_only()?;
+    run(&game, move |c| {
+        c.debug_set_licenses(&licenses)?;
+        Ok(c.view())
+    })
+    .await
+}
+
+/// Geliştirici aracı: pilot seviyesini elle ayarlar (yalnızca hata ayıklama derlemesi).
+#[tauri::command]
+pub async fn msfs_career_debug_level(game: G<'_>, level: u32) -> AppResult<CareerView> {
+    debug_only()?;
+    run(&game, move |c| {
+        c.debug_set_level(level)?;
+        Ok(c.view())
+    })
+    .await
+}
+
+/// Geliştirici araçları sürüm derlemesinde kapalıdır: kariyer kuralları elle aşılmasın.
+fn debug_only() -> AppResult<()> {
+    if cfg!(debug_assertions) {
+        Ok(())
+    } else {
+        Err(AppError::msg(tr!("Geliştirici araçları yalnızca geliştirme sürümünde açık.", "Developer tools are only available in development builds.")))
+    }
+}
+
 /// Gerçek hava: panodaki varışların ve aktif işin METAR'ları (önbellekte olmayanlar aviationweather.gov'dan).
 #[tauri::command]
 pub async fn msfs_career_weather(game: G<'_>) -> AppResult<Vec<super::weather::Metar>> {

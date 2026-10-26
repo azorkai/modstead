@@ -873,12 +873,37 @@ let deck: DeckInfo = withLan(
   params.get("deck") === "lan",
 );
 
+/** Önizlemede geliştirici aracı: arka uçtaki gibi SPL hep kalır, şartı eksik lisans düşer. */
+function mockDebugLicenses(wanted: string[]): CareerView {
+  const held = new Set(["spl", ...wanted]);
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const l of view.licenses) {
+      if (held.has(l.id) && !l.requires.every((r) => held.has(r))) {
+        held.delete(l.id);
+        changed = true;
+      }
+    }
+  }
+  for (const l of view.licenses) {
+    l.held = held.has(l.id);
+    if (l.held) l.ready = false;
+  }
+  if (view.pilot) view.pilot.licenses = view.licenses.filter((l) => l.held).map((l) => l.id);
+  return view;
+}
+
 export const careerMocks: Record<string, (args?: Record<string, unknown>) => unknown> = {
   msfs_career_state: () => view,
   msfs_career_create: () => view,
   msfs_career_reset: () => null,
   msfs_career_paths: (a) => mockCatalog((a?.difficulty as Difficulty | null) ?? view.pilot?.difficulty ?? "normal", classes),
   msfs_career_set_path: (a) => mockSetPath(view, String(a?.path ?? "general") as CareerPath),
+  msfs_career_debug_licenses: (a) => mockDebugLicenses((a?.licenses as string[] | undefined) ?? []),
+  msfs_career_debug_level: (a) => {
+    if (view.pilot) view.pilot.level = Number(a?.level ?? 1);
+    return view;
+  },
   msfs_career_board: () => board,
   msfs_career_weather: () => metars,
   msfs_career_medical: () => 250,

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ArrowRight, Check, ClipboardCheck, Lock } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { notifyError } from "@/shell/actions";
-import { Button } from "@/ui";
+import { Button, Input } from "@/ui";
 import { Achievements } from "./Achievements";
 import { careerApi } from "./api";
 import { className as clsName, hours, money } from "./format";
@@ -74,7 +74,107 @@ export function Licenses({ view }: { view: CareerView }) {
       <div className="mt-2">
         <Achievements view={view} />
       </div>
+      {/* Seviye değişince (ör. lisans verilince) kutudaki sayı yenilensin. */}
+      {import.meta.env.DEV && <DevTools key={view.pilot?.level} view={view} />}
     </div>
+  );
+}
+
+/** Geliştirici araçları (yalnızca geliştirme sürümü): lisansları tek tıkla ver/al ve seviyeyi elle ayarla.
+ *  Arka uç sürüm derlemesinde bu komutları reddeder. */
+function DevTools({ view }: { view: CareerView }) {
+  const t = useCareerT();
+  const lang = useLang((s) => s.lang);
+  const p = view.pilot!;
+  const [level, setLevel] = useState(String(p.level));
+  const [busy, setBusy] = useState(false);
+  const held = new Set(view.licenses.filter((l) => l.held).map((l) => l.id));
+  const apply = async (ids: Set<string>) => {
+    setBusy(true);
+    try {
+      await careerApi.debugLicenses([...ids]);
+      invalidateCareer();
+      toast.success(t.licenses.dev.done);
+    } catch (e) {
+      notifyError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  // Verilirken ön şartlar da eklenir; alınırken bağlı olanları arka uç düşürür.
+  const withRequires = (id: string, into: Set<string>) => {
+    into.add(id);
+    for (const r of view.licenses.find((l) => l.id === id)?.requires ?? []) withRequires(r, into);
+    return into;
+  };
+  const toggle = (id: string) => {
+    const next = new Set(held);
+    if (held.has(id)) next.delete(id);
+    else withRequires(id, next);
+    void apply(next);
+  };
+  const applyLevel = async () => {
+    const n = Math.round(Number(level));
+    if (!Number.isFinite(n) || n < 1) return;
+    setBusy(true);
+    try {
+      await careerApi.debugLevel(n);
+      invalidateCareer();
+      toast.success(t.licenses.dev.levelDone(n));
+    } catch (e) {
+      notifyError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Group title={t.licenses.dev.title}>
+      <section className="card flex flex-col gap-4 border-dashed px-6 py-5">
+        <p className="text-[12.5px] text-fg-2">{t.licenses.dev.note}</p>
+        <div className="flex flex-wrap gap-2">
+          {view.licenses.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              disabled={busy || l.id === "spl"}
+              onClick={() => toggle(l.id)}
+              title={lang === "en" ? l.nameEn : l.nameTr}
+              className={clsx(
+                "flex h-8 items-center gap-1.5 rounded-full border px-3 font-mono text-[11.5px] font-bold tracking-[0.06em] transition-colors disabled:cursor-default",
+                held.has(l.id) ? "border-ok/50 bg-ok/10 text-ok" : "border-line-strong text-muted hover:border-accent hover:text-accent",
+                busy && "opacity-60",
+              )}
+            >
+              {held.has(l.id) && <Check className="size-3" strokeWidth={3} />}
+              {l.short}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => void apply(new Set(view.licenses.map((l) => l.id)))}>
+            {t.licenses.dev.all}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void apply(new Set(["spl"]))}>
+            {t.licenses.dev.none}
+          </Button>
+          <span className="flex-1" />
+          <span className="text-[12.5px] text-fg-2">{t.licenses.dev.level}</span>
+          <Input
+            type="number"
+            min={1}
+            max={60}
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void applyLevel()}
+            className="w-[92px]"
+            inputClassName="tabular"
+          />
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => void applyLevel()}>
+            {t.licenses.dev.setLevel}
+          </Button>
+        </div>
+      </section>
+    </Group>
   );
 }
 

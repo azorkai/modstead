@@ -595,6 +595,54 @@ impl Career {
         Ok(())
     }
 
+    // ----- Geliştirici araçları (yalnızca hata ayıklama derlemesi; komutlar sürüm derlemesinde reddeder) -----
+
+    /// Lisansları elle ayarlar. Bilinmeyen kimlikler atılır, SPL hep kalır, şartı eksik kalan lisans düşer (ön şartları
+    /// arayüz ekler). Seviye en az en yüksek lisansın seviyesine çıkar; sağlık sertifikası yeni lisansların istediği
+    /// sınıfa yenilenir, helikopter yetkisi yeni verildiyse helikopter yeterliliği tamamlanır. Para, saat ve uçuş
+    /// geçmişi değişmez.
+    pub fn debug_set_licenses(&self, wanted: &[String]) -> AppResult<()> {
+        let mut d = self.lock_data();
+        let p = d.pilot.as_mut().ok_or_else(no_pilot)?;
+        let mut held: Vec<&'static License> = LICENSES.iter().filter(|l| l.id == "spl" || wanted.iter().any(|w| w == l.id)).collect();
+        while let Some(i) = held.iter().position(|l| !l.requires.iter().all(|r| held.iter().any(|h| h.id == *r))) {
+            held.remove(i);
+        }
+        let before = p.licenses.join(",");
+        let had_heli = p.has("heli");
+        p.licenses = held.iter().map(|l| l.id.to_string()).collect();
+        let level = held.iter().map(|l| l.level).max().unwrap_or(1);
+        p.xp = p.xp.max(xp_for_level(level));
+        let t = now();
+        let class = records::medical_required(&p.licenses);
+        if p.records.medical_class == 0 || p.records.medical_class > class || p.records.medical_until < t {
+            p.records.renew_medical(class, p.birth_year, t);
+        }
+        if !had_heli && p.has("heli") {
+            p.records.seed_helicopter(t);
+        }
+        paths::promote(p);
+        let after = p.licenses.join(",");
+        self.save(&d);
+        drop(d);
+        self.note("komut", format!("geliştirici: lisanslar {before} → {after}"));
+        self.changed();
+        Ok(())
+    }
+
+    /// Pilot seviyesini elle ayarlar (XP o seviyenin başına çekilir; düşürmek de olur).
+    pub fn debug_set_level(&self, level: u32) -> AppResult<()> {
+        let level = level.clamp(1, 60);
+        let mut d = self.lock_data();
+        let p = d.pilot.as_mut().ok_or_else(no_pilot)?;
+        p.xp = xp_for_level(level);
+        self.save(&d);
+        drop(d);
+        self.note("komut", format!("geliştirici: seviye {level}"));
+        self.changed();
+        Ok(())
+    }
+
     // ----- İlanlar -----
 
     pub fn board(&self) -> AppResult<Vec<Job>> {

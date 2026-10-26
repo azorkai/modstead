@@ -11,6 +11,9 @@ export const careerApi = {
   paths: (difficulty?: Difficulty) => invoke<PathInfo[]>("msfs_career_paths", { difficulty: difficulty ?? null }),
   /** Kariyer yolunu değiştirir (lisans, saat, para ve itibar kalır). */
   setPath: (path: CareerPath) => invoke<CareerView>("msfs_career_set_path", { path }),
+  /** Geliştirici araçları (yalnızca hata ayıklama derlemesi): lisansları ve seviyeyi elle ayarlar. */
+  debugLicenses: (licenses: string[]) => invoke<CareerView>("msfs_career_debug_licenses", { licenses }),
+  debugLevel: (level: number) => invoke<CareerView>("msfs_career_debug_level", { level }),
   board: () => invoke<Job[]>("msfs_career_board"),
   /** Panodaki varışların ve aktif işin METAR'ları (gerekirse aviationweather.gov'dan). */
   weather: () => invoke<Metar[]>("msfs_career_weather"),

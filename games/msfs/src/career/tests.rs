@@ -461,3 +461,27 @@ fn old_career_files_open_in_the_general_path() {
     let j: Job = serde_json::from_str(r#"{"id":"x","kind":"cargo"}"#).unwrap();
     assert!(!j.off_path && j.path_xp_bonus == 0);
 }
+
+#[test]
+fn debug_tools_set_licences_and_level() {
+    let c = career();
+    create(&c, "student");
+    // ATPL'nin ön şartları (CPL, ME, IR, PPL) olmadan verilemez; SPL hep kalır.
+    c.debug_set_licenses(&["atpl".into(), "bogus".into()]).unwrap();
+    assert_eq!(c.view().pilot.unwrap().pilot.licenses, vec!["spl"]);
+    // Ön şartlarıyla verilince kalır; seviye ATPL'ninkine çıkar, sağlık 1. sınıfa yenilenir.
+    let full: Vec<String> = ["ppl", "cpl", "me", "ir", "atpl"].iter().map(|s| s.to_string()).collect();
+    c.debug_set_licenses(&full).unwrap();
+    let p = c.view().pilot.unwrap().pilot;
+    assert_eq!(p.licenses, vec!["spl", "ppl", "cpl", "me", "ir", "atpl"]);
+    assert!(level_for_xp(p.xp) >= 12);
+    assert_eq!(p.records.medical_class, 1);
+    // CPL alınınca ona bağlı ATPL de düşer; seviye düşmez.
+    c.debug_set_licenses(&["ppl".into(), "me".into(), "ir".into(), "atpl".into()]).unwrap();
+    let p = c.view().pilot.unwrap().pilot;
+    assert_eq!(p.licenses, vec!["spl", "ppl", "me", "ir"]);
+    assert!(level_for_xp(p.xp) >= 12);
+    // Seviye elle düşürülür.
+    c.debug_set_level(3).unwrap();
+    assert_eq!(level_for_xp(c.view().pilot.unwrap().pilot.xp), 3);
+}

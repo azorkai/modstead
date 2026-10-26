@@ -398,6 +398,16 @@ const tr = {
     readyGroup: "Sınav uçuşuna hazır",
     nextGroup: "Sıradaki lisanslar",
     heldGroup: "Sahip olduğun",
+    dev: {
+      title: "Geliştirici araçları",
+      note: "Yalnızca geliştirme sürümünde. Bir lisansa tıkla: verilirken ön şartları da gelir, alınırken ona bağlı olanlar da düşer. Para, saat ve uçuş geçmişi değişmez.",
+      level: "Seviye",
+      setLevel: "Uygula",
+      all: "Hepsini ver",
+      none: "Yalnızca SPL",
+      done: "Lisanslar güncellendi",
+      levelDone: (n: number) => `Seviye ${n} yapıldı`,
+    },
   },
   hangar: {
     title: "Hangar ve finans",
@@ -1080,6 +1090,16 @@ const en: CareerDict = {
     readyGroup: "Ready for a checkride",
     nextGroup: "Next licences",
     heldGroup: "Held",
+    dev: {
+      title: "Developer tools",
+      note: "Development builds only. Click a licence: granting it adds its prerequisites, removing it also removes the licences that depend on it. Money, hours and flight history stay the same.",
+      level: "Level",
+      setLevel: "Apply",
+      all: "Grant all",
+      none: "SPL only",
+      done: "Licences updated",
+      levelDone: (n: number) => `Level set to ${n}`,
+    },
   },
   hangar: {
     title: "Hangar & finance",
