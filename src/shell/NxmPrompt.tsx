@@ -1,6 +1,6 @@
 // Nexus'taki "Mod Manager Download" düğmesinden gelen bağlantı: indirmeden önce onay.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DownloadCloud } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { invoke } from "@/lib/ipc";
@@ -25,6 +25,11 @@ export function NxmPrompt() {
   const game = gameModule(request?.game);
   const { mod, file } = request ? parts(request.url) : { mod: "", file: "" };
 
+  // Arayüzde gizli bir oyunun bağlantısı sorulmadan bırakılır (bkz. games/registry.ts → HIDDEN).
+  useEffect(() => {
+    if (request && !game) shift();
+  }, [request, game, shift]);
+
   const download = async () => {
     if (!request) return;
     setBusy(true);
@@ -40,7 +45,7 @@ export function NxmPrompt() {
   };
 
   return (
-    <Dialog open={!!request} onClose={shift} width={460} game={request?.game}>
+    <Dialog open={!!request && !!game} onClose={shift} width={460} game={request?.game}>
       {request && (
         <>
           <DialogHeader icon={game ? <game.Icon className="size-5" /> : <DownloadCloud className="size-5" />} title={t.nxm.title} onClose={shift} />

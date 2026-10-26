@@ -1,4 +1,4 @@
-# Modstead — Safe Mod Manager for MSFS, Bannerlord, Stardew Valley and Cities: Skylines II
+# Modstead — Safe Mod Manager and Career Mode for Microsoft Flight Simulator 2024 & 2020
 
 **English** · [Türkçe](README.tr.md)
 
@@ -11,13 +11,11 @@
   </a>
 </p>
 
-**Modstead** is a free, open-source mod manager for Windows that manages mods for
-**Microsoft Flight Simulator 2020 & 2024**, **Mount & Blade II: Bannerlord**, **Stardew Valley (SMAPI)** and
-**Cities: Skylines II** in one desktop app. Every download and archive goes through a security pipeline (allowlisted
-sources, hash verification, safe extraction, content checks and a Microsoft Defender scan), and nothing is installed
-until you review and approve it.
+**Modstead** is a free, open-source mod manager for Windows for **Microsoft Flight Simulator 2020 & 2024**. Every
+download and archive goes through a security pipeline (allowlisted sources, hash verification, safe extraction, content
+checks and a Microsoft Defender scan), and nothing is installed until you review and approve it.
 
-For Microsoft Flight Simulator, Modstead also includes a free **[MSFS 2024 career mode](#msfs-2024-career-mode)**: a job
+Modstead also includes a free **[MSFS 2024 career mode](#msfs-2024-career-mode)**: a job
 board, pilot licences and checkrides, automatic flight setup, flight tracking over SimConnect, a logbook, your own
 aircraft, an in-sim toolbar panel and a career page in the MSFS 2024 main menu.
 
@@ -38,21 +36,14 @@ installer's SHA-256 checksum in `SHA256SUMS.txt`; compare it with the output of
 ([other ways](docs/RELEASING.md#verify-a-download)). To build Modstead yourself, see
 [Building from source](#building-from-source).
 
-## Supported games
+## What Modstead does for MSFS
 
-| Game | What Modstead does |
+| Sim | What Modstead does |
 |---|---|
 | **Microsoft Flight Simulator 2020 & 2024** | One mod library shared by both sims; mods are enabled per sim with junctions into the Community folder (no admin rights needed). Profiles, file and ICAO conflict detection, `exe.xml` add-on management, readiness checks (Content.xml, path length), a GitHub catalog (FlyByWire, Headwind…), an in-app mod browser and a built-in [career mode](#msfs-2024-career-mode). |
-| **Mount & Blade II: Bannerlord** | Module load order, `SubModule.xml` validation and fixes, version rules, direct launch with `_MODULES_`, `LauncherData.xml`, Steam Workshop modules, Nexus Mods and GitHub discovery, updates, profiles and backups. |
-| **Stardew Valley (SMAPI)** | SMAPI install from the verified GitHub release (SHA-256; the installer is never executed), mod scan with SMAPI rules, health checks (missing or outdated dependencies, duplicate IDs, compatibility), smapi.io update checks, Nexus Mods search, `config.json` editor, profiles, save backups and SMAPI log summaries. |
-| **Cities: Skylines II** | Paradox Mods catalog browsing (search, tags, requirements, changelogs), local mods, save games with in-game previews, health score with one-click fixes, crash and log analysis, and detection of known malicious mod versions. |
 
-Games are detected automatically on **Steam, GOG, Epic Games and Xbox / Microsoft Store**. On first launch Modstead
-lists only the games it found on your PC; a game in another folder can be added by choosing its folder.
-
-<p align="center">
-  <img src="docs/screenshots/modstead-first-run-found-games.png" alt="Modstead first-run setup: Microsoft Flight Simulator (MSFS 2024 and MSFS 2020) and Stardew Valley found on this PC and selected" width="760">
-</p>
+MSFS 2024 and 2020 are detected automatically on **Steam** and the **Microsoft Store / Xbox app**; a sim in another
+folder can be added by choosing its folder.
 
 ## MSFS 2024 career mode
 
@@ -199,8 +190,8 @@ expected root folder. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 ## FAQ
 
 ### What is Modstead?
-Modstead is a Windows desktop mod manager that combines three earlier single-game tools (Hangar for MSFS, Otağ for
-Bannerlord and Vadi for Stardew Valley) and adds Cities: Skylines II, with one shared security pipeline.
+Modstead is a Windows desktop mod manager for Microsoft Flight Simulator 2020 and 2024, with a security pipeline for
+every install and a free career mode.
 
 ### Is Modstead free?
 Yes. Modstead is free and open source under the GNU General Public License v3.0.
@@ -223,13 +214,13 @@ see the review dialog. Nothing is installed without your approval and installers
 guarantee a mod is harmless, so Modstead shows a risk score instead of a blind "safe" label.
 
 ### Does Modstead work with Nexus Mods?
-Yes. It registers as the Nexus Mods "Mod Manager Download" (`nxm://`) handler for all supported games. Premium
+Yes. It registers as the Nexus Mods "Mod Manager Download" (`nxm://`) handler for Microsoft Flight Simulator. Premium
 accounts can download directly in the app; free accounts download through the Nexus Mods website as Nexus requires.
 
 ### Is Modstead an alternative to Vortex or Mod Organizer 2?
-For the four supported games, yes. Modstead focuses on game-specific features (MSFS sim linking, Bannerlord load
-order, SMAPI health checks, Cities: Skylines II save previews) and a stricter install review rather than supporting
-every game.
+For Microsoft Flight Simulator, yes. Modstead focuses on MSFS-specific features (one library for both sims, junction
+linking, ICAO conflict detection, `exe.xml` add-ons, the career mode) and a stricter install review rather than
+supporting every game.
 
 ### Does it need administrator rights?
 No. Modstead installs per user, MSFS mods are enabled with junctions that need no elevation, and the `nxm://` handler
@@ -271,7 +262,7 @@ docs/               architecture (MIMARI.md) and design language (TASARIM.md), i
 docs/screenshots/   README screenshots (preview mode with sample data)
 ```
 
-Game IDs: `msfs`, `bannerlord`, `stardew`, `cities2`. Settings and game data live in `%APPDATA%\app.modstead`;
+Game ID: `msfs`. Settings and game data live in `%APPDATA%\app.modstead`;
 cache, logs and quarantine in `%LOCALAPPDATA%\app.modstead`.
 
 ## Support

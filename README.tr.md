@@ -1,4 +1,4 @@
-# Modstead — MSFS, Bannerlord, Stardew Valley ve Cities: Skylines II için güvenli mod yöneticisi
+# Modstead — Microsoft Flight Simulator 2024 ve 2020 için güvenli mod yöneticisi ve kariyer kipi
 
 [English](README.md) · **Türkçe**
 
@@ -11,8 +11,7 @@
   </a>
 </p>
 
-**Modstead**, **Microsoft Flight Simulator 2020 & 2024**, **Mount & Blade II: Bannerlord**, **Stardew Valley (SMAPI)**
-ve **Cities: Skylines II** modlarını tek masaüstü uygulamasında yöneten, ücretsiz ve açık kaynaklı bir Windows mod
+**Modstead**, **Microsoft Flight Simulator 2020 & 2024** modlarını yöneten, ücretsiz ve açık kaynaklı bir Windows mod
 yöneticisidir. Her indirme ve arşiv bir güvenlik hattından geçer (izinli kaynaklar, özet doğrulaması, güvenli açma,
 içerik denetimi ve Microsoft Defender taraması); siz inceleyip onaylamadan hiçbir şey kurulmaz.
 
@@ -37,17 +36,14 @@ SHA-256 özeti `SHA256SUMS.txt` dosyasındadır; PowerShell'de
 ([diğer yollar](docs/RELEASING.md#verify-a-download), İngilizce). Kendiniz derlemek için:
 [Kaynaktan derleme](#kaynaktan-derleme).
 
-## Desteklenen oyunlar
+## Modstead MSFS için ne yapar
 
-| Oyun | Modstead ne yapar |
+| Sim | Modstead ne yapar |
 |---|---|
 | **Microsoft Flight Simulator 2020 & 2024** | İki simin paylaştığı tek mod kütüphanesi; modlar Community klasörüne junction ile, sim başına açılır (yönetici izni gerekmez). Profiller, dosya ve ICAO çakışmaları, `exe.xml` yardımcı programları, çalışmaya hazırlık denetimleri (Content.xml, yol uzunluğu), GitHub kataloğu (FlyByWire, Headwind…), uygulama içi mod tarayıcısı ve gömülü [kariyer kipi](#msfs-2024-kariyer-kipi). |
-| **Mount & Blade II: Bannerlord** | Modül yükleme sırası, `SubModule.xml` doğrulaması ve düzeltmeler, sürüm kuralları, `_MODULES_` ile doğrudan başlatma, `LauncherData.xml`, Steam Workshop modülleri, Nexus Mods ve GitHub'da mod bulma, güncellemeler, profiller ve yedekler. |
-| **Stardew Valley (SMAPI)** | Doğrulanmış GitHub sürümünden SMAPI kurulumu (SHA-256; kurucu asla çalıştırılmaz), SMAPI kurallarıyla mod taraması, sağlık denetimi (eksik ya da eski bağımlılık, yinelenen kimlik, uyumluluk), smapi.io güncelleme denetimi, Nexus Mods araması, `config.json` düzenleyici, profiller, kayıt yedekleri ve SMAPI günlüğü özeti. |
-| **Cities: Skylines II** | Paradox Mods kataloğu (arama, etiketler, gereksinimler, sürüm notları), yerel modlar, oyundaki önizlemesiyle kayıtlar, tek tık çözümlü sağlık puanı, çökme ve günlük çözümlemesi, bilinen kötü amaçlı mod sürümlerinin tespiti. |
 
-Oyunlar **Steam, GOG, Epic Games ve Xbox / Microsoft Store** kurulumlarında kendiliğinden bulunur. İlk açılışta
-Modstead yalnızca bilgisayarda bulduğu oyunları sorar; başka klasördeki bir oyun klasörü seçilerek eklenir.
+MSFS 2024 ve 2020, **Steam** ve **Microsoft Store / Xbox uygulaması** kurulumlarında kendiliğinden bulunur; başka
+klasördeki bir sim klasörü seçilerek eklenir.
 
 ## MSFS 2024 kariyer kipi
 
@@ -140,8 +136,8 @@ bildirmek için: [SECURITY.md](SECURITY.md).
 ## Sık sorulan sorular
 
 ### Modstead nedir?
-Modstead, tek oyunluk üç aracı (MSFS için Hangar, Bannerlord için Otağ, Stardew Valley için Vadi) birleştirip
-Cities: Skylines II'yi ekleyen, ortak bir güvenlik hattına sahip Windows mod yöneticisidir.
+Modstead, Microsoft Flight Simulator 2020 ve 2024 için, her kurulumu bir güvenlik hattından geçiren ve ücretsiz bir
+kariyer kipi içeren Windows mod yöneticisidir.
 
 ### Modstead ücretsiz mi?
 Evet. Modstead, GNU Genel Kamu Lisansı v3.0 ile ücretsiz ve açık kaynaktır.
@@ -157,12 +153,12 @@ Defender ile taranır. Onayınız olmadan hiçbir şey kurulmaz, kurucular asla 
 zararsız olduğunu kesin söyleyemez; bu yüzden Modstead körü körüne "güvenli" demek yerine risk puanı gösterir.
 
 ### Modstead Nexus Mods ile çalışır mı?
-Evet. Desteklenen tüm oyunlar için Nexus Mods "Mod Manager Download" (`nxm://`) işleyicisi olur. Premium hesaplar
+Evet. Microsoft Flight Simulator için Nexus Mods "Mod Manager Download" (`nxm://`) işleyicisi olur. Premium hesaplar
 uygulama içinden doğrudan indirir; ücretsiz hesaplar, Nexus'un kuralı gereği Nexus Mods sitesi üzerinden indirir.
 
 ### Vortex ya da Mod Organizer 2'ye alternatif mi?
-Desteklenen dört oyun için evet. Modstead her oyunu desteklemek yerine oyuna özel özelliklere (MSFS sim bağlantıları,
-Bannerlord yükleme sırası, SMAPI sağlık denetimi, Cities: Skylines II kayıt önizlemeleri) ve daha sıkı bir kurulum
+Microsoft Flight Simulator için evet. Modstead her oyunu desteklemek yerine MSFS'e özel özelliklere (iki sim için tek
+kütüphane, junction bağlantıları, ICAO çakışmaları, `exe.xml` eklentileri, kariyer kipi) ve daha sıkı bir kurulum
 incelemesine odaklanır.
 
 ### Yönetici izni gerekir mi?
@@ -205,7 +201,7 @@ docs/               MIMARI.md (mimari) · TASARIM.md (tasarım dili)
 docs/screenshots/   README ekran görüntüleri (önizleme kipi, örnek veri)
 ```
 
-Oyun kimlikleri: `msfs`, `bannerlord`, `stardew`, `cities2`. Ayarlar ve oyun verileri `%APPDATA%\app.modstead`;
+Oyun kimliği: `msfs`. Ayarlar ve oyun verileri `%APPDATA%\app.modstead`;
 önbellek, günlük ve karantina `%LOCALAPPDATA%\app.modstead` altında.
 
 ## Destek
