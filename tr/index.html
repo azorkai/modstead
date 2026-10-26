@@ -14,11 +14,12 @@
 <link rel="alternate" hreflang="en" href="https://azorkai.github.io/modstead/">
 <link rel="alternate" hreflang="tr" href="https://azorkai.github.io/modstead/tr/">
 <link rel="alternate" hreflang="x-default" href="https://azorkai.github.io/modstead/">
-<meta name="theme-color" content="#0e0f12">
+<meta name="theme-color" content="#060a1e">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="../favicon.ico" sizes="32x32">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="preload" href="../assets/fonts/archivo-var.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/site.css">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Modstead">
@@ -135,13 +136,15 @@
       <span class="brand-tag">Kariyer · MSFS</span>
     </a>
     <nav class="nav" aria-label="Ana menü">
-      <a class="sec" href="#features">Özellikler</a>
-      <a class="sec" href="#realism">Gerçekçilik</a>
-      <a class="sec" href="#screenshots">Görüntüler</a>
-      <a class="sec" href="#rules">Kurallar</a>
-      <a class="sec" href="#faq">SSS</a>
-      <a class="sec" href="#download">İndir</a>
-      <a class="coffee" href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener" aria-label="Bir kahve ısmarla (buymeacoffee.com açılır)"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5"/></svg><span>Destek ol</span></a>
+      <div class="nav-sec">
+        <a href="#features">Özellikler</a>
+        <a href="#realism">Gerçekçilik</a>
+        <a href="#screenshots">Görüntüler</a>
+        <a href="#rules">Kurallar</a>
+        <a href="#faq">SSS</a>
+        <a href="#download">İndir</a>
+      </div>
+      <a class="coffee" href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener" aria-label="Bir kahve ısmarla (buymeacoffee.com açılır)"><span class="cup"><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5"/></svg></span><span>Destek ol</span></a>
       <a class="gh" href="https://github.com/azorkai/modstead">GitHub</a>
       <a class="lang" href="../" hreflang="en" lang="en" aria-label="English">EN</a>
     </nav>
@@ -151,81 +154,112 @@
 <main id="main">
 
 <section class="hero" aria-labelledby="hero-title">
-  <div class="wrap">
-    <div class="hero-grid">
-      <div>
-        <p class="kicker" lang="en">Microsoft Flight Simulator 2024 · 2020</p>
-        <h1 id="hero-title">MSFS 2024 kariyer kipi<span class="sub">Ücretsiz, açık kaynak, her kuralı belgeli.</span></h1>
-        <p class="lead">Öğrenci pilot olarak başlarsın; iş ilanlarından iş alır, sınav uçuşlarıyla lisans kazanır, kendi uçağını alırsın. Her uçuş simde hazırlanır, SimConnect ile takip edilir ve seyir defterine işlenir. MSFS&nbsp;2020'de de çalışır.</p>
-        <div class="cta">
-          <a class="btn btn-primary" href="https://github.com/azorkai/modstead/releases/latest/download/Modstead-setup-x64.exe">
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>
-            Windows için indir
-          </a>
-          <a class="btn btn-ghost" href="https://github.com/azorkai/modstead">GitHub'da kaynak kod</a>
-        </div>
-        <p class="status"><span class="dot" aria-hidden="true"></span><b>Erken geliştirme (v0.1.0).</b> Windows 10/11 x64 kurucusu. <a href="#download">Doğrulama ve notlar</a></p>
-        <a class="coffee-line" href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5"/></svg><span>Hep ücretsiz. Beğendin mi? <b>Pilota bir kahve ısmarla</b></span></a>
+  <div class="hero-dark">
+    <div class="hero-sky" aria-hidden="true"></div>
+    <div class="wrap hero-head">
+      <svg class="doodle d-arrow" viewBox="0 0 150 80" aria-hidden="true" focusable="false"><path d="M6 46C34 36 70 30 112 33"/><path d="M12 58C44 48 82 44 120 46"/><path d="M96 14c10 7 22 14 36 20-12 6-24 14-34 26"/></svg>
+      <svg class="doodle d-loop" viewBox="0 0 220 160" aria-hidden="true" focusable="false"><path class="dash" d="M6 150C24 110 58 92 96 96s58 26 46 50-50 10-40-22S160 52 210 18"/><g class="pl pl-anim"><path d="M14 0l-9-3-5-11h-4l2 11-8 1-3-4h-3l2 6-2 6h3l3-4 8 1-2 11h4l5-11z"><animateMotion dur="9s" repeatCount="indefinite" rotate="auto" path="M6 150C24 110 58 92 96 96s58 26 46 50-50 10-40-22S160 52 210 18"/></path></g><g class="pl pl-static" transform="translate(206 21) rotate(-34)"><path d="M14 0l-9-3-5-11h-4l2 11-8 1-3-4h-3l2 6-2 6h3l3-4 8 1-2 11h4l5-11z"/></g></svg>
+      <p class="kicker" lang="en">Microsoft Flight Simulator 2024 · 2020</p>
+      <h1 id="hero-title"><span class="l1">MSFS 2024</span> <span class="l2">kariyer kipi</span><span class="sub">Ücretsiz, açık kaynak, her kuralı belgeli.</span></h1>
+      <p class="lead">Öğrenci pilot olarak başlarsın; iş ilanlarından iş alır, sınav uçuşlarıyla lisans kazanır, kendi uçağını alırsın. Her uçuş simde hazırlanır, SimConnect ile takip edilir ve seyir defterine işlenir. MSFS&nbsp;2020'de de çalışır.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/azorkai/modstead/releases/latest/download/Modstead-setup-x64.exe">
+          Windows için indir
+          <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg></span>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/azorkai/modstead">GitHub'da kaynak kod</a>
       </div>
+      <p class="status"><span class="dot" aria-hidden="true"></span><b>Erken geliştirme (v0.1.0).</b> Windows 10/11 x64 kurucusu. <a href="#download">Doğrulama ve notlar</a></p>
+      <a class="coffee-line" href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener"><span class="cup"><svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5"/></svg></span><span>Hep ücretsiz. Beğendin mi? <b>Pilota bir kahve ısmarla</b></span></a>
+    </div>
+
+    <div class="wrap stage">
       <figure class="hero-shot">
         <a href="../assets/img/career-dashboard-1400.webp"><img src="../assets/img/career-dashboard-main-1070.webp"
              srcset="../assets/img/career-dashboard-main-640.webp 640w, ../assets/img/career-dashboard-main-1070.webp 1070w"
-             sizes="(min-width: 1200px) 610px, (min-width: 1000px) 52vw, calc(100vw - 32px)"
+             sizes="(min-width: 1000px) 500px, (min-width: 600px) 480px, calc(100vw - 44px)"
              width="1070" height="1200" fetchpriority="high"
              alt="Uygulamada LTBA'dan LTBU'ya kargo uçuşu sırasında kariyer paneli: canlı rota haritası, uçuş evresi, irtifa, yer hızı, harcanan yakıt ve 97 anlık puan"></a>
         <figcaption>Örnek verilerle uygulama önizlemesi: seyirdeki bir kargo uçuşu.</figcaption>
       </figure>
+      <div class="float f-licence" aria-hidden="true">
+        <p class="fl-k">Sonraki hedef</p>
+        <p class="fl-t"><span class="chip-code">IR</span>Aletli uçuş yetkisi</p>
+        <div class="meter"><p class="meter-row"><span>22 / 10 sa</span><i></i></p><div class="meter-bar"></div></div>
+        <div class="meter"><p class="meter-row"><span>Seviye 5 / 4</span><i></i></p><div class="meter-bar"></div></div>
+        <p class="fl-ready">Sınava hazır</p>
+      </div>
+      <div class="float f-flight" aria-hidden="true">
+        <p class="fl-k">Kargo · Operatör adına</p>
+        <p class="fl-route">LTBA <svg viewBox="0 0 40 14"><path d="M2 7h24" stroke="#fff" stroke-width="2" stroke-dasharray="2 4" fill="none"/><path transform="translate(33 7) scale(.5)" d="M14 0l-9-3-5-11h-4l2 11-8 1-3-4h-3l2 6-2 6h3l3-4 8 1-2 11h4l5-11z" fill="#ff7a1a"/></svg> LTBU</p>
+        <p class="fl-sub">Seyir · 4.520 ft · 112 kt · 230 $</p>
+        <div class="fl-score">
+          <div class="ring"><svg viewBox="0 0 66 66"><circle cx="33" cy="33" r="28" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="6"/><circle cx="33" cy="33" r="28" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-dasharray="170.6 176"/></svg><b>97</b></div>
+          <span><strong>Anlık puan</strong>12,4 nm kaldı</span>
+        </div>
+      </div>
+      <div class="float f-dispatch" aria-hidden="true">
+        <p class="fl-k">Uçuş kâğıdı <span class="vfr">VFR</span></p>
+        <p class="fl-wx"><b>LTBA</b> 040° 12 kt · Görüş 10 km+</p>
+        <p class="metar">LTBA 261150Z 04012KT 9999 FEW030 18/09 Q1016</p>
+      </div>
+      <span class="sticker s-free" aria-hidden="true">Ücretsiz · GPL-3.0</span>
+      <span class="sticker s-sim" aria-hidden="true">SimConnect · DLL yok</span>
     </div>
+  </div>
 
-    <dl class="strip">
-      <div><dt>Fiyat</dt><dd>Ücretsiz, GPL-3.0</dd></div>
-      <div><dt>Simler</dt><dd>MSFS 2024 ve MSFS 2020</dd></div>
-      <div><dt>Çevrim içi</dt><dd>Hesap yok, sunucu yok, çevrim dışı çalışır</dd></div>
-      <div><dt>Sim bağlantısı</dt><dd>Yerel TCP ile SimConnect, DLL yok</dd></div>
-    </dl>
+  <div class="hero-light">
+    <div class="wrap">
+      <dl class="strip">
+        <div><dt>Fiyat</dt><dd>Ücretsiz, GPL-3.0</dd></div>
+        <div><dt>Simler</dt><dd>MSFS 2024 ve MSFS 2020</dd></div>
+        <div><dt>Çevrim içi</dt><dd>Hesap yok, sunucu yok, çevrim dışı çalışır</dd></div>
+        <div><dt>Sim bağlantısı</dt><dd>Yerel TCP ile SimConnect, DLL yok</dd></div>
+      </dl>
+    </div>
   </div>
 </section>
 
-<section class="section" id="features" aria-labelledby="features-title">
+<section class="section light" id="features" aria-labelledby="features-title">
   <div class="wrap">
-    <div class="sec-head">
+    <div class="sec-head center">
       <p class="kicker">01 / Özellikler</p>
       <h2 id="features-title">Öğrenci pilottan havayolu kaptanına</h2>
       <p>İş ilanları, lisanslar, para ve seyir defteri; her uçuş senin için simde hazırlanır ve uçarken takip edilir.</p>
     </div>
-    <ul class="features">
-      <li><span class="num">01</span><h3>Bulunduğun havalimanında iş ilanları</h3><p>Kargo, yolcu, charter, uçak teslimi, arazi uçuşu, ambulans ve havayolu işleri; lisansına ve itibarına göre, rota haritasıyla. İlanlar 4 saatte bir yenilenir.</p></li>
+    <ul class="features cards">
+      <li class="solid"><span class="num">01</span><h3>Bulunduğun havalimanında iş ilanları</h3><p>Kargo, yolcu, charter, uçak teslimi, arazi uçuşu, ambulans ve havayolu işleri; lisansına ve itibarına göre, rota haritasıyla. İlanlar 4 saatte bir yenilenir.</p><span class="chips" aria-hidden="true"><span>Kargo</span><span>Yolcu</span><span>Charter</span><span>Teslim</span><span>Arazi</span><span>Ambulans</span><span>Havayolu</span></span></li>
       <li><span class="num">02</span><h3>Otomatik uçuş hazırlığı</h3><p>Gerekirse simi açar, simin kendi havalimanı verisinden park yeri seçer (ya da motorlar çalışır hâlde pist başına koyar), uçuşu ve rota planını yazar, uçağı taşır ve yükü yükler. Gerçek MSFS&nbsp;2024'te denendi.</p></li>
       <li><span class="num">03</span><h3>Uçuş takibi ve puan</h3><p>Uçuş evreleri, iniş hızı ve temas anındaki G, sekme, aşırı hız, stall ve flap uyarıları ve hile tespiti: slew, ışınlanma ve havada yakıt ekleme.</p></li>
-      <li><span class="num">04</span><h3>Lisanslar ve sınav uçuşları</h3><p>SPL, PPL ve CPL; ardından çok motor, aletli uçuş, helikopter, jet, ATPL, dar gövde ve geniş gövde tip yetkileri. Her biri saat, seviye ve ücret ister, sonra sınav uçuşu gelir.</p></li>
+      <li><span class="num">04</span><h3>Lisanslar ve sınav uçuşları</h3><p>SPL, PPL ve CPL; ardından çok motor, aletli uçuş, helikopter, jet, ATPL, dar gövde ve geniş gövde tip yetkileri. Her biri saat, seviye ve ücret ister, sonra sınav uçuşu gelir.</p><span class="chips" aria-hidden="true"><span class="on">SPL</span><span class="on">PPL</span><span class="on">CPL</span><span>ME</span><span>IR</span><span>H</span><span>JET</span><span>ATPL</span><span>TR-N</span><span>TR-W</span></span></li>
       <li><span class="num">05</span><h3>Kazanmanın iki yolu</h3><p>Operatör adına uç (uçak, yakıt ve harçlar onun; sen saatlik ücret alırsın) ya da CPL'den sonra kendi hesabına: kirayı, yakıtı ve iniş harcını sen ödersin, kâr senindir.</p></li>
       <li><span class="num">06</span><h3>Seyir defteri, hangar ve finans</h3><p>Her uçuş uçulan iziyle, iniş verisi, kesintileri ve ücretiyle. Uçak alıp satma, bakım ve yıpranma, zamana bağlı faizi olmayan kredi.</p></li>
-      <li><span class="num">07</span><h3>Sim içi araç çubuğu paneli</h3><p>Rota, evre, kalan mesafe, tahmini varış, puan ve ücret MSFS 2020 ve 2024 araç çubuğunda; tam ekranda ve VR'da da.</p></li>
+      <li><span class="num">07</span><h3>Sim içi araç çubuğu paneli</h3><p>Rota, evre, kalan mesafe, tahmini varış, puan ve ücret MSFS 2020 ve 2024 araç çubuğunda; tam ekranda ve VR'da da.</p><span class="mini-panel" aria-hidden="true"><span><small>Modstead bağlı <b>Kargo</b></small>LTBA — LTBU<span class="trk"></span></span></span></li>
       <li><span class="num">08</span><h3>Ana menüde kariyer sayfası</h3><p>MSFS 2024'te simin kendi kutularının yanında bir <em>Modstead Kariyer</em> kutusu: simden çıkmadan iş al, uçağını (gerçek fotoğraflarıyla) seç ve uçuşu başlat.</p></li>
-      <li><span class="num">09</span><h3>Ücretsiz ve yerel</h3><p>Abonelik, hesap ve çevrim içi sunucu yok. Kariyer verisi bilgisayarında düz JSON olarak durur; SimBrief bir tık uzakta.</p></li>
+      <li class="inky"><span class="num">09</span><h3>Ücretsiz ve yerel</h3><p>Abonelik, hesap ve çevrim içi sunucu yok. Kariyer verisi bilgisayarında düz JSON olarak durur; SimBrief bir tık uzakta.</p></li>
     </ul>
-    <div class="note">
+    <div class="note grain">
       <h3>Modstead uygulamasının içinde çalışır</h3>
       <p>Kariyer kipi ayrı bir eklenti değil, Windows için ücretsiz bir mod yöneticisi olan Modstead'in parçasıdır: verisi, kuralları ve sim bağlantısı uygulamadadır; kariyerin kendisi için simin içine bir şey kurulmaz. Araç çubuğu paneli ve ana menü kutusu, uygulamanın <code>127.0.0.1</code>'de verdiğini gösteren isteğe bağlı paketlerdir. Uygulama kapalıyken uçuşlar takip edilmez, panel "Modstead bağlı değil" der ve kutu görünmez.</p>
     </div>
   </div>
 </section>
 
-<section class="section alt" id="realism" aria-labelledby="realism-title">
+<section class="section dark" id="realism" aria-labelledby="realism-title">
   <div class="wrap">
     <div class="sec-head">
       <p class="kicker">02 / Gerçekçilik</p>
-      <h2 id="realism-title">Öğütmesiz gerçekçilik</h2>
+      <h2 id="realism-title">Öğütmesiz <span class="mark">gerçekçilik</span></h2>
       <p>Simcilerin sevmediği şeyler belli: gizli ve sıfır toleranslı cezalar, öğütme ve gerçek zamanlı kilitler. Bu yüzden buradaki gerçekçilik gerçek prosedürlere ve kurallara dayanır; ama kurallar kısa toleranslarla uygulanır ve hiçbir şey seni gerçek zamanda bekletmez.</p>
     </div>
-    <dl class="strip rules-strip">
+    <dl class="rules-strip">
       <div><dt>Puan</dt><dd>Yalnızca güvenlik için düşer</dd></div>
       <div><dt>Prosedürler</dt><dd>Yalnızca XP bonusu verir (bonusların toplamı en çok +%20)</dd></div>
       <div><dt>Sim verisi</dt><dd>Simin okuyamadığı şey sayılmaz</dd></div>
       <div><dt>İtiraz</dt><dd>Kural kesintilerine, 7 gün içinde</dd></div>
     </dl>
 
-    <ul class="features realism">
+    <ul class="realism">
       <li><span class="num">Yaklaşma</span><h3>Kararlı yaklaşma ve teker koyma</h3><p>1000&nbsp;ft'te (aletli koşulda) ya da 500&nbsp;ft'te (görerek) kararlı yaklaşma kapısı dikey hıza, yatışa, iniş takımına ve hıza bakar. Kararsız yaklaşmayla iniş 5 puan; pas geçmek kesinti almaz, bonus kazandırır. Teker koyma noktası pist eşiğine, teker koyma bölgesine ve eksene göre ölçülür; kuyruk sürtmesi ile azami kalkış ve iniş ağırlığı da sınırdır.</p></li>
       <li><span class="num">Planlama</span><h3>Uçuş kâğıdı</h3><p>EASA yakıt politikasına göre yakıt (taksi, yol, ihtiyat, yedek meydan ve son yedek); IFR'de yedek meydan seçilir. Sıfır yakıt, kalkış ve iniş ağırlıkları sınırlarla karşılaştırılır; gereken pist yoğunluk irtifasıyla ve ıslak pistte uzar.</p></li>
       <li><span class="num">Hava</span><h3>Gerçek METAR</h3><p>İş panosu ve aktif iş için aviationweather.gov'dan gözlemler. Varışı IFR ya da LIFR olan iş geçerli aletli yetki ve yeterlilik ister; yetkili pilota kötü hava primi (IFR %15, LIFR %25). Ağ yoksa hava bilinmiyor sayılır.</p></li>
@@ -237,7 +271,7 @@
       <li><span class="num">Adil oyun</span><h3>Başarımlar ve itiraz</h3><p>Kariyerinden hesaplanan 24 başarım. Sim ya da eklenti hatasından doğan bir kesinti, uçuş ayrıntısında 7 gün içinde kaldırılabilir; puan, not, XP ve itibar yeniden hesaplanır, para asla değişmez.</p></li>
     </ul>
 
-    <div class="group">
+    <div class="group panel-blue grain">
       <div class="group-head">
         <h3>Uygulamada</h3>
         <p>Örnek verilerle uygulama önizlemesi, Türkçe arayüz. Ekranın tamamı için görüntüyü seç.</p>
@@ -246,7 +280,7 @@
         <figure class="shot span-6">
           <a href="../assets/img/realism-jobs-1600.webp"><img src="../assets/img/realism-jobs-main-600.webp"
             srcset="../assets/img/realism-jobs-main-600.webp 600w, ../assets/img/realism-jobs-main-1200.webp 1200w"
-            sizes="(min-width: 1200px) 554px, (min-width: 800px) 48vw, calc(100vw - 32px)"
+            sizes="(min-width: 1200px) 520px, (min-width: 800px) 44vw, calc(100vw - 72px)"
             width="1200" height="1033" loading="lazy" decoding="async"
             alt="Uçuş kategorisi (VFR, MVFR, IFR, LIFR), canlı hayvan ve tehlikeli madde etiketleri, aletli yetki gerekir uyarısı, kötü hava primi ve panoramik turla iş ilanları; seçilen işte varışın METAR'ı"></a>
           <figcaption>Hava, yük türü ve aletli yetki etiketleriyle <b>iş ilanları</b> ve bir panoramik tur.</figcaption>
@@ -254,14 +288,14 @@
         <figure class="shot span-6">
           <a href="../assets/img/realism-flight-1600.webp"><img src="../assets/img/realism-flight-main-430.webp"
             srcset="../assets/img/realism-flight-main-430.webp 430w, ../assets/img/realism-flight-main-859.webp 859w"
-            sizes="(min-width: 1200px) 554px, (min-width: 800px) 48vw, calc(100vw - 32px)"
+            sizes="(min-width: 1200px) 520px, (min-width: 800px) 44vw, calc(100vw - 72px)"
             width="859" height="778" loading="lazy" decoding="async"
             alt="Uçuş ayrıntıları: 500 ft kapısında kararsız yaklaşma, eşikten 1180 m ve eksenin 1,6 m sağında teker koyma, yan ve karşı rüzgâr, prosedür listesi, XP bonusu ve 72/100 yolcu konforu"></a>
           <figcaption>Yaklaşma kapısı, teker koyma noktası, prosedürler ve bonuslarla <b>uçuş ayrıntıları</b>.</figcaption>
         </figure>
         <figure class="shot span-7">
           <a href="../assets/img/realism-dashboard-1600.webp"><img src="../assets/img/realism-dispatch-720.webp"
-            sizes="(min-width: 1200px) 650px, (min-width: 800px) 56vw, calc(100vw - 32px)"
+            sizes="(min-width: 1200px) 610px, (min-width: 800px) 52vw, calc(100vw - 72px)"
             width="720" height="630" loading="lazy" decoding="async"
             alt="Uçuş kâğıdı: taksi, yol ve son yedekle yakıt planı, kalkış ve iniş sınırlarına göre ağırlık ve denge, yoğunluk irtifasıyla kalkış ve varış pistleri, iki havalimanının METAR'ı"></a>
           <figcaption>Yakıt planı, ağırlıklar, pistler ve METAR ile <b>uçuş kâğıdı</b>.</figcaption>
@@ -283,7 +317,7 @@
       <figure class="shot">
         <a href="../assets/img/realism-menu-tour-1920.webp"><img src="../assets/img/realism-menu-tour-960.webp"
           srcset="../assets/img/realism-menu-tour-960.webp 960w, ../assets/img/realism-menu-tour-1920.webp 1920w"
-          sizes="(min-width: 1200px) 1136px, calc(100vw - 32px)"
+          sizes="(min-width: 1240px) 1160px, calc(100vw - 32px)"
           width="1920" height="1080" loading="lazy" decoding="async"
           alt="Ana menü kariyer sayfasının iş ilanları: canlı hayvan ve tehlikeli madde yükleri, IFR ve LIFR etiketleri, aletli yetki gerekir uyarısı ve iki hedefiyle seçili bir panoramik tur"></a>
         <figcaption>Ana menü iş ilanlarında hedefleriyle bir <b>panoramik tur</b>.</figcaption>
@@ -293,7 +327,7 @@
   </div>
 </section>
 
-<section class="section" id="screenshots" aria-labelledby="screenshots-title">
+<section class="section light" id="screenshots" aria-labelledby="screenshots-title">
   <div class="wrap">
     <div class="sec-head">
       <p class="kicker">03 / Ekran görüntüleri</p>
@@ -319,7 +353,7 @@
         <figure class="shot span-12">
           <a href="../assets/img/main-menu-jobs-1400.webp"><img src="../assets/img/main-menu-jobs-1400.webp"
             srcset="../assets/img/main-menu-jobs-700.webp 700w, ../assets/img/main-menu-jobs-1400.webp 1400w"
-            sizes="(min-width: 1200px) 1136px, calc(100vw - 32px)"
+            sizes="(min-width: 1240px) 1160px, calc(100vw - 32px)"
             width="1400" height="736" loading="lazy" decoding="async"
             alt="MSFS 2024 ana menüsündeki kariyer sayfasında İş ilanları sekmesi: LTBA'da ambulans, kargo, charter, yolcu, arazi ve teslim işleri ve seçilen kargo işinin ayrıntıları"></a>
           <figcaption><b>İş ilanları</b> simin içinde, seçilen işin ayrıntılarıyla.</figcaption>
@@ -332,7 +366,7 @@
         <figure class="shot span-7">
           <a href="../assets/img/main-menu-pilot-1400.webp"><img src="../assets/img/main-menu-pilot-700.webp"
             srcset="../assets/img/main-menu-pilot-700.webp 700w, ../assets/img/main-menu-pilot-1400.webp 1400w"
-            sizes="(min-width: 1200px) 650px, (min-width: 800px) 56vw, calc(100vw - 32px)"
+            sizes="(min-width: 1240px) 670px, (min-width: 800px) 56vw, calc(100vw - 32px)"
             width="1400" height="736" loading="lazy" decoding="async"
             alt="MSFS 2024 ana menüsündeki kariyer sayfasında Pilot sekmesi: seviye ve XP, itibar, pilot puanı, kariyer özeti, lisanslar ve son uçuşlar"></a>
           <figcaption><b>Pilot</b> sekmesi: seviye, itibar, lisanslar ve son uçuşlar.</figcaption>
@@ -348,7 +382,7 @@
       <figure class="shot">
         <a href="../assets/img/toolbar-panel-1500.webp"><img src="../assets/img/toolbar-panel-750.webp"
           srcset="../assets/img/toolbar-panel-750.webp 750w, ../assets/img/toolbar-panel-1500.webp 1500w"
-          sizes="(min-width: 1200px) 1136px, calc(100vw - 32px)"
+          sizes="(min-width: 1240px) 1160px, calc(100vw - 32px)"
           width="1500" height="535" loading="lazy" decoding="async"
           alt="Üç durumda araç çubuğu paneli: 16 nm kala seyirde kargo uçuşu, 142 fpm inişten sonra ambulans uçuşu ve kontrol kapısı 5/5 ile kalkışa hazır yolcu uçuşu"></a>
         <figcaption><b>Üç durum:</b> seyirde kargo uçuşu, inişten sonra ambulans uçuşu, kalkışa hazır yolcu uçuşu. MSFS 2020 ve 2024 araç çubuğu için isteğe bağlı bir panel; uygulama açıkken kodunu uygulamanın yerel sunucusundan alır, böylece bir güncelleme simi yeniden başlatmadan panele ulaşır. Önceki sürümü MSFS 2024'te denenip düzeltildi; güncel sürümü (0.3.0) uçuşta henüz denenmedi.</figcaption>
@@ -364,7 +398,7 @@
         <figure class="shot span-7">
           <a href="../assets/img/job-board-1400.webp"><img src="../assets/img/job-board-main-650.webp"
             srcset="../assets/img/job-board-main-650.webp 650w, ../assets/img/job-board-main-1062.webp 1062w"
-            sizes="(min-width: 1200px) 650px, (min-width: 800px) 56vw, calc(100vw - 32px)"
+            sizes="(min-width: 1240px) 670px, (min-width: 800px) 56vw, calc(100vw - 32px)"
             width="1062" height="715" loading="lazy" decoding="async"
             alt="Ambulans, kargo, charter, yolcu, arazi ve teslim işleriyle iş ilanları ve LTBA–LTBJ rotasının haritası"></a>
           <figcaption><b>İş ilanları</b> ve rota haritası.</figcaption>
@@ -372,7 +406,7 @@
         <figure class="shot span-5">
           <a href="../assets/img/flight-details-900.webp"><img src="../assets/img/flight-details-450.webp"
             srcset="../assets/img/flight-details-450.webp 450w, ../assets/img/flight-details-900.webp 900w"
-            sizes="(min-width: 1200px) 460px, (min-width: 800px) 40vw, calc(100vw - 32px)"
+            sizes="(min-width: 1240px) 470px, (min-width: 800px) 40vw, calc(100vw - 32px)"
             width="900" height="830" loading="lazy" decoding="async"
             alt="Uçuş ayrıntıları: haritada uçulan iz, 91 puan ve A notu, 168 fpm iniş, kesintiler, zaman çizelgesi ve hesap"></a>
           <figcaption>Uçulan iziyle <b>uçuş ayrıntıları</b>.</figcaption>
@@ -380,7 +414,7 @@
         <figure class="shot span-7">
           <a href="../assets/img/hangar-finance-1400.webp"><img src="../assets/img/hangar-finance-main-650.webp"
             srcset="../assets/img/hangar-finance-main-650.webp 650w, ../assets/img/hangar-finance-main-1062.webp 1062w"
-            sizes="(min-width: 1200px) 650px, (min-width: 800px) 56vw, calc(100vw - 32px)"
+            sizes="(min-width: 1240px) 670px, (min-width: 800px) 56vw, calc(100vw - 32px)"
             width="1062" height="713" loading="lazy" decoding="async"
             alt="Hangar ve finans: durumu ve bakımıyla sahip olunan uçaklar, sınıfa göre uçak fiyatları, kredi, kredi sınırı ve işlemler"></a>
           <figcaption><b>Hangar ve finans.</b></figcaption>
@@ -388,7 +422,7 @@
         <figure class="shot span-5">
           <a href="../assets/img/licences-1220.webp"><img src="../assets/img/licences-610.webp"
             srcset="../assets/img/licences-610.webp 610w, ../assets/img/licences-1220.webp 1220w"
-            sizes="(min-width: 1200px) 460px, (min-width: 800px) 40vw, calc(100vw - 32px)"
+            sizes="(min-width: 1240px) 470px, (min-width: 800px) 40vw, calc(100vw - 32px)"
             width="1220" height="1205" loading="lazy" decoding="async"
             alt="Pilot lisansları ve yetkileri: öğrenci, özel, ticari, çok motor, aletli, helikopter, jet ve ATPL; her biri saat, seviye ve sınav ücretiyle"></a>
           <figcaption>Sınav uçuşlarıyla kazanılan <b>lisanslar ve yetkiler</b>.</figcaption>
@@ -396,7 +430,7 @@
         <figure class="shot span-12">
           <a href="../assets/img/logbook-1400.webp"><img src="../assets/img/logbook-main-1062.webp"
             srcset="../assets/img/logbook-main-700.webp 700w, ../assets/img/logbook-main-1062.webp 1062w"
-            sizes="(min-width: 1200px) 1062px, calc(100vw - 32px)"
+            sizes="(min-width: 1240px) 1160px, calc(100vw - 32px)"
             width="1062" height="435" loading="lazy" decoding="async"
             alt="Her uçuş için tarih, rota, uçak, blok süresi, fpm cinsinden iniş hızı, not ve net kazançla seyir defteri"></a>
           <figcaption>İniş hızı ve notuyla <b>seyir defteri</b>.</figcaption>
@@ -406,8 +440,9 @@
   </div>
 </section>
 
-<section class="section alt" id="how-it-works" aria-labelledby="how-title">
+<section class="section cobalt grain how-sec" id="how-it-works" aria-labelledby="how-title">
   <div class="wrap">
+    <svg class="doodle d-cloud" viewBox="0 0 150 80" aria-hidden="true" focusable="false"><path d="M22 66h96c14 0 24-9 24-21s-10-21-23-21c-3-12-14-20-27-20-12 0-22 7-26 17-4-3-9-4-14-4-12 0-21 9-21 20-9 1-15 8-15 15 0 8 6 14 6 14Z"/><path d="M34 74h70"/></svg>
     <div class="sec-head">
       <p class="kicker">04 / Nasıl çalışır</p>
       <h2 id="how-title">Bir kariyer uçuşu nasıl işler</h2>
@@ -415,7 +450,7 @@
     </div>
     <div class="how">
       <div>
-        <div class="route" aria-hidden="true"><span>LTBA</span><span class="line"></span><span>LTBU</span></div>
+        <div class="route" aria-hidden="true"><span>LTBA</span><span class="line"><svg viewBox="-17 -17 34 34"><path d="M14 0l-9-3-5-11h-4l2 11-8 1-3-4h-3l2 6-2 6h3l3-4 8 1-2 11h4l5-11z"/></svg></span><span>LTBU</span></div>
         <ol class="steps">
           <li><h3>İş seç</h3><p>Bulunduğun havalimanındaki ilanlardan bir iş seç; uygulamada ya da MSFS 2024 ana menüsünde.</p></li>
           <li><h3>Uygulama uçuşu hazırlar</h3><p>Gerekirse MSFS'i açar, uçağını uygun bir park yerine koyar, yükü yükler ve rota planını yazar. Sim uçuşu kendiliğinden yüklemezse kalkış havalimanında bir serbest uçuş aç ve <em>Park yerine taşı</em>'ya bas.</p></li>
@@ -425,9 +460,10 @@
         <p class="after-steps">Uygulama SimConnect ağ protokolünü yerel TCP üzerinden kendisi konuşur; SimConnect.dll taşınmaz ve sime hiçbir şey enjekte edilmez. MSFS 2024 bu portu öntanımlı açar; MSFS 2020 <code>SimConnect.xml</code>'de yerel bir IPv4 girişi ister (<a href="#faq-msfs-2020">nasıl</a>).</p>
       </div>
       <figure class="shot">
+        <svg class="doodle d-smile" viewBox="0 0 74 64" aria-hidden="true" focusable="false"><path d="M24 6c-1 8-1 15 0 22"/><path d="M48 4c-1 8-1 15 0 22"/><path d="M6 36c10 22 50 28 64 2"/></svg>
         <a href="../assets/img/preflight-checks-730.webp"><img src="../assets/img/preflight-checks-365.webp"
           srcset="../assets/img/preflight-checks-365.webp 365w, ../assets/img/preflight-checks-730.webp 730w"
-          sizes="(min-width: 1200px) 380px, (min-width: 900px) 32vw, calc(100vw - 32px)"
+          sizes="(min-width: 1240px) 390px, (min-width: 920px) 32vw, calc(100vw - 32px)"
           width="730" height="1100" loading="lazy" decoding="async"
           alt="Açık temada uçuş öncesi kontroller: sim bağlı, kalkış havalimanında, uçak uygun, slew kapalı; yakıt ve yük önerileriyle"></a>
         <figcaption><b>Kontrol kapısı</b> (açık tema, örnek verilerle uygulama önizlemesi).</figcaption>
@@ -436,7 +472,7 @@
   </div>
 </section>
 
-<section class="section" id="rules" aria-labelledby="rules-title">
+<section class="section light" id="rules" aria-labelledby="rules-title">
   <div class="wrap">
     <div class="sec-head">
       <p class="kicker">05 / Kurallar ve puan</p>
@@ -507,7 +543,7 @@
   </div>
 </section>
 
-<section class="section alt" id="compare" aria-labelledby="compare-title">
+<section class="section dark" id="compare" aria-labelledby="compare-title">
   <div class="wrap">
     <div class="sec-head">
       <p class="kicker">06 / Karşılaştırma</p>
@@ -541,7 +577,7 @@
   </div>
 </section>
 
-<section class="section" id="download" aria-labelledby="download-title">
+<section class="section light" id="download" aria-labelledby="download-title">
   <div class="wrap">
     <div class="sec-head">
       <p class="kicker">07 / İndir</p>
@@ -549,11 +585,11 @@
       <p>Kariyer kipi Modstead uygulamasıyla gelir. Windows 10 ya da 11'e (x64) kur ya da kaynaktan derle.</p>
     </div>
     <div class="install">
-      <div>
+      <div class="launch grain">
         <div class="cta">
           <a class="btn btn-primary" href="https://github.com/azorkai/modstead/releases/latest/download/Modstead-setup-x64.exe">
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>
             Modstead-setup-x64.exe indir
+            <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg></span>
           </a>
         </div>
         <div class="cta links">
@@ -571,7 +607,7 @@
           <li><b>SmartScreen uyarısı</b>Kurucu kodla imzalanmadığı için Windows SmartScreen "Bilinmeyen yayıncı" uyarısı gösterebilir. <em>Ek bilgi</em>'yi, ardından <em>Yine de çalıştır</em>'ı seç.</li>
         </ul>
       </div>
-      <div>
+      <div class="side-card">
         <h3>Kurduktan sonra</h3>
         <ol>
           <li>Uygulamayı aç, MSFS → Kariyer'e git ve pilotunu kaydet: ad, çağrı kodu, ana üs, zorluk ve başlangıç rütbesi.</li>
@@ -593,32 +629,33 @@ npm run app:build</code></pre>
   </div>
 </section>
 
-<section class="section coffee-sec" id="support" aria-labelledby="support-title">
+<section class="section light coffee-sec" id="support" aria-labelledby="support-title">
   <div class="wrap">
-    <div class="coffee-card">
+    <div class="coffee-card grain">
+      <svg class="doodle d-smile2" viewBox="0 0 74 64" aria-hidden="true" focusable="false"><path d="M24 6c-1 8-1 15 0 22"/><path d="M48 4c-1 8-1 15 0 22"/><path d="M6 36c10 22 50 28 64 2"/></svg>
+      <svg class="doodle d-spark" viewBox="0 0 44 44" aria-hidden="true" focusable="false"><path d="M22 3c0 8 1 14 0 38M4 21c10 1 24 1 36 0M9 8c8 8 18 18 26 28M35 8C27 17 17 26 9 35"/></svg>
       <div class="coffee-art">
         <svg class="coffee-svg" viewBox="0 0 320 260" width="320" height="260" aria-hidden="true">
-          <defs><radialGradient id="cg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ff7a1a" stop-opacity=".28"/><stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/></radialGradient></defs>
-          <circle cx="160" cy="150" r="128" fill="url(#cg)"/>
-          <ellipse cx="160" cy="138" rx="138" ry="62" fill="none" stroke="#ff7a1a" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 10" opacity=".55"/>
+          <ellipse cx="160" cy="138" rx="138" ry="62" fill="none" stroke="#ffdd00" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="1 11" opacity=".75"/>
           <path class="steam" d="M134 88c-12-11 12-20 0-33s12-20 0-31"/>
           <path class="steam s2" d="M160 82c-12-11 12-20 0-33s12-20 0-31"/>
           <path class="steam s3" d="M186 88c-12-11 12-20 0-33s12-20 0-31"/>
-          <ellipse cx="160" cy="226" rx="92" ry="15" fill="#262930"/>
+          <ellipse cx="160" cy="226" rx="96" ry="15" fill="#2f5bff"/>
           <path d="M228 128h13a22 22 0 0 1 0 44h-17" fill="none" stroke="#e4d6bf" stroke-width="11" stroke-linecap="round"/>
           <path d="M92 112h136v38a68 68 0 0 1-68 68a68 68 0 0 1-68-68z" fill="#f3e9d8"/>
           <path d="M92 132h136v17h-136z" fill="#ff7a1a"/>
           <ellipse cx="160" cy="112" rx="68" ry="13" fill="#6b3f1f"/>
           <path d="M160 121c-9-6-13-9-13-12.6a5 5 0 0 1 9-2.6l4 3.4 4-3.4a5 5 0 0 1 9 2.6c0 3.6-4 6.6-13 12.6z" fill="#f3e9d8" opacity=".92"/>
-          <g class="orbit-plane"><path d="M14 0l-9-3-5-11h-4l2 11-8 1-3-4h-3l2 6-2 6h3l3-4 8 1-2 11h4l5-11z" fill="#ff9a52"><animateMotion dur="11s" repeatCount="indefinite" rotate="auto" path="M298 138a138 62 0 1 1 -276 0a138 62 0 1 1 276 0"/></path></g>
+          <g class="orbit-plane"><path d="M14 0l-9-3-5-11h-4l2 11-8 1-3-4h-3l2 6-2 6h3l3-4 8 1-2 11h4l5-11z" fill="#ffdd00"><animateMotion dur="11s" repeatCount="indefinite" rotate="auto" path="M298 138a138 62 0 1 1 -276 0a138 62 0 1 1 276 0"/></path></g>
+          <g class="orbit-static" transform="translate(276 104) rotate(-62)"><path d="M14 0l-9-3-5-11h-4l2 11-8 1-3-4h-3l2 6-2 6h3l3-4 8 1-2 11h4l5-11z" fill="#ffdd00"/></g>
         </svg>
       </div>
       <div class="coffee-copy">
         <p class="kicker">Modstead'e destek ol</p>
-        <h2 id="support-title">Pilota bir kahve ısmarla</h2>
+        <h2 id="support-title">Pilota bir kahve <span class="mark">ısmarla</span></h2>
         <p>Modstead ve kariyer kipi ücretsiz ve açık kaynak: reklam yok, hesap yok, abonelik yok. Uçuşlarını daha keyifli hale getirdiyse bir kahve, güncellemelerin sürmesine yakıt olur.</p>
         <div class="coffee-cta">
-          <a class="btn btn-coffee" href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5"/></svg>Bir kahve ısmarla</a>
+          <a class="btn btn-coffee" href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5"/></svg></span>Bir kahve ısmarla</a>
           <span class="coffee-url">buymeacoffee.com/azorkai</span>
         </div>
         <p class="coffee-also">Başka yollar: <a href="https://github.com/azorkai/modstead">depoya yıldız ver</a> · <a href="https://github.com/azorkai/modstead/issues">hata bildir ya da özellik öner</a>.</p>
@@ -627,8 +664,8 @@ npm run app:build</code></pre>
   </div>
 </section>
 
-<section class="section alt" id="faq" aria-labelledby="faq-title">
-  <div class="wrap">
+<section class="section light" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq-wrap">
     <div class="sec-head">
       <p class="kicker">08 / SSS</p>
       <h2 id="faq-title">Sık sorulan sorular</h2>
@@ -707,11 +744,12 @@ npm run app:build</code></pre>
         <li><a href="https://github.com/azorkai/modstead/blob/main/games/msfs/KARIYER.md">Kariyer belgesi</a></li>
         <li><a href="https://github.com/azorkai/modstead/blob/main/SECURITY.md">Güvenlik politikası</a></li>
         <li><a href="https://github.com/azorkai/modstead/blob/main/README.tr.md">README</a></li>
-        <li><a href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener">☕ Bir kahve ısmarla</a></li>
+        <li><a href="https://buymeacoffee.com/azorkai" target="_blank" rel="noopener"><svg class="cupi" width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9h12v4.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V9Zm12 1h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5v2.5M12 3.5v2.5"/></svg>Bir kahve ısmarla</a></li>
         <li><a href="../" hreflang="en" lang="en">English</a></li>
       </ul>
     </nav>
   </div>
+  <div class="wordmark" aria-hidden="true">Modstead</div>
 </footer>
 </body>
 </html>
