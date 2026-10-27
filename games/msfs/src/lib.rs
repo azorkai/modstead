@@ -429,6 +429,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static 
         career::commands::msfs_career_reset,
         career::commands::msfs_career_paths,
         career::commands::msfs_career_set_path,
+        career::commands::msfs_career_sim_rate,
         career::commands::msfs_career_debug_licenses,
         career::commands::msfs_career_debug_level,
         career::commands::msfs_career_board,

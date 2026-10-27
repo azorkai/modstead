@@ -14,6 +14,8 @@ export const careerApi = {
   /** Geliştirici araçları (yalnızca hata ayıklama derlemesi): lisansları ve seviyeyi elle ayarlar. */
   debugLicenses: (licenses: string[]) => invoke<CareerView>("msfs_career_debug_licenses", { licenses }),
   debugLevel: (level: number) => invoke<CareerView>("msfs_career_debug_level", { level }),
+  /** Sim hızı (1, 2, 4, 8, 16); hızlandırma yalnızca güvenli bir seyirde açılır. */
+  simRate: (rate: number) => invoke<void>("msfs_career_sim_rate", { rate }),
   board: () => invoke<Job[]>("msfs_career_board"),
   /** Panodaki varışların ve aktif işin METAR'ları (gerekirse aviationweather.gov'dan). */
   weather: () => invoke<Metar[]>("msfs_career_weather"),

@@ -38,6 +38,7 @@ mod pause_guard;
 pub mod progression;
 pub mod qr;
 pub mod records;
+pub mod sim_rate;
 pub mod simconnect;
 pub mod tiles;
 pub mod tracker;
@@ -143,6 +144,8 @@ pub struct Live {
     pub camera: Option<u32>,
     /// Ortam: ışıklar, hava, saat, kabin (saniyede bir).
     pub env: Option<env::Env>,
+    /// Modstead'in yönettiği sim hızı (zaman hızlandırma; bkz. `sim_rate`).
+    pub rate: sim_rate::RateView,
     #[serde(skip)]
     pub last_data: Option<Instant>,
     #[serde(skip)]
@@ -911,6 +914,42 @@ impl Career {
         self.note("komut", "park yerine / pist başına taşı");
         self.send(Command::Reposition);
         Ok(())
+    }
+
+    /// Sim hızını ayarlar (1×, 2×, 4×, 8×, 16×). Hızlandırma yalnızca güvenli bir seyirde açılır; Modstead'in açtığı
+    /// hızlandırma varışa yaklaşınca, alçalınca ya da uyarıda kendiliğinden 1×'e döner (bkz. `sim_rate`).
+    pub fn set_sim_rate(&self, rate: u32) -> AppResult<()> {
+        let rate = sim_rate::normalize(rate);
+        let live = self.live();
+        if live.link.state != "connected" || !live.in_flight {
+            return Err(AppError::msg(tr!("Simde bir uçuş açık olmalı.", "A flight must be open in the sim.")));
+        }
+        if rate > 1 {
+            if let Some(h) = sim_rate::hold(&self.rate_sample(&live)) {
+                return Err(AppError::msg(h.text()));
+            }
+        }
+        self.note("komut", format!("sim hızı {rate}×"));
+        self.send(Command::SimRate(rate));
+        Ok(())
+    }
+
+    /// Sim hızı kararı için o anki durum: canlı veri ve kariyer uçuşunun takipçisi.
+    pub(crate) fn rate_sample(&self, live: &Live) -> sim_rate::Sample {
+        let t = live.telemetry.clone().unwrap_or_default();
+        let started = self.lock_data().active.as_ref().and_then(|a| a.tracker.as_ref()).is_some_and(|tr| tr.started() && !tr.crashed);
+        let flight = live.flight.as_ref();
+        sim_rate::Sample {
+            flying: live.link.state == "connected" && live.in_flight && started && flight.is_some(),
+            phase: flight.map(|f| f.phase).unwrap_or_default(),
+            on_ground: t.on_ground,
+            agl_ft: t.agl_ft,
+            vs_fpm: t.vs_fpm,
+            gs_kt: t.gs_kt,
+            remaining_nm: flight.map(|f| f.remaining_nm).unwrap_or(0.0),
+            warning: t.stall || t.overspeed || t.flap_overspeed,
+            rate: if t.sim_rate > 0.0 { t.sim_rate } else { 1.0 },
+        }
     }
 
     /// Park ettikten sonra uçuşu kapatır ve hesabı keser.

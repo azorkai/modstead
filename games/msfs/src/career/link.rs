@@ -59,6 +59,8 @@ pub enum Command {
     AirportDetail { icao: String },
     /// Yüklü uçak ve boya listesini tazele.
     RefreshAircraft,
+    /// Sim hızını bu değere getir (bkz. `sim_rate`).
+    SimRate(u32),
     Shutdown,
 }
 

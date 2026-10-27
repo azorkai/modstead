@@ -22,6 +22,7 @@ use super::flt::{self, AirportDetail, Parking, Runway};
 use super::link::{Command, Handler, LinkState, Outbox, Target};
 use super::model::{KnownAircraft, Stage};
 use super::pause_guard::{self, Act, PauseGuard, SimEvent};
+use super::sim_rate;
 use super::simconnect::{DataType, OBJECT_USER, PROTO_SUNRISE, Period, Reader, Recv, Request, SIMOBJECT_AIRCRAFT, SIMOBJECT_HELICOPTER, flow};
 use super::tracker::{Airfield, Telemetry, Tracker};
 use super::{AircraftNow, Career, Check, FlightLive, Installed, LaunchView, LinkView, SimAirports, check_aircraft_for_job};
@@ -53,6 +54,9 @@ const EV_CRASHED: u32 = 4;
 const EV_ACTIVE_PAUSE_TOGGLE: u32 = 5;
 const EV_PAUSE_ON: u32 = 6;
 const EV_PAUSE_OFF: u32 = 7;
+/// Sim hızını ikiye katlar / yarıya indirir (bkz. `sim_rate`).
+const EV_RATE_FASTER: u32 = 8;
+const EV_RATE_SLOWER: u32 = 9;
 /// Simin önceliği en yüksek olay grubu ve "grup kimliği önceliktir" bayrağı (`SimConnect_TransmitClientEvent`).
 const GROUP_PRIORITY_HIGHEST: u32 = 1;
 const EVENT_FLAG_GROUPID_IS_PRIORITY: u32 = 0x10;
@@ -292,6 +296,8 @@ pub struct Engine {
     /// Son `Pause_EX1` değeri (ESC menüsü, tam duraklatma) ve son okunan aktif duraklatma (günlük için).
     pause_ex1: u32,
     active_pause: Option<bool>,
+    /// Modstead'den açılan zaman hızlandırma.
+    rate: sim_rate::RateControl,
 }
 
 impl Engine {
@@ -329,6 +335,25 @@ impl Engine {
             event_maps: HashMap::new(),
             pause_ex1: 0,
             active_pause: None,
+            rate: Default::default(),
+        }
+    }
+
+    /// Zaman hızlandırma: gerekirse simin hızını bir adım değiştirir, kendiliğinden 1×'e dönüşü günlüğe yazar.
+    fn steer_rate(&mut self, out: &mut Outbox) {
+        let live = self.career.live();
+        let sample = self.career.rate_sample(&live);
+        let before = self.rate.view();
+        if let Some(step) = self.rate.observe(&sample, Instant::now()) {
+            let event = if step == sim_rate::Step::Faster { EV_RATE_FASTER } else { EV_RATE_SLOWER };
+            out.send(Request::TransmitClientEvent { object: OBJECT_USER, event, data: 0, group: GROUP_PRIORITY_HIGHEST, flags: EVENT_FLAG_GROUPID_IS_PRIORITY });
+        }
+        let view = self.rate.view();
+        if view.returned.is_some() && view.returned != before.returned {
+            self.note("hız", format!("kendiliğinden 1×'e dönüldü: {:?} ({:.0} ft AGL, {:.0} nm kaldı)", view.returned.unwrap(), sample.agl_ft, sample.remaining_nm));
+        }
+        if view != live.rate {
+            self.career.live.lock().unwrap().rate = view;
         }
     }
 
@@ -1449,6 +1474,10 @@ impl Handler for Engine {
                 self.event_maps.insert(send, ev);
             }
         }
+        for (id, name) in [(EV_RATE_FASTER, "SIM_RATE_INCR"), (EV_RATE_SLOWER, "SIM_RATE_DECR")] {
+            out.send(Request::MapClientEventToSimEvent { event: id, name: name.into() });
+        }
+        self.rate.reset();
         out.send(Request::SubscribeToFlowEvent);
         self.on_command(out, Command::RefreshAircraft);
         let fresh = {
@@ -1650,12 +1679,23 @@ impl Handler for Engine {
                     }
                 }
             }
+            Command::SimRate(rate) => {
+                let live = self.career.live();
+                let sample = self.career.rate_sample(&live);
+                if let Err(h) = self.rate.request(rate, &sample) {
+                    self.note("hız", format!("{rate}× istendi ama açılmadı: {h:?}"));
+                }
+                self.career.live.lock().unwrap().rate = self.rate.view();
+            }
             Command::Shutdown => {}
         }
     }
 
     fn tick(&mut self, out: &mut Outbox) {
         self.advance_launch(out);
+        if self.connected {
+            self.steer_rate(out);
+        }
         let acts = self.pause.tick(Instant::now());
         self.pause_acts(out, acts);
         self.feed_destination(out);
@@ -1692,6 +1732,8 @@ impl Handler for Engine {
                 live.in_flight = false;
                 live.last_data = None;
                 live.camera = None;
+                self.rate.reset();
+                live.rate = self.rate.view();
             }
         }
         if was_connected && !self.connected {

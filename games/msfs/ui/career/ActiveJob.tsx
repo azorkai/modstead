@@ -497,6 +497,7 @@ function LiveFlight({ flight, live }: { flight: NonNullable<Live["flight"]>; liv
           </span>
         </div>
       </div>
+      <SimRate live={live} />
       {flight.landing && (
         <div className="flex items-center gap-3 rounded-[14px] border border-line px-3.5 py-2.5">
           <span className="text-[11.5px] text-muted">{t.live.landing}</span>
@@ -510,6 +511,59 @@ function LiveFlight({ flight, live }: { flight: NonNullable<Live["flight"]>; liv
         <div className="mb-1.5 text-[12px] font-semibold text-fg-2">{t.live.events}</div>
         <Events events={flight.events} />
       </div>
+    </div>
+  );
+}
+
+const RATES = [1, 2, 4, 8, 16];
+
+/** Zaman hızlandırma: seyirde 2×–16×; Modstead'in açtığı hız varışa yaklaşınca kendiliğinden 1×'e döner. */
+function SimRate({ live }: { live: Live }) {
+  const t = useCareerT();
+  const [busy, setBusy] = useState(false);
+  const rate = live.rate;
+  if (!rate) return null;
+  const now = live.telemetry?.simRate ?? 1;
+  const set = async (r: number) => {
+    setBusy(true);
+    try {
+      await careerApi.simRate(r);
+    } catch (e) {
+      notifyError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  // Seçili gösterilen: Modstead'in hedefi; pilot simin tuşlarıyla değiştirdiyse simin hızı.
+  const shown = rate.managed ? rate.target : Math.round(now);
+  const status = rate.returned ? t.live.rate.returned[rate.returned] : rate.hold ? t.live.rate.hold[rate.hold] : null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border border-line px-3.5 py-2.5">
+      <span className="inline-flex items-center gap-1 text-[11.5px] text-muted">
+        {t.live.rate.label}
+        <Hint text={t.live.rate.hint} />
+      </span>
+      <div className="flex rounded-full border border-line-strong p-0.5">
+        {RATES.map((r) => {
+          const off = busy || (r > 1 && !!rate.hold);
+          return (
+            <button
+              key={r}
+              type="button"
+              disabled={off || r === shown}
+              onClick={() => void set(r)}
+              className={clsx(
+                "tabular h-7 min-w-[40px] rounded-full px-2 font-mono text-[12px] font-bold transition-colors",
+                r === shown ? "bg-accent text-accent-ink" : off ? "cursor-default text-muted/50" : "text-fg-2 hover:bg-surface-2 hover:text-fg",
+              )}
+            >
+              {r}×
+            </button>
+          );
+        })}
+      </div>
+      {Math.abs(now - shown) > 0.05 && <span className="tabular font-mono text-[11.5px] text-muted">{t.live.rate.sim(num(now, 2))}</span>}
+      {status && <span className={clsx("text-[12px]", rate.returned ? "font-semibold text-warn" : "text-muted")}>{status}</span>}
     </div>
   );
 }

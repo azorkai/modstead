@@ -778,6 +778,20 @@ export interface Live {
   /** Simin CAMERA STATE değeri: 2 kokpit, 16 açılış sineması ("Uçuşa hazır" bekleniyor). */
   camera?: number | null;
   env?: Env | null;
+  /** Modstead'in yönettiği sim hızı (zaman hızlandırma); eski uygulamada yok. */
+  rate?: RateView;
+}
+
+/** Zaman hızlandırmanın neden açılamadığı ya da neden 1×'e dönüldüğü. */
+export type RateHold = "no_flight" | "ground" | "phase" | "low" | "descent" | "arrival" | "warning";
+
+export interface RateView {
+  /** Modstead'in hedeflediği hız (1 = normal). */
+  target: number;
+  /** Hız Modstead'den açıldı (varışta kendiliğinden 1×'e döner). */
+  managed: boolean;
+  hold: RateHold | null;
+  returned: RateHold | null;
 }
 
 export interface LedgerEntry {

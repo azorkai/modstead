@@ -445,6 +445,17 @@ yakıt eklenmesi, havada başlayan uçuş, kaza (puan 0, ücret yok, kaza itibar
 - Seviye L için toplam XP: `250 × L × (L − 1) / 2`.
 - İtibar (0–100, başlangıç 50): `(puan − 70) / 10`, −5..+3; geç −3, başarısız −6, kaza −15.
 
+### Zaman hızlandırma (`sim_rate.rs`)
+
+- Aktif uçuş ekranındaki **Sim hızı** seçicisi simi 1×, 2×, 4×, 8× ya da 16× hızda çalıştırır (SimConnect
+  `SIM_RATE_INCR`/`SIM_RATE_DECR`, hedefe birer adımla; sim bir hızı kabul etmezse simin hızında kalınır).
+- Yalnızca takip edilen kariyer uçuşunda, tırmanış ya da seyirde, en az 2.000 ft AGL'de, 1.500 fpm'den sert
+  alçalmıyorken, stall/aşırı hız uyarısı yokken ve varışa en az 30 nm ve (yer hızıyla) 12 dakika varken açılır.
+- Modstead'in açtığı hızlandırma bunlardan biri bozulunca kendiliğinden 1×'e döner ve nedeni ekranda yazar. Pilotun
+  simin kendi tuşlarıyla açtığı hıza dokunulmaz.
+- Kural aynıdır: lisans saati blok süresidir ama gerçek sürenin 1,5 katını geçemez (hızlandırılmış uçuş daha az saat
+  yazar). Teslim süresi gerçek zamanla işler.
+
 ### Uçak, hasar, kredi
 
 - Kiralama havalimanının büyüklüğüne bağlı (küçükte yalnız hafif/çift pistonlu, tek turboprop, helikopter).

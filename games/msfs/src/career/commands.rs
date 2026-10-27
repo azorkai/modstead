@@ -70,6 +70,12 @@ pub async fn msfs_career_reset(game: G<'_>) -> AppResult<()> {
     .await
 }
 
+/// Sim hızı (zaman hızlandırma): 1, 2, 4, 8 ya da 16 (bkz. `Career::set_sim_rate`).
+#[tauri::command]
+pub async fn msfs_career_sim_rate(game: G<'_>, rate: u32) -> AppResult<()> {
+    run(&game, move |c| c.set_sim_rate(rate)).await
+}
+
 /// Geliştirici aracı: lisansları elle ayarlar (yalnızca hata ayıklama derlemesi; bkz. `Career::debug_set_licenses`).
 #[tauri::command]
 pub async fn msfs_career_debug_licenses(game: G<'_>, licenses: Vec<String>) -> AppResult<CareerView> {

@@ -492,6 +492,18 @@ late delivery, damage, fuel and rent.
 - Pilot rating: halfway between the average of the last 10 flights and the average of all flights.
 - Licence hours are block time, capped at 1.5× the real time, so sim rate cannot farm hours.
 
+### Time acceleration (`sim_rate.rs`)
+
+- The **Sim rate** selector on the active flight screen runs the sim at 1×, 2×, 4×, 8× or 16× (SimConnect
+  `SIM_RATE_INCR`/`SIM_RATE_DECR`, one step at a time; if the sim refuses a rate, Modstead stays at the sim's rate).
+- It only works during a tracked career flight, in the climb or cruise, at least 2,000 ft AGL, not descending faster
+  than 1,500 fpm, without a stall or overspeed warning, and with at least 30 nm and (at the ground speed) 12 minutes to
+  the destination.
+- Acceleration that Modstead turned on goes back to 1× by itself as soon as one of these stops being true, and the
+  screen says why. A sim rate the pilot set with the sim's own keys is left alone.
+- The rule does not change: licence hours are block time, capped at 1.5× the real time (an accelerated flight logs
+  fewer hours). Deadlines run in real time.
+
 ### Aircraft, damage and loans
 
 - What you can rent depends on the airport size (small airports: light and twin pistons, single turboprops and

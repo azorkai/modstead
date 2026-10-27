@@ -893,6 +893,18 @@ function mockDebugLicenses(wanted: string[]): CareerView {
   return view;
 }
 
+/** Önizlemede zaman hızlandırma: seyirde açık, başka evrede kapalı. */
+let mockRate = 1;
+function withRate(l: Live): Live {
+  const cruising = l.flight?.phase === "cruise" || l.flight?.phase === "climb";
+  if (!cruising) mockRate = 1;
+  return {
+    ...l,
+    telemetry: l.telemetry ? { ...l.telemetry, simRate: mockRate } : null,
+    rate: { target: mockRate, managed: mockRate > 1, hold: cruising ? null : "phase", returned: null },
+  };
+}
+
 export const careerMocks: Record<string, (args?: Record<string, unknown>) => unknown> = {
   msfs_career_state: () => view,
   msfs_career_create: () => view,
@@ -933,7 +945,11 @@ export const careerMocks: Record<string, (args?: Record<string, unknown>) => unk
   msfs_career_borrow: () => 55_000,
   msfs_career_repay: () => 10_000,
   msfs_career_ledger: () => ledger,
-  msfs_career_live: (): Live => (live.flight ? { ...live, ...flyingNow() } : live),
+  msfs_career_live: (): Live => (live.flight ? withRate({ ...live, ...flyingNow() }) : live),
+  msfs_career_sim_rate: (a) => {
+    mockRate = Number(a?.rate ?? 1);
+    return null;
+  },
   msfs_career_track: () => (live.flight ? trackNow() : []),
   msfs_career_deck_info: () => deck,
   msfs_career_deck_set_lan: (a) => (deck = withLan(deck, !!a?.on)),
